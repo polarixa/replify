@@ -10,9 +10,9 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/match"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/match"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // UnsafeBytes converts a string into a byte slice without allocating new memory for the data.

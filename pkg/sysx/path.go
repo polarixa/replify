@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // BaseName returns the last element of path. Trailing path separators are

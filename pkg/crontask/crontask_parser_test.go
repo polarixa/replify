@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 )
 
 // TestParseFiveField exercises the standard five-field parser with a variety

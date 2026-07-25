@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // NewCommand creates a new Command for the program identified by name.

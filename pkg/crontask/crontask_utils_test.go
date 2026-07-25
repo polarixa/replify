@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 )
 
 // TestIsValidCronExpr verifies the package-level validity predicate.

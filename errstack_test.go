@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sivaosorg/replify"
+	"github.com/polarixa/replify"
 )
 
 func TestStackTrace(t *testing.T) {

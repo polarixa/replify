@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/hashy"
+	"github.com/polarixa/replify/pkg/hashy"
 )
 
 func TestHash_PrimitiveTypes(t *testing.T) {

@@ -1,7 +1,7 @@
 package fj
 
 import (
-	"github.com/sivaosorg/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/encoding"
 )
 
 const (

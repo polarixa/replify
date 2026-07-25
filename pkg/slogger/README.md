@@ -3,7 +3,7 @@
 Zero-dependency, production-grade structured logging library for Go applications.
 
 [![Go Version](https://img.shields.io/badge/go-%3E%3D1.21-blue)](https://go.dev/)
-[![Go Reference](https://pkg.go.dev/badge/github.com/sivaosorg/replify/pkg/slogger.svg)](https://pkg.go.dev/github.com/sivaosorg/replify/pkg/slogger)
+[![Go Reference](https://pkg.go.dev/badge/github.com/polarixa/replify/pkg/slogger.svg)](https://pkg.go.dev/github.com/polarixa/replify/pkg/slogger)
 [![License](https://img.shields.io/badge/license-GPL--3.0-green)](../../LICENSE)
 
 ---
@@ -29,7 +29,7 @@ Modern Go applications require structured, levelled logging that integrates seam
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify/pkg/slogger@latest
+go get github.com/polarixa/replify/pkg/slogger@latest
 ```
 
 ### Requirements
@@ -48,7 +48,7 @@ import (
     "errors"
     "os"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -94,7 +94,7 @@ package main
 import (
     "os"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -131,7 +131,7 @@ import (
     "os"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -173,7 +173,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -207,7 +207,7 @@ import (
     "fmt"
     "os"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 // AlertHook sends alerts for ERROR and FATAL level logs.
@@ -248,7 +248,7 @@ package main
 import (
     "os"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -274,22 +274,22 @@ func main() {
 
 ## API overview
 
-| Type/Function | Description |
-|---------------|-------------|
-| `Logger` | Core logging type; all methods are goroutine-safe |
-| `Entry` | In-flight log event; do not retain after log call returns |
-| `Field` | Typed key-value pair for structured logging |
-| `Formatter` | Interface for serialising entries (`TextFormatter`, `JSONFormatter`) |
-| `Hook` | Interface for side-effect callbacks on log events |
-| `New(opts...)` | Creates a logger with functional options |
-| `NewLogger()` | Creates a logger with defaults for fluent configuration |
-| `With(fields...)` | Returns a child logger with bound fields |
-| `Named(name)` | Returns a child logger with a hierarchical name |
-| `WithContext(ctx)` | Returns an entry bound to the given context |
-| `ParseLevel(s)` | Parses a level string (e.g., "info", "DEBUG") |
-| `String`, `Int`, `Bool`, `Err`, `Duration`, `Time`, `Any` | Typed field constructors |
+| Type/Function                                             | Description                                                          |
+| --------------------------------------------------------- | -------------------------------------------------------------------- |
+| `Logger`                                                  | Core logging type; all methods are goroutine-safe                    |
+| `Entry`                                                   | In-flight log event; do not retain after log call returns            |
+| `Field`                                                   | Typed key-value pair for structured logging                          |
+| `Formatter`                                               | Interface for serialising entries (`TextFormatter`, `JSONFormatter`) |
+| `Hook`                                                    | Interface for side-effect callbacks on log events                    |
+| `New(opts...)`                                            | Creates a logger with functional options                             |
+| `NewLogger()`                                             | Creates a logger with defaults for fluent configuration              |
+| `With(fields...)`                                         | Returns a child logger with bound fields                             |
+| `Named(name)`                                             | Returns a child logger with a hierarchical name                      |
+| `WithContext(ctx)`                                        | Returns an entry bound to the given context                          |
+| `ParseLevel(s)`                                           | Parses a level string (e.g., "info", "DEBUG")                        |
+| `String`, `Int`, `Bool`, `Err`, `Duration`, `Time`, `Any` | Typed field constructors                                             |
 
-For complete API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/sivaosorg/replify/pkg/slogger).
+For complete API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/polarixa/replify/pkg/slogger).
 
 ---
 
@@ -299,15 +299,15 @@ For complete API documentation, see [pkg.go.dev](https://pkg.go.dev/github.com/s
 
 Seven severity levels are defined, in increasing order:
 
-| Constant | Numeric | Meaning |
-|----------|---------|---------|
-| `TraceLevel` | 0 | Fine-grained diagnostic output; very verbose |
-| `DebugLevel` | 1 | Developer debugging; enabled in test/staging |
-| `InfoLevel`  | 2 | General operational messages; default minimum |
-| `WarnLevel`  | 3 | Potentially harmful situations |
-| `ErrorLevel` | 4 | Errors that do not stop the application |
-| `FatalLevel` | 5 | Logs the message then calls `os.Exit(1)` |
-| `PanicLevel` | 6 | Logs the message then panics |
+| Constant     | Numeric | Meaning                                       |
+| ------------ | ------- | --------------------------------------------- |
+| `TraceLevel` | 0       | Fine-grained diagnostic output; very verbose  |
+| `DebugLevel` | 1       | Developer debugging; enabled in test/staging  |
+| `InfoLevel`  | 2       | General operational messages; default minimum |
+| `WarnLevel`  | 3       | Potentially harmful situations                |
+| `ErrorLevel` | 4       | Errors that do not stop the application       |
+| `FatalLevel` | 5       | Logs the message then calls `os.Exit(1)`      |
+| `PanicLevel` | 6       | Logs the message then panics                  |
 
 ### Environment-based configuration
 
@@ -321,30 +321,30 @@ log.SetLevel(lvl)
 
 ### Logger options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| Level | `Level` | `InfoLevel` | Minimum log level |
-| Formatter | `Formatter` | `TextFormatter` | Entry serialiser |
-| Output | `io.Writer` | `os.Stderr` | Primary write destination |
-| Caller | `bool` | `false` | Capture source file and line |
-| CallerSkip | `int` | `0` | Additional stack frames to skip |
+| Option     | Type        | Default         | Description                     |
+| ---------- | ----------- | --------------- | ------------------------------- |
+| Level      | `Level`     | `InfoLevel`     | Minimum log level               |
+| Formatter  | `Formatter` | `TextFormatter` | Entry serialiser                |
+| Output     | `io.Writer` | `os.Stderr`     | Primary write destination       |
+| Caller     | `bool`      | `false`         | Capture source file and line    |
+| CallerSkip | `int`       | `0`             | Additional stack frames to skip |
 
 ### Rotation options
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| Dir | `string` | `"logs"` | Base log directory |
-| MaxBytes | `int64` | `10 MiB` | File size threshold for rotation |
-| MaxAge | `time.Duration` | `0` (disabled) | Age threshold for rotation |
-| Compress | `bool` | `false` | ZIP-compress rotated files |
+| Option   | Type            | Default        | Description                      |
+| -------- | --------------- | -------------- | -------------------------------- |
+| Dir      | `string`        | `"logs"`       | Base log directory               |
+| MaxBytes | `int64`         | `10 MiB`       | File size threshold for rotation |
+| MaxAge   | `time.Duration` | `0` (disabled) | Age threshold for rotation       |
+| Compress | `bool`          | `false`        | ZIP-compress rotated files       |
 
 ### Sampling options
 
-| Option | Type | Description |
-|--------|------|-------------|
-| First | `int` | Number of identical messages always logged per Period |
-| Period | `time.Duration` | Sliding window for the counter |
-| Thereafter | `int` | Log every Nth message after First; 0 = drop all |
+| Option     | Type            | Description                                           |
+| ---------- | --------------- | ----------------------------------------------------- |
+| First      | `int`           | Number of identical messages always logged per Period |
+| Period     | `time.Duration` | Sliding window for the counter                        |
+| Thereafter | `int`           | Log every Nth message after First; 0 = drop all       |
 
 ---
 
@@ -352,12 +352,12 @@ log.SetLevel(lvl)
 
 slogger is built entirely on the Go standard library and supports all platforms where Go runs.
 
-| OS | Architecture | Status |
-|----|--------------|--------|
-| Linux | amd64, arm64, arm | ✅ Fully supported |
-| macOS | amd64, arm64 | ✅ Fully supported |
-| Windows | amd64, arm64 | ✅ Fully supported |
-| FreeBSD | amd64 | ✅ Fully supported |
+| OS      | Architecture      | Status             |
+| ------- | ----------------- | ------------------ |
+| Linux   | amd64, arm64, arm | ✅ Fully supported |
+| macOS   | amd64, arm64      | ✅ Fully supported |
+| Windows | amd64, arm64      | ✅ Fully supported |
+| FreeBSD | amd64             | ✅ Fully supported |
 
 ### Platform-specific notes
 
@@ -375,7 +375,7 @@ Contributions are welcome! Please see the [contributing guidelines](../../CONTRI
 
 ```bash
 # Clone the repository
-git clone https://github.com/sivaosorg/replify.git
+git clone https://github.com/polarixa/replify.git
 cd replify
 
 # Run tests for the slogger package
@@ -503,9 +503,9 @@ type Formatter interface {
 
 Two built-in implementations are provided:
 
-| Formatter | Output style | Best for |
-|-----------|--------------|----------|
-| `TextFormatter` | `timestamp LEVEL [name] message key=value` | Development, CLI tools |
+| Formatter       | Output style                                   | Best for                    |
+| --------------- | ---------------------------------------------- | --------------------------- |
+| `TextFormatter` | `timestamp LEVEL [name] message key=value`     | Development, CLI tools      |
 | `JSONFormatter` | `{"ts":"…","level":"…","msg":"…","key":value}` | Production, log aggregators |
 
 Both formatters are stateless once constructed and are safe for concurrent use.
@@ -554,16 +554,26 @@ log.Info("user login",
 ```
 
 **JSON output:**
+
 ```json
-{"ts":"2026-01-15T10:00:00Z","level":"INFO","msg":"user login","user_id":"u42","ip":"10.0.0.1","latency":"3.2ms"}
+{
+  "ts": "2026-01-15T10:00:00Z",
+  "level": "INFO",
+  "msg": "user login",
+  "user_id": "u42",
+  "ip": "10.0.0.1",
+  "latency": "3.2ms"
+}
 ```
 
 **Advantages:**
+
 - Fields are indexable and queryable in log aggregators (Elasticsearch, Loki, Datadog).
 - No string parsing needed downstream; every field has a predictable name and type.
 - New fields can be added without changing parsers or dashboards.
 
 **Disadvantages:**
+
 - Slightly more verbose at the call site compared to `fmt.Sprintf`.
 - Requires a log aggregator that understands structured logs to realise the full benefit.
 
@@ -577,10 +587,12 @@ log.Infof("user %q logged in from %s after %v", uid, ip, latency)
 ```
 
 **Advantages:**
+
 - Familiar pattern for Go developers.
 - Concise for one-off messages.
 
 **Disadvantages:**
+
 - Values are embedded in the message string; downstream tooling cannot parse
   individual fields reliably.
 - Harder to filter, alert on, or aggregate by specific values.
@@ -608,6 +620,7 @@ log := slogger.New(
 ```
 
 If `New` is called with no options, the logger uses:
+
 - `InfoLevel`
 - `TextFormatter` writing to `os.Stderr`
 - No caller capture
@@ -635,11 +648,11 @@ f := slogger.NewTextFormatter(os.Stderr).
 
 `TextFormatter` supports three color modes via `WithColorMode()`:
 
-| Mode | Behaviour |
-|------|-----------|
-| `ColorAuto` (default) | Emit colours only when output is a TTY |
-| `ColorAlways` | Always emit ANSI colour codes |
-| `ColorNever` | Never emit ANSI colour codes (for files, CI, log aggregators) |
+| Mode                  | Behaviour                                                     |
+| --------------------- | ------------------------------------------------------------- |
+| `ColorAuto` (default) | Emit colours only when output is a TTY                        |
+| `ColorAlways`         | Always emit ANSI colour codes                                 |
+| `ColorNever`          | Never emit ANSI colour codes (for files, CI, log aggregators) |
 
 ```go
 // Terminal output with auto-detection (default)
@@ -666,7 +679,13 @@ backward compatibility but `WithColorMode()` is recommended for new code.
 Machine-parseable single-line JSON, ideal for production and log aggregators:
 
 ```json
-{"ts":"2026-01-15T10:00:00Z","level":"INFO","name":"api","msg":"server started","addr":":8080"}
+{
+  "ts": "2026-01-15T10:00:00Z",
+  "level": "INFO",
+  "name": "api",
+  "msg": "server started",
+  "addr": ":8080"
+}
 ```
 
 ```go
@@ -765,13 +784,13 @@ f := slogger.NewTextFormatter(os.Stderr).WithDisableColor()
 
 Color mapping:
 
-| Level | Color |
-|-------|-------|
-| TRACE | Cyan |
-| DEBUG | Blue |
-| INFO  | Green |
-| WARN  | Yellow |
-| ERROR / FATAL / PANIC | Red |
+| Level                 | Color  |
+| --------------------- | ------ |
+| TRACE                 | Cyan   |
+| DEBUG                 | Blue   |
+| INFO                  | Green  |
+| WARN                  | Yellow |
+| ERROR / FATAL / PANIC | Red    |
 
 ---
 
@@ -792,6 +811,7 @@ slogger.Any("meta", anyValue)             // uses fmt.Sprintf("%v", val)
 ```
 
 Fields are merged in this order when an entry is dispatched:
+
 1. Logger-bound fields (from `With` or `Options.Fields`)
 2. Context fields (from `WithContextFields`)
 3. Call-site fields (passed directly to `Info`, `Error`, etc.)
@@ -842,7 +862,7 @@ package main
 import (
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {

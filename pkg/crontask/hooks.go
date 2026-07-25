@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/slogger"
 )
 
 // CustomHooks is a struct that implements the Hooks interface with custom

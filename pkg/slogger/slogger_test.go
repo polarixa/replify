@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/slogger"
 )
 
 // ///////////////////////////

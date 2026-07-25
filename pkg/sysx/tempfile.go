@@ -4,7 +4,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // NewTempFile creates a new temporary file in the system default temp

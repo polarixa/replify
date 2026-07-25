@@ -18,6 +18,7 @@ The `msort` package solves the problem of sorting Go maps, which are inherently 
 ## Use Cases
 
 ### When to Use
+
 - ✅ **Displaying sorted data** - show users data in alphabetical or numerical order
 - ✅ **Top-N queries** - get top products, highest scores, latest events
 - ✅ **Deterministic iteration** - consistent ordering for testing or logging
@@ -28,6 +29,7 @@ The `msort` package solves the problem of sorting Go maps, which are inherently 
 - ✅ **Custom sorting logic** - complex multi-criteria sorting
 
 ### When Not to Use
+
 - ❌ **Simple slice sorting** - use `sort.Slice` directly for slices
 - ❌ **Large maps (>100k entries)** - consider database sorting instead
 - ❌ **Frequent modifications** - maintain a sorted data structure instead
@@ -37,13 +39,13 @@ The `msort` package solves the problem of sorting Go maps, which are inherently 
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/msort"
+import "github.com/polarixa/replify/pkg/msort"
 ```
 
 **Requirements:** Go 1.18 or higher (for generics support)
@@ -57,7 +59,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/msort"
+    "github.com/polarixa/replify/pkg/msort"
 )
 
 func main() {
@@ -68,10 +70,10 @@ func main() {
         "Product C": 3,
         "Product D": 5,
     }
-    
+
     // Sort by value (rating) - descending
     sorted := msort.SortValueDesc(ratings)
-    
+
     // Display sorted results
     for _, item := range sorted {
         fmt.Printf("%s: %d stars\n", item.Key, item.Value)
@@ -311,10 +313,10 @@ for _, item := range sorted {
 ```go
 func DisplayLeaderboard(scores map[string]int, limit int) {
     sorted := msort.SortValueDesc(scores).Top(limit)
-    
+
     fmt.Printf("🏆 Top %d Players\n", limit)
     fmt.Println(strings.Repeat("=", 40))
-    
+
     for rank, item := range sorted {
         medal := ""
         switch rank {
@@ -347,13 +349,13 @@ DisplayLeaderboard(scores, 3)
 ```go
 func SortProductsByPrice(products map[string]float64, ascending bool) {
     var sorted msort.items[string, float64]
-    
+
     if ascending {
         sorted = msort.SortValue(products)
     } else {
         sorted = msort.SortValueDesc(products)
     }
-    
+
     fmt.Println("Product Catalog:")
     for _, item := range sorted {
         fmt.Printf("%-20s $%.2f\n", item.Key, item.Value)
@@ -378,10 +380,10 @@ SortProductsByPrice(catalog, false) // Most expensive first
 ```go
 func DisplayTimeline(events map[string]time.Time) {
     sorted := msort.SortTimeValue(events)
-    
+
     fmt.Println("📅 Event Timeline")
     fmt.Println(strings.Repeat("-", 50))
-    
+
     for _, item := range sorted {
         fmt.Printf("%s | %s\n",
             item.Value.Format("2006-01-02 15:04"),
@@ -404,15 +406,16 @@ DisplayTimeline(events)
 
 ### Core Sorting Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `SortKey` | `[K Ordered, V any](m map[K]V) items[K, V]` | Sort by keys (ascending) |
-| `SortKeyDesc` | `[K Ordered, V any](m map[K]V) items[K, V]` | Sort by keys (descending) |
-| `SortValue` | `[K comparable, V Ordered](m map[K]V) items[K, V]` | Sort by values (ascending) |
-| `SortValueDesc` | `[K comparable, V Ordered](m map[K]V) items[K, V]` | Sort by values (descending) |
-| `SortFunc` | `[K comparable, V any](m map[K]V, less LessFunc) items[K, V]` | Custom sorting logic |
+| Function        | Signature                                                     | Description                 |
+| --------------- | ------------------------------------------------------------- | --------------------------- |
+| `SortKey`       | `[K Ordered, V any](m map[K]V) items[K, V]`                   | Sort by keys (ascending)    |
+| `SortKeyDesc`   | `[K Ordered, V any](m map[K]V) items[K, V]`                   | Sort by keys (descending)   |
+| `SortValue`     | `[K comparable, V Ordered](m map[K]V) items[K, V]`            | Sort by values (ascending)  |
+| `SortValueDesc` | `[K comparable, V Ordered](m map[K]V) items[K, V]`            | Sort by values (descending) |
+| `SortFunc`      | `[K comparable, V any](m map[K]V, less LessFunc) items[K, V]` | Custom sorting logic        |
 
 **Examples:**
+
 ```go
 sorted := msort.SortKey(myMap)
 sorted := msort.SortValueDesc(scores)
@@ -423,12 +426,13 @@ sorted := msort.SortFunc(data, customCompare)
 
 ### Time Sorting Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `SortTimeValue` | `[K comparable](m map[K]time.Time) timeItems[K]` | Sort by time (chronological) |
+| Function            | Signature                                        | Description                          |
+| ------------------- | ------------------------------------------------ | ------------------------------------ |
+| `SortTimeValue`     | `[K comparable](m map[K]time.Time) timeItems[K]` | Sort by time (chronological)         |
 | `SortTimeValueDesc` | `[K comparable](m map[K]time.Time) timeItems[K]` | Sort by time (reverse chronological) |
 
 **Examples:**
+
 ```go
 timeline := msort.SortTimeValue(events)      // Earliest first
 recent := msort.SortTimeValueDesc(events)    // Latest first
@@ -438,9 +442,9 @@ recent := msort.SortTimeValueDesc(events)    // Latest first
 
 ### Stable Sorting Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `SortKeyStable` | `[K Ordered, V any](m map[K]V) items[K, V]` | Stable sort by keys |
+| Function          | Signature                                          | Description           |
+| ----------------- | -------------------------------------------------- | --------------------- |
+| `SortKeyStable`   | `[K Ordered, V any](m map[K]V) items[K, V]`        | Stable sort by keys   |
 | `SortValueStable` | `[K comparable, V Ordered](m map[K]V) items[K, V]` | Stable sort by values |
 
 **Use Case:** Preserve relative order of equal elements for deterministic results.
@@ -451,14 +455,15 @@ recent := msort.SortTimeValueDesc(events)    // Latest first
 
 #### items[K, V] Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `Top(n int)` | `items[K, V]` | Get first n items |
-| `ToMap()` | `map[K]V` | Convert back to map |
-| `Keys()` | `[]K` | Extract keys only |
-| `Values()` | `[]V` | Extract values only |
+| Method       | Signature     | Description         |
+| ------------ | ------------- | ------------------- |
+| `Top(n int)` | `items[K, V]` | Get first n items   |
+| `ToMap()`    | `map[K]V`     | Convert back to map |
+| `Keys()`     | `[]K`         | Extract keys only   |
+| `Values()`   | `[]V`         | Extract values only |
 
 **Examples:**
+
 ```go
 top5 := sorted.Top(5)
 resultMap := sorted.ToMap()
@@ -469,6 +474,7 @@ values := sorted.Values()
 #### timeItems[K] Methods
 
 Same methods as `items[K, V]` but for time-based sorting:
+
 - `Top(n int) timeItems[K]`
 - `ToMap() map[K]time.Time`
 - `Keys() []K`
@@ -479,6 +485,7 @@ Same methods as `items[K, V]` but for time-based sorting:
 ### Types
 
 #### Ordered Constraint
+
 ```go
 type Ordered interface {
     ~int | ~int8 | ~int16 | ~int32 | ~int64 |
@@ -490,6 +497,7 @@ type Ordered interface {
 Types that support comparison operators (`<`, `>`, `<=`, `>=`).
 
 #### LessFunc
+
 ```go
 type LessFunc[K comparable, V any] func(x, y item[K, V]) bool
 ```
@@ -497,6 +505,7 @@ type LessFunc[K comparable, V any] func(x, y item[K, V]) bool
 Comparison function for custom sorting. Returns `true` if `x` should come before `y`.
 
 #### item[K, V]
+
 ```go
 type item[K comparable, V any] struct {
     Key   K
@@ -511,11 +520,12 @@ Represents a key-value pair from the map.
 ### ⚠️ Common Pitfalls
 
 1. **Converting Back to Map Loses Order**
+
    ```go
    // ❌ Order is lost when converting back
    sorted := msort.SortValue(m)
    resultMap := sorted.ToMap() // Map is unordered!
-   
+
    // ✅ Iterate over sorted items directly
    for _, item := range sorted {
        fmt.Printf("%s: %v\n", item.Key, item.Value)
@@ -523,12 +533,13 @@ Represents a key-value pair from the map.
    ```
 
 2. **Type Constraints Must Match**
+
    ```go
    // ❌ Won't compile: struct not Ordered
    type Person struct { Name string }
    m := map[string]Person{}
    msort.SortKey(m) // Error: Person not comparable
-   
+
    // ✅ Use SortFunc for custom types
    msort.SortFunc(m, func(x, y item[string, Person]) bool {
        return x.Value.Name < y.Value.Name
@@ -536,19 +547,21 @@ Represents a key-value pair from the map.
    ```
 
 3. **Stable vs Unstable Sort**
+
    ```go
    // With duplicate values, order may vary
    m := map[string]int{"a": 1, "b": 1, "c": 1}
-   
+
    // Use stable sort for deterministic results
    sorted := msort.SortValueStable(m)
    ```
 
 4. **Top() Doesn't Modify Original**
+
    ```go
    sorted := msort.SortValue(m)
    top3 := sorted.Top(3)
-   
+
    fmt.Println(len(sorted)) // Original unchanged
    fmt.Println(len(top3))   // Slice of first 3
    ```
@@ -556,6 +569,7 @@ Represents a key-value pair from the map.
 ### 💡 Recommendations
 
 ✅ **Cache sorting results if reused**
+
 ```go
 // ❌ Inefficient: sorting on every access
 func getTopScores() []item[string, int] {
@@ -567,6 +581,7 @@ var cachedTop10 = msort.SortValueDesc(scores).Top(10)
 ```
 
 ✅ **Use appropriate sort function**
+
 ```go
 // For simple key/value sorting
 sorted := msort.SortKey(m)
@@ -580,6 +595,7 @@ sorted := msort.SortTimeValue(events)
 ```
 
 ✅ **Extract only what you need**
+
 ```go
 // If you only need keys
 keys := msort.SortValue(m).Keys()
@@ -592,6 +608,7 @@ items := msort.SortValue(m)
 ```
 
 ✅ **Use Top() for pagination**
+
 ```go
 func GetPage(m map[string]int, page, pageSize int) items[string, int] {
     sorted := msort.SortValueDesc(m)
@@ -642,12 +659,13 @@ mu.RUnlock()
 **Optimization strategies:**
 
 1. **Avoid repeated sorting**
+
    ```go
    // ❌ Sorts on every call
    func display() {
        for _, item := range msort.SortValue(m) { }
    }
-   
+
    // ✅ Sort once
    sorted := msort.SortValue(m)
    func display() {
@@ -656,10 +674,11 @@ mu.RUnlock()
    ```
 
 2. **Use Top() for partial results**
+
    ```go
    // ❌ Sorts everything, takes first 10
    top10 := msort.SortValue(largeMap)[:10]
-   
+
    // ✅ Same result (both O(n log n))
    top10 := msort.SortValue(largeMap).Top(10)
    ```
@@ -675,6 +694,7 @@ mu.RUnlock()
 ### 🐛 Debugging Tips
 
 **Print sorted results:**
+
 ```go
 sorted := msort.SortValue(m)
 for i, item := range sorted {
@@ -683,6 +703,7 @@ for i, item := range sorted {
 ```
 
 **Verify sort order:**
+
 ```go
 sorted := msort.SortValue(m)
 for i := 1; i < len(sorted); i++ {
@@ -703,9 +724,9 @@ func TestSortValue(t *testing.T) {
         "a": 1,
         "b": 2,
     }
-    
+
     sorted := msort.SortValue(m)
-    
+
     expected := []int{1, 2, 3}
     for i, item := range sorted {
         if item.Value != expected[i] {
@@ -717,7 +738,7 @@ func TestSortValue(t *testing.T) {
 func TestTop(t *testing.T) {
     m := map[string]int{"a": 1, "b": 2, "c": 3, "d": 4}
     top2 := msort.SortValueDesc(m).Top(2)
-    
+
     if len(top2) != 2 {
         t.Errorf("Expected 2 items, got %d", len(top2))
     }
@@ -738,26 +759,28 @@ func TestTop(t *testing.T) {
 
 ## Performance Characteristics
 
-| Operation | Time Complexity | Space Complexity |
-|-----------|-----------------|------------------|
-| SortKey | O(n log n) | O(n) |
-| SortValue | O(n log n) | O(n) |
-| SortFunc | O(n log n) | O(n) |
-| Top(k) | O(1) | O(1) (slice) |
-| ToMap() | O(n) | O(n) |
-| Keys()/Values() | O(n) | O(n) |
+| Operation       | Time Complexity | Space Complexity |
+| --------------- | --------------- | ---------------- |
+| SortKey         | O(n log n)      | O(n)             |
+| SortValue       | O(n log n)      | O(n)             |
+| SortFunc        | O(n log n)      | O(n)             |
+| Top(k)          | O(1)            | O(1) (slice)     |
+| ToMap()         | O(n)            | O(n)             |
+| Keys()/Values() | O(n)            | O(n)             |
 
 Where n = number of map entries
 
 ## When to Use vs. Alternatives
 
 **Use `msort` when:**
+
 - Displaying sorted results to users
 - Small to medium maps (<10k entries)
 - One-time or infrequent sorting
 - Need simple, readable API
 
 **Consider alternatives when:**
+
 - Frequent sorting: Use sorted data structure (B-tree, sorted slice)
 - Large datasets: Use database `ORDER BY`
 - Top-N only: Use heap (O(n log k) vs O(n log n))
@@ -765,22 +788,23 @@ Where n = number of map entries
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Type-safe collection utilities
-- [common](https://github.com/sivaosorg/replify/pkg/common) - Reflection-based utilities
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [ref](https://github.com/sivaosorg/replify/pkg/ref) - Pointer utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [strutil](https://github.com/sivaosorg/replify/pkg/strutil) - String utilities
-- [randn](https://github.com/sivaosorg/replify/pkg/randn) - Random data generation
-- [encoding](https://github.com/sivaosorg/replify/pkg/encoding) - JSON encoding utilities
+
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Type-safe collection utilities
+- [common](https://github.com/polarixa/replify/pkg/common) - Reflection-based utilities
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [ref](https://github.com/polarixa/replify/pkg/ref) - Pointer utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities
+- [randn](https://github.com/polarixa/replify/pkg/randn) - Random data generation
+- [encoding](https://github.com/polarixa/replify/pkg/encoding) - JSON encoding utilities

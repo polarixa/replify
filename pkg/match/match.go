@@ -3,7 +3,7 @@ package match
 import (
 	"unicode/utf8"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // result represents the outcome of a match operation.

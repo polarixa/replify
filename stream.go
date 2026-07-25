@@ -13,7 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Start initiates streaming operation and returns *wrapper for consistency with replify API.

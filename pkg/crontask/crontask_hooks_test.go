@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

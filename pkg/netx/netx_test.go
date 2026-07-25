@@ -5,7 +5,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/sivaosorg/replify/pkg/netx"
+	"github.com/polarixa/replify/pkg/netx"
 )
 
 // ///////////////////////////

@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/match"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/match"
 )
 
 // Search performs a full-tree scan of the JSON document and returns all leaf values

@@ -19,6 +19,7 @@ The `strutil` package offers a rich collection of string utilities that Go's sta
 ## Use Cases
 
 ### When to Use
+
 - ✅ **Input validation** - check for empty, blank, or specific patterns
 - ✅ **Data sanitization** - clean user input, normalize whitespace
 - ✅ **Text formatting** - title case, sentence case, slugs
@@ -30,6 +31,7 @@ The `strutil` package offers a rich collection of string utilities that Go's sta
 - ✅ **Testing** - generate test data, validate outputs
 
 ### When Not to Use
+
 - ❌ **Complex parsing** - use `encoding/*` packages for JSON, XML, etc.
 - ❌ **Regular expressions** - use `regexp` package directly for complex patterns
 - ❌ **Performance-critical hot paths** - use standard library or manual optimization
@@ -39,13 +41,13 @@ The `strutil` package offers a rich collection of string utilities that Go's sta
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/strutil"
+import "github.com/polarixa/replify/pkg/strutil"
 ```
 
 **Requirements:** Go 1.13 or higher
@@ -59,7 +61,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/strutil"
+    "github.com/polarixa/replify/pkg/strutil"
 )
 
 func main() {
@@ -284,6 +286,7 @@ strutil.EqualsIgnoreCase("Hello", "hello")     // true
 ### 11. Practical Use Cases
 
 #### Input Validation
+
 ```go
 func validateUsername(username string) error {
     if strutil.IsBlank(username) {
@@ -300,50 +303,54 @@ func validateUsername(username string) error {
 ```
 
 #### Creating URL Slugs
+
 ```go
 func createPostSlug(title string) string {
     // "My Awesome Post Title!" -> "my-awesome-post-title"
     slug := strutil.Slugify(title)
-    
+
     // Ensure maximum length
     if len(slug) > 50 {
         slug = strutil.Truncate(slug, 50)
         slug = strutil.TrimRight(slug, "-")
     }
-    
+
     return slug
 }
 ```
 
 #### Sanitizing User Input
+
 ```go
 func sanitizeInput(input string) string {
     // Remove extra whitespace
     cleaned := strings.TrimSpace(input)
-    
+
     // Normalize multiple spaces to single space
     cleaned = strutil.RegexpDupSpaces.ReplaceAllString(cleaned, " ")
-    
+
     // Remove newlines
     cleaned = strutil.RemoveAll(cleaned, "\n")
     cleaned = strutil.RemoveAll(cleaned, "\r")
-    
+
     return cleaned
 }
 ```
 
 #### Formatting Names
+
 ```go
 func formatName(firstName, lastName string) string {
     // Capitalize each name
     first := strutil.Capitalize(strings.ToLower(firstName))
     last := strutil.Capitalize(strings.ToLower(lastName))
-    
+
     return first + " " + last
 }
 ```
 
 #### Generating Cache Keys
+
 ```go
 func generateCacheKey(prefix string, params ...string) string {
     // Create a stable cache key
@@ -356,88 +363,88 @@ func generateCacheKey(prefix string, params ...string) string {
 
 ### Validation Functions
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `IsEmpty(s string) bool` | Check if string is empty or whitespace | `IsEmpty("   ") // true` |
-| `IsNotEmpty(s string) bool` | Check if string is not empty | `IsNotEmpty("hi") // true` |
-| `IsBlank(s string) bool` | Check if string is blank | `IsBlank("   ") // true` |
-| `IsNotBlank(s string) bool` | Check if string is not blank | `IsNotBlank("hi") // true` |
-| `IsAnyEmpty(...string) bool` | Check if any string is empty | `IsAnyEmpty("a", "", "b") // true` |
-| `IsNoneEmpty(...string) bool` | Check if none are empty | `IsNoneEmpty("a", "b") // true` |
-| `IsAllEmpty(...string) bool` | Check if all are empty | `IsAllEmpty("", " ") // true` |
-| `IsAlpha(s string) bool` | Check if only letters | `IsAlpha("abc") // true` |
-| `IsNumeric(s string) bool` | Check if only digits | `IsNumeric("123") // true` |
-| `IsAlphanumeric(s string) bool` | Check if letters and digits | `IsAlphanumeric("abc123") // true` |
-| `IsWhitespace(s string) bool` | Check if only whitespace | `IsWhitespace("   ") // true` |
-| `IsAllLowerCase(s string) bool` | Check if all lowercase | `IsAllLowerCase("abc") // true` |
-| `IsAllUpperCase(s string) bool` | Check if all uppercase | `IsAllUpperCase("ABC") // true` |
+| Function                        | Description                            | Example                            |
+| ------------------------------- | -------------------------------------- | ---------------------------------- |
+| `IsEmpty(s string) bool`        | Check if string is empty or whitespace | `IsEmpty("   ") // true`           |
+| `IsNotEmpty(s string) bool`     | Check if string is not empty           | `IsNotEmpty("hi") // true`         |
+| `IsBlank(s string) bool`        | Check if string is blank               | `IsBlank("   ") // true`           |
+| `IsNotBlank(s string) bool`     | Check if string is not blank           | `IsNotBlank("hi") // true`         |
+| `IsAnyEmpty(...string) bool`    | Check if any string is empty           | `IsAnyEmpty("a", "", "b") // true` |
+| `IsNoneEmpty(...string) bool`   | Check if none are empty                | `IsNoneEmpty("a", "b") // true`    |
+| `IsAllEmpty(...string) bool`    | Check if all are empty                 | `IsAllEmpty("", " ") // true`      |
+| `IsAlpha(s string) bool`        | Check if only letters                  | `IsAlpha("abc") // true`           |
+| `IsNumeric(s string) bool`      | Check if only digits                   | `IsNumeric("123") // true`         |
+| `IsAlphanumeric(s string) bool` | Check if letters and digits            | `IsAlphanumeric("abc123") // true` |
+| `IsWhitespace(s string) bool`   | Check if only whitespace               | `IsWhitespace("   ") // true`      |
+| `IsAllLowerCase(s string) bool` | Check if all lowercase                 | `IsAllLowerCase("abc") // true`    |
+| `IsAllUpperCase(s string) bool` | Check if all uppercase                 | `IsAllUpperCase("ABC") // true`    |
 
 ### Transformation Functions
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `ToLower(s string) string` | Convert to lowercase | `ToLower("HI") // "hi"` |
-| `ToUpper(s string) string` | Convert to uppercase | `ToUpper("hi") // "HI"` |
-| `Capitalize(s string) string` | Capitalize first letter | `Capitalize("hi") // "Hi"` |
-| `Title(s string) string` | Title case (each word) | `Title("hi world") // "Hi World"` |
-| `Reverse(s string) string` | Reverse string | `Reverse("abc") // "cba"` |
-| `Strip(s string) string` | Remove leading/trailing whitespace | `Strip(" hi ") // "hi"` |
-| `StripStart(s string) string` | Remove leading whitespace | `StripStart(" hi") // "hi"` |
-| `StripEnd(s string) string` | Remove trailing whitespace | `StripEnd("hi ") // "hi"` |
-| `Repeat(s string, n int) string` | Repeat string n times | `Repeat("a", 3) // "aaa"` |
+| Function                         | Description                        | Example                           |
+| -------------------------------- | ---------------------------------- | --------------------------------- |
+| `ToLower(s string) string`       | Convert to lowercase               | `ToLower("HI") // "hi"`           |
+| `ToUpper(s string) string`       | Convert to uppercase               | `ToUpper("hi") // "HI"`           |
+| `Capitalize(s string) string`    | Capitalize first letter            | `Capitalize("hi") // "Hi"`        |
+| `Title(s string) string`         | Title case (each word)             | `Title("hi world") // "Hi World"` |
+| `Reverse(s string) string`       | Reverse string                     | `Reverse("abc") // "cba"`         |
+| `Strip(s string) string`         | Remove leading/trailing whitespace | `Strip(" hi ") // "hi"`           |
+| `StripStart(s string) string`    | Remove leading whitespace          | `StripStart(" hi") // "hi"`       |
+| `StripEnd(s string) string`      | Remove trailing whitespace         | `StripEnd("hi ") // "hi"`         |
+| `Repeat(s string, n int) string` | Repeat string n times              | `Repeat("a", 3) // "aaa"`         |
 
 ### String Analysis
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `Contains(s, sub string) bool` | Check if contains substring | `Contains("hi", "i") // true` |
-| `ContainsIgnoreCase(s, sub string) bool` | Contains (case-insensitive) | `ContainsIgnoreCase("Hi", "hi") // true` |
-| `ContainsAny(s string, ...string) bool` | Contains any substring | `ContainsAny("hi", "x", "i") // true` |
-| `ContainsNone(s string, ...string) bool` | Contains none | `ContainsNone("hi", "x", "y") // true` |
-| `StartsWith(s, prefix string) bool` | Starts with prefix | `StartsWith("hi", "h") // true` |
-| `EndsWith(s, suffix string) bool` | Ends with suffix | `EndsWith("hi", "i") // true` |
+| Function                                      | Description                    | Example                                    |
+| --------------------------------------------- | ------------------------------ | ------------------------------------------ |
+| `Contains(s, sub string) bool`                | Check if contains substring    | `Contains("hi", "i") // true`              |
+| `ContainsIgnoreCase(s, sub string) bool`      | Contains (case-insensitive)    | `ContainsIgnoreCase("Hi", "hi") // true`   |
+| `ContainsAny(s string, ...string) bool`       | Contains any substring         | `ContainsAny("hi", "x", "i") // true`      |
+| `ContainsNone(s string, ...string) bool`      | Contains none                  | `ContainsNone("hi", "x", "y") // true`     |
+| `StartsWith(s, prefix string) bool`           | Starts with prefix             | `StartsWith("hi", "h") // true`            |
+| `EndsWith(s, suffix string) bool`             | Ends with suffix               | `EndsWith("hi", "i") // true`              |
 | `StartsWithIgnoreCase(s, prefix string) bool` | Starts with (case-insensitive) | `StartsWithIgnoreCase("Hi", "hi") // true` |
-| `EndsWithIgnoreCase(s, suffix string) bool` | Ends with (case-insensitive) | `EndsWithIgnoreCase("Hi", "HI") // true` |
-| `CountMatches(s, sub string) int` | Count substring occurrences | `CountMatches("aaa", "a") // 3` |
-| `IndexOf(s, sub string) int` | Find first index | `IndexOf("hello", "l") // 2` |
-| `LastIndexOf(s, sub string) int` | Find last index | `LastIndexOf("hello", "l") // 3` |
+| `EndsWithIgnoreCase(s, suffix string) bool`   | Ends with (case-insensitive)   | `EndsWithIgnoreCase("Hi", "HI") // true`   |
+| `CountMatches(s, sub string) int`             | Count substring occurrences    | `CountMatches("aaa", "a") // 3`            |
+| `IndexOf(s, sub string) int`                  | Find first index               | `IndexOf("hello", "l") // 2`               |
+| `LastIndexOf(s, sub string) int`              | Find last index                | `LastIndexOf("hello", "l") // 3`           |
 
 ### String Manipulation
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `Remove(s, remove string) string` | Remove all occurrences | `Remove("hello", "l") // "heo"` |
-| `RemoveStart(s, prefix string) string` | Remove prefix | `RemoveStart("hello", "he") // "llo"` |
-| `RemoveEnd(s, suffix string) string` | Remove suffix | `RemoveEnd("hello", "lo") // "hel"` |
-| `Replace(s, old, new string, n int) string` | Replace n occurrences | `Replace("aaa", "a", "b", 2) // "bba"` |
-| `ReplaceAll(s, old, new string) string` | Replace all | `ReplaceAll("aaa", "a", "b") // "bbb"` |
-| `Chomp(s string) string` | Remove trailing newline | `Chomp("hi\n") // "hi"` |
-| `Chop(s string) string` | Remove last char | `Chop("hello") // "hell"` |
-| `Wrap(s, wrapWith string) string` | Wrap string | `Wrap("hi", "*") // "*hi*"` |
-| `Truncate(s string, maxLen int) string` | Truncate with ellipsis | `Truncate("hello", 3) // "hel..."` |
+| Function                                    | Description             | Example                                |
+| ------------------------------------------- | ----------------------- | -------------------------------------- |
+| `Remove(s, remove string) string`           | Remove all occurrences  | `Remove("hello", "l") // "heo"`        |
+| `RemoveStart(s, prefix string) string`      | Remove prefix           | `RemoveStart("hello", "he") // "llo"`  |
+| `RemoveEnd(s, suffix string) string`        | Remove suffix           | `RemoveEnd("hello", "lo") // "hel"`    |
+| `Replace(s, old, new string, n int) string` | Replace n occurrences   | `Replace("aaa", "a", "b", 2) // "bba"` |
+| `ReplaceAll(s, old, new string) string`     | Replace all             | `ReplaceAll("aaa", "a", "b") // "bbb"` |
+| `Chomp(s string) string`                    | Remove trailing newline | `Chomp("hi\n") // "hi"`                |
+| `Chop(s string) string`                     | Remove last char        | `Chop("hello") // "hell"`              |
+| `Wrap(s, wrapWith string) string`           | Wrap string             | `Wrap("hi", "*") // "*hi*"`            |
+| `Truncate(s string, maxLen int) string`     | Truncate with ellipsis  | `Truncate("hello", 3) // "hel..."`     |
 
 ### Formatting
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `PadLeft(s string, size int, pad string) string` | Pad on left | `PadLeft("5", 3, "0") // "005"` |
-| `PadRight(s string, size int, pad string) string` | Pad on right | `PadRight("5", 3, "0") // "500"` |
-| `Center(s string, size int, pad string) string` | Center string | `Center("hi", 6, " ") // "  hi  "` |
-| `Slugify(s string) string` | Create URL slug | `Slugify("Hi!") // "hi"` |
-| `SlugifySpec(s, sep string) string` | Slug with custom separator | `SlugifySpec("Hi", "_") // "hi"` |
-| `Abbreviate(s string, maxLen int) string` | Abbreviate string | `Abbreviate("hello world", 8) // "hello..."` |
+| Function                                          | Description                | Example                                      |
+| ------------------------------------------------- | -------------------------- | -------------------------------------------- |
+| `PadLeft(s string, size int, pad string) string`  | Pad on left                | `PadLeft("5", 3, "0") // "005"`              |
+| `PadRight(s string, size int, pad string) string` | Pad on right               | `PadRight("5", 3, "0") // "500"`             |
+| `Center(s string, size int, pad string) string`   | Center string              | `Center("hi", 6, " ") // "  hi  "`           |
+| `Slugify(s string) string`                        | Create URL slug            | `Slugify("Hi!") // "hi"`                     |
+| `SlugifySpec(s, sep string) string`               | Slug with custom separator | `SlugifySpec("Hi", "_") // "hi"`             |
+| `Abbreviate(s string, maxLen int) string`         | Abbreviate string          | `Abbreviate("hello world", 8) // "hello..."` |
 
 ### Utilities
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `Len(s string) int` | UTF-8 character count | `Len("hello") // 5` |
-| `Hash256(s string) string` | SHA-256 hash | `Hash256("text")` |
-| `Join(slice []string, sep string) string` | Join with separator | `Join([]string{"a","b"}, ",") // "a,b"` |
-| `DefaultIfEmpty(s, def string) string` | Return default if empty | `DefaultIfEmpty("", "x") // "x"` |
-| `DefaultIfBlank(s, def string) string` | Return default if blank | `DefaultIfBlank(" ", "x") // "x"` |
-| `Equals(a, b string) bool` | String equality | `Equals("hi", "hi") // true` |
-| `EqualsIgnoreCase(a, b string) bool` | Case-insensitive equality | `EqualsIgnoreCase("Hi", "hi") // true` |
+| Function                                  | Description               | Example                                 |
+| ----------------------------------------- | ------------------------- | --------------------------------------- |
+| `Len(s string) int`                       | UTF-8 character count     | `Len("hello") // 5`                     |
+| `Hash256(s string) string`                | SHA-256 hash              | `Hash256("text")`                       |
+| `Join(slice []string, sep string) string` | Join with separator       | `Join([]string{"a","b"}, ",") // "a,b"` |
+| `DefaultIfEmpty(s, def string) string`    | Return default if empty   | `DefaultIfEmpty("", "x") // "x"`        |
+| `DefaultIfBlank(s, def string) string`    | Return default if blank   | `DefaultIfBlank(" ", "x") // "x"`       |
+| `Equals(a, b string) bool`                | String equality           | `Equals("hi", "hi") // true`            |
+| `EqualsIgnoreCase(a, b string) bool`      | Case-insensitive equality | `EqualsIgnoreCase("Hi", "hi") // true`  |
 
 ### Global Variables
 
@@ -450,33 +457,36 @@ func generateCacheKey(prefix string, params ...string) string {
 ### ⚠️ Common Pitfalls
 
 1. **Unicode vs Byte Length**
+
    ```go
    // ❌ Wrong: len() counts bytes
    text := "Hello 世界"
    length := len(text) // 13 bytes
-   
+
    // ✅ Correct: Use Len() for Unicode characters
    length := strutil.Len(text) // 8 characters
    ```
 
 2. **Empty vs Blank**
+
    ```go
    // IsEmpty: checks for empty or whitespace
    strutil.IsEmpty("")       // true
    strutil.IsEmpty("   ")    // true
-   
+
    // IsBlank: same as IsEmpty
    strutil.IsBlank("   ")    // true
-   
+
    // IsNotEmpty: opposite
    strutil.IsNotEmpty("   ") // false
    ```
 
 3. **Case-Sensitive Operations**
+
    ```go
    // ❌ Case-sensitive by default
    strutil.Contains("Hello", "hello") // false
-   
+
    // ✅ Use case-insensitive variant
    strutil.ContainsIgnoreCase("Hello", "hello") // true
    ```
@@ -493,6 +503,7 @@ func generateCacheKey(prefix string, params ...string) string {
 ### 💡 Recommendations
 
 ✅ **Use semantic names** for clarity
+
 ```go
 // ✅ Clear intent
 isEmpty := strutil.IsEmpty(userInput)
@@ -502,6 +513,7 @@ if isEmpty {
 ```
 
 ✅ **Chain operations** for complex transformations
+
 ```go
 // Clean and format user input
 result := strutil.Strip(input)
@@ -510,6 +522,7 @@ result = strutil.Slugify(result)
 ```
 
 ✅ **Validate early** in your application flow
+
 ```go
 func ProcessUser(name, email string) error {
     if strutil.IsAnyEmpty(name, email) {
@@ -520,6 +533,7 @@ func ProcessUser(name, email string) error {
 ```
 
 ✅ **Use appropriate functions** for the task
+
 ```go
 // For URLs and slugs
 slug := strutil.Slugify(title)
@@ -534,6 +548,7 @@ if strutil.EqualsIgnoreCase(status, "active") {
 ```
 
 ✅ **Cache hash results** when used frequently
+
 ```go
 // Cache expensive hash operations
 type User struct {
@@ -569,20 +584,24 @@ wg.Wait()
 ### ⚡ Performance Tips
 
 **Fast operations:**
+
 - ✅ `IsEmpty`, `IsNotEmpty` - O(1) after trim
 - ✅ `StartsWith`, `EndsWith` - O(n) where n = prefix/suffix length
 - ✅ `ToLower`, `ToUpper` - O(n)
 
 **Moderate operations:**
+
 - ⚠️ `Slugify` - Multiple regex operations
 - ⚠️ `Title` - Iterates through words
 - ⚠️ `Remove`, `Replace` - O(n) per occurrence
 
 **Expensive operations:**
+
 - 🐌 `Hash256` - Cryptographic hash (use for security, not performance)
 - 🐌 `Reverse` - O(n) with UTF-8 handling
 
 **Optimization strategies:**
+
 1. **Reuse compiled regexes** - Use `RegexpDupSpaces` global
 2. **Avoid unnecessary conversions** - Don't `ToLower` multiple times
 3. **Batch operations** - Combine multiple string ops
@@ -591,6 +610,7 @@ wg.Wait()
 ### 🐛 Debugging Tips
 
 **Print intermediate results:**
+
 ```go
 input := " Hello World! "
 fmt.Printf("Original: %q\n", input)
@@ -601,6 +621,7 @@ fmt.Printf("Slug: %q\n", slug)
 ```
 
 **Check for empty strings:**
+
 ```go
 if strutil.IsEmpty(result) {
     log.Printf("Warning: got empty result from %q", input)
@@ -608,6 +629,7 @@ if strutil.IsEmpty(result) {
 ```
 
 **Verify transformations:**
+
 ```go
 original := "Test String"
 transformed := strutil.Slugify(original)
@@ -632,12 +654,12 @@ func TestSlugify(t *testing.T) {
         {"CamelCase", "camelcase"},
         {"with_underscore", "with-underscore"},
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.input, func(t *testing.T) {
             got := strutil.Slugify(tt.input)
             if got != tt.expected {
-                t.Errorf("Slugify(%q) = %q, want %q", 
+                t.Errorf("Slugify(%q) = %q, want %q",
                     tt.input, got, tt.expected)
             }
         })
@@ -648,34 +670,36 @@ func TestSlugify(t *testing.T) {
 ### 🔍 Common Patterns
 
 **Validation middleware:**
+
 ```go
 func ValidateRequest(r *http.Request) error {
     name := r.FormValue("name")
     email := r.FormValue("email")
-    
+
     if strutil.IsAnyEmpty(name, email) {
         return errors.New("name and email required")
     }
-    
+
     if !strutil.ContainsIgnoreCase(email, "@") {
         return errors.New("invalid email format")
     }
-    
+
     return nil
 }
 ```
 
 **Text normalization:**
+
 ```go
 func NormalizeText(text string) string {
     // Remove extra whitespace
     text = strutil.Strip(text)
     text = strutil.RegexpDupSpaces.ReplaceAllString(text, " ")
-    
+
     // Remove newlines
     text = strutil.RemoveAll(text, "\n")
     text = strutil.RemoveAll(text, "\r")
-    
+
     return text
 }
 ```
@@ -690,36 +714,37 @@ func NormalizeText(text string) string {
 
 ## Performance Characteristics
 
-| Operation Type | Time Complexity | Memory |
-|----------------|-----------------|--------|
-| Validation | O(n) | O(1) |
-| Case conversion | O(n) | O(n) |
-| Substring search | O(n×m) | O(1) |
-| Trim/Strip | O(n) | O(n) |
-| Replace | O(n) | O(n) |
-| Slugify | O(n) | O(n) |
-| Hash256 | O(n) | O(1) |
+| Operation Type   | Time Complexity | Memory |
+| ---------------- | --------------- | ------ |
+| Validation       | O(n)            | O(1)   |
+| Case conversion  | O(n)            | O(n)   |
+| Substring search | O(n×m)          | O(1)   |
+| Trim/Strip       | O(n)            | O(n)   |
+| Replace          | O(n)            | O(n)   |
+| Slugify          | O(n)            | O(n)   |
+| Hash256          | O(n)            | O(1)   |
 
 Where n = string length, m = substring length
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Collection utilities
+
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Collection utilities
 - Other sivaosorg utilities
 
 ---
 
-**Note:** This package contains 100+ utility functions. For a complete API reference, please visit the [strutil package on GitHub](https://github.com/sivaosorg/replify/tree/master/pkg/strutil).
+**Note:** This package contains 100+ utility functions. For a complete API reference, please visit the [strutil package on GitHub](https://github.com/polarixa/replify/tree/master/pkg/strutil).

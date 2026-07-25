@@ -35,7 +35,7 @@ Designed for backend infrastructure services, DevOps tooling, Kubernetes network
 - **Subnet splitting** — divide a block into equal-sized sub-networks (FLSM)
 - **Efficient allocation** — allocate right-sized subnets per host requirement (VLSM)
 - **Overlap detection** — check whether two networks share any addresses
-- **IPv6 support** — the same API works identically for IPv6 with *big.Int host counts
+- **IPv6 support** — the same API works identically for IPv6 with \*big.Int host counts
 
 ---
 
@@ -45,23 +45,23 @@ Designed for backend infrastructure services, DevOps tooling, Kubernetes network
 
 A CIDR (Classless Inter-Domain Routing) address like `10.0.0.0/24` describes:
 
-| Part | Meaning |
-|------|---------|
-| `10.0.0.0` | Network (base) address — all host bits are zero |
-| `/24` | Prefix length — number of bits in the network portion |
-| `10.0.0.255` | Broadcast address — all host bits are one |
-| `10.0.0.1` – `10.0.0.254` | Usable host range |
-| `254` | Usable host count (`2^(32-24) - 2`) |
+| Part                      | Meaning                                               |
+| ------------------------- | ----------------------------------------------------- |
+| `10.0.0.0`                | Network (base) address — all host bits are zero       |
+| `/24`                     | Prefix length — number of bits in the network portion |
+| `10.0.0.255`              | Broadcast address — all host bits are one             |
+| `10.0.0.1` – `10.0.0.254` | Usable host range                                     |
+| `254`                     | Usable host count (`2^(32-24) - 2`)                   |
 
 ### FLSM vs VLSM
 
-| | FLSM | VLSM |
-|-|------|------|
-| **Stands for** | Fixed-Length Subnet Masking | Variable-Length Subnet Masking |
-| **Subnet sizes** | All equal | Sized to individual requirements |
-| **Address waste** | Higher (over-allocates) | Lower (right-sizes each subnet) |
-| **Use case** | Simple networks, uniform departments | Complex networks with mixed host counts |
-| **Example** | Split 10.0.0.0/24 → four /26s | Allocate /25, /26, /28 from 10.0.0.0/24 |
+|                   | FLSM                                 | VLSM                                    |
+| ----------------- | ------------------------------------ | --------------------------------------- |
+| **Stands for**    | Fixed-Length Subnet Masking          | Variable-Length Subnet Masking          |
+| **Subnet sizes**  | All equal                            | Sized to individual requirements        |
+| **Address waste** | Higher (over-allocates)              | Lower (right-sizes each subnet)         |
+| **Use case**      | Simple networks, uniform departments | Complex networks with mixed host counts |
+| **Example**       | Split 10.0.0.0/24 → four /26s        | Allocate /25, /26, /28 from 10.0.0.0/24 |
 
 #### FLSM example
 
@@ -97,28 +97,28 @@ A CIDR (Classless Inter-Domain Routing) address like `10.0.0.0/24` describes:
 
 ## Package Architecture
 
-| File | Responsibility |
-|------|----------------|
-| `type.go` | `Subnet` struct definition (unexported fields) and accessor methods |
-| `parse.go` | `ParseCIDR` and `MustParseCIDR` entry points |
-| `subnet.go` | Address arithmetic: network/broadcast/host-range calculation |
-| `flsm.go` | `Split` and `SplitIntoN` — equal-size subnet division |
-| `vlsm.go` | `DivideByHosts` — VLSM host-based allocation |
+| File           | Responsibility                                                                     |
+| -------------- | ---------------------------------------------------------------------------------- |
+| `type.go`      | `Subnet` struct definition (unexported fields) and accessor methods                |
+| `parse.go`     | `ParseCIDR` and `MustParseCIDR` entry points                                       |
+| `subnet.go`    | Address arithmetic: network/broadcast/host-range calculation                       |
+| `flsm.go`      | `Split` and `SplitIntoN` — equal-size subnet division                              |
+| `vlsm.go`      | `DivideByHosts` — VLSM host-based allocation                                       |
 | `utilities.go` | `Contains`, `Overlaps`, `NetworkSize`, `HostCount`, `PrefixForHosts`, `NextSubnet` |
-| `doc.go` | Package-level GoDoc documentation |
+| `doc.go`       | Package-level GoDoc documentation                                                  |
 
 ---
 
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/netx"
+import "github.com/polarixa/replify/pkg/netx"
 ```
 
 **Requirements:** Go 1.24.0 or higher. No external dependencies.
@@ -228,7 +228,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/netx"
+    "github.com/polarixa/replify/pkg/netx"
 )
 
 func main() {
@@ -368,15 +368,15 @@ fmt.Printf("Monitoring range: %s – %s (%d hosts)\n",
 
 ## Edge Case Handling
 
-| Scenario | Behaviour |
-|----------|-----------|
-| `/31` network (RFC 3021) | `TotalHosts()` = 2; `FirstHost()` = network address |
-| `/32` single host | `TotalHosts()` = 1; `FirstHost()` = `LastHost()` = host address |
-| IPv6 subnet | All accessors work; `TotalHosts()` returns `*big.Int` |
-| Insufficient space (VLSM) | `DivideByHosts` returns a descriptive error |
-| `nil` arguments | All utility functions return safe zero values or errors |
-| Invalid CIDR | `ParseCIDR` returns a wrapped error; `MustParseCIDR` panics |
-| Non-power-of-2 `n` in `SplitIntoN` | Returns an error |
+| Scenario                           | Behaviour                                                       |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `/31` network (RFC 3021)           | `TotalHosts()` = 2; `FirstHost()` = network address             |
+| `/32` single host                  | `TotalHosts()` = 1; `FirstHost()` = `LastHost()` = host address |
+| IPv6 subnet                        | All accessors work; `TotalHosts()` returns `*big.Int`           |
+| Insufficient space (VLSM)          | `DivideByHosts` returns a descriptive error                     |
+| `nil` arguments                    | All utility functions return safe zero values or errors         |
+| Invalid CIDR                       | `ParseCIDR` returns a wrapped error; `MustParseCIDR` panics     |
+| Non-power-of-2 `n` in `SplitIntoN` | Returns an error                                                |
 
 ---
 
@@ -397,17 +397,17 @@ for all major subnetting operations, see:
 
 Topics covered in the guide:
 
-| Section | Content |
-|---------|---------|
-| Background | Classful addressing → CIDR transition |
-| Bitwise logic | Subnet mask AND/OR operations, binary examples |
-| Power-of-two rule | Standard formula, /31 and /32 edge cases |
-| FLSM walkthrough | `192.168.10.0/24` divided into 4 equal /26 subnets |
-| VLSM walkthrough | `10.0.0.0/24` allocated for Sales/IT/HR/P2P with 73% less waste than FLSM |
-| IPv4 conservation | `/29` public block assignment and NAT strategies |
-| Route summarization | Binary LCP, aggregating four /24s into a /22 |
-| Multi-VLAN design | VLAN-to-subnet alignment, gateway assignment, security policy |
-| Algorithm pseudocode | FLSM split, VLSM allocation, route summarization, prefix search |
-| API mapping | Every concept mapped to the corresponding `netx` Go function |
+| Section              | Content                                                                   |
+| -------------------- | ------------------------------------------------------------------------- |
+| Background           | Classful addressing → CIDR transition                                     |
+| Bitwise logic        | Subnet mask AND/OR operations, binary examples                            |
+| Power-of-two rule    | Standard formula, /31 and /32 edge cases                                  |
+| FLSM walkthrough     | `192.168.10.0/24` divided into 4 equal /26 subnets                        |
+| VLSM walkthrough     | `10.0.0.0/24` allocated for Sales/IT/HR/P2P with 73% less waste than FLSM |
+| IPv4 conservation    | `/29` public block assignment and NAT strategies                          |
+| Route summarization  | Binary LCP, aggregating four /24s into a /22                              |
+| Multi-VLAN design    | VLAN-to-subnet alignment, gateway assignment, security policy             |
+| Algorithm pseudocode | FLSM split, VLSM allocation, route summarization, prefix search           |
+| API mapping          | Every concept mapped to the corresponding `netx` Go function              |
 
 ---

@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // ///////////////////////////

@@ -15,13 +15,13 @@ A high-performance string builder for Go that wraps `strings.Builder` with a flu
 ## 📥 Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/strchain"
+import "github.com/polarixa/replify/pkg/strchain"
 ```
 
 ## 🏗️ Architecture
@@ -43,9 +43,9 @@ import "github.com/sivaosorg/replify/pkg/strchain"
 
 **Choose the right type:**
 
-| When to use | Type | Constructor |
-|---|---|---|
-| Single goroutine, max performance | `StringWeaver` | `New()`, `From()`, `NewWithCapacity()` |
+| When to use                            | Type               | Constructor                                        |
+| -------------------------------------- | ------------------ | -------------------------------------------------- |
+| Single goroutine, max performance      | `StringWeaver`     | `New()`, `From()`, `NewWithCapacity()`             |
 | Multiple goroutines, concurrent access | `SafeStringWeaver` | `NewSafe()`, `SafeFrom()`, `NewSafeWithCapacity()` |
 
 ## 🚀 Quick Start
@@ -314,10 +314,10 @@ for _, name := range []string{"Alice", "Bob", "Charlie"} {
 
 The `strchain` package provides two implementations to avoid forcing a one-size-fits-all trade-off:
 
-| Implementation | Overhead | Use Case |
-|---|---|---|
-| `StringWeaver` | **Zero** — direct `strings.Builder` wrapper | Single-threaded, hot paths |
-| `SafeStringWeaver` | **~10–20ns/op** — mutex lock/unlock per call | Concurrent access |
+| Implementation     | Overhead                                     | Use Case                   |
+| ------------------ | -------------------------------------------- | -------------------------- |
+| `StringWeaver`     | **Zero** — direct `strings.Builder` wrapper  | Single-threaded, hot paths |
+| `SafeStringWeaver` | **~10–20ns/op** — mutex lock/unlock per call | Concurrent access          |
 
 Both implementations produce **zero allocations** beyond the initial builder allocation — identical to `strings.Builder`.
 
@@ -384,30 +384,30 @@ go func() {
 
 ### StringWeaver vs SafeStringWeaver
 
-| Feature | StringWeaver | SafeStringWeaver |
-|---------|--------------|------------------|
-| Thread-Safe | ❌ No | ✅ Yes |
-| Performance | Baseline (zero overhead) | ~10–20ns/op mutex cost |
-| Allocations | 0 | 0 |
-| Use Case | Single goroutine, max perf | Concurrent access |
+| Feature     | StringWeaver               | SafeStringWeaver       |
+| ----------- | -------------------------- | ---------------------- |
+| Thread-Safe | ❌ No                      | ✅ Yes                 |
+| Performance | Baseline (zero overhead)   | ~10–20ns/op mutex cost |
+| Allocations | 0                          | 0                      |
+| Use Case    | Single goroutine, max perf | Concurrent access      |
 
 ### vs. strings.Builder
 
-| Feature | StringWeaver | SafeStringWeaver | strings.Builder |
-|---------|--------------|------------------|-----------------|
-| Thread-Safe | ❌ No | ✅ Yes | ❌ No |
-| Fluent API | ✅ Yes | ✅ Yes | ❌ No |
-| Type Methods | ✅ Full | ✅ Full | ⚠️ Limited |
-| Performance | ≈ Baseline | ~10–20ns overhead | Baseline |
-| Allocations | 0 | 0 | 0 |
+| Feature      | StringWeaver | SafeStringWeaver  | strings.Builder |
+| ------------ | ------------ | ----------------- | --------------- |
+| Thread-Safe  | ❌ No        | ✅ Yes            | ❌ No           |
+| Fluent API   | ✅ Yes       | ✅ Yes            | ❌ No           |
+| Type Methods | ✅ Full      | ✅ Full           | ⚠️ Limited      |
+| Performance  | ≈ Baseline   | ~10–20ns overhead | Baseline        |
+| Allocations  | 0            | 0                 | 0               |
 
 ### vs. strings.Join / fmt.Sprintf
 
-| Feature | Weaver | strings.Join | fmt.Sprintf |
-|---------|--------|--------------|-------------|
-| Zero Allocs | ✅ Yes | ❌ No | ❌ No |
-| Fluent API | ✅ Yes | ❌ No | ❌ No |
-| Flexibility | ✅ High | ⚠️ Limited | ⚠️ Medium |
+| Feature     | Weaver  | strings.Join | fmt.Sprintf |
+| ----------- | ------- | ------------ | ----------- |
+| Zero Allocs | ✅ Yes  | ❌ No        | ❌ No       |
+| Fluent API  | ✅ Yes  | ❌ No        | ❌ No       |
+| Flexibility | ✅ High | ⚠️ Limited   | ⚠️ Medium   |
 
 ## 🤝 Contributing
 

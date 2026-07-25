@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Chain is a lightweight fluent string wrapper that enables method chaining

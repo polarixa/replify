@@ -7,9 +7,9 @@ import (
 	"os"
 	"sort"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/strchain"
-	"github.com/sivaosorg/replify/pkg/translit/table"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
+	"github.com/polarixa/replify/pkg/translit/table"
 )
 
 func main() {

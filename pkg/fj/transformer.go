@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sivaosorg/replify/pkg/common"
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/common"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Transformer is the interface implemented by all transformer types.

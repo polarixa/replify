@@ -59,15 +59,15 @@ myservice/
 
 ### Architectural rationale
 
-| Layer | Responsibility | Why separate? |
-|---|---|---|
-| `cmd/api` | Wire dependencies; own `main` | Single binary entry-point, zero business logic |
-| `internal/config` | Load + validate YAML/env config | Centralises all runtime knobs; swappable at test time |
-| `internal/database` | Open + health-check DB pool | Pool lifecycle is independent of scheduler lifecycle |
-| `internal/scheduler` | Own the `crontask.Scheduler` instance | Encapsulates job registration + hook wiring away from HTTP layer |
-| `internal/service` | Business logic | Zero scheduler knowledge; injectable; independently testable |
-| `internal/handler` | HTTP handlers | Depend on services and, optionally, scheduler for introspection |
-| `internal/repository` | DB queries for job state | Isolates SQL behind an interface; mocked in unit tests |
+| Layer                 | Responsibility                        | Why separate?                                                    |
+| --------------------- | ------------------------------------- | ---------------------------------------------------------------- |
+| `cmd/api`             | Wire dependencies; own `main`         | Single binary entry-point, zero business logic                   |
+| `internal/config`     | Load + validate YAML/env config       | Centralises all runtime knobs; swappable at test time            |
+| `internal/database`   | Open + health-check DB pool           | Pool lifecycle is independent of scheduler lifecycle             |
+| `internal/scheduler`  | Own the `crontask.Scheduler` instance | Encapsulates job registration + hook wiring away from HTTP layer |
+| `internal/service`    | Business logic                        | Zero scheduler knowledge; injectable; independently testable     |
+| `internal/handler`    | HTTP handlers                         | Depend on services and, optionally, scheduler for introspection  |
+| `internal/repository` | DB queries for job state              | Isolates SQL behind an interface; mocked in unit tests           |
 
 **Rule of thumb:** the scheduler is infrastructure, not business logic. It lives in
 `internal/scheduler` exactly as the HTTP server lives in `internal/handler`. Both are
@@ -199,7 +199,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 
 	"myservice/internal/config"
 	"myservice/internal/repository"
@@ -343,7 +343,7 @@ package scheduler
 import (
 	"context"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 
 	"myservice/internal/service"
 )
@@ -515,7 +515,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 
 	"myservice/internal/service"
 )
@@ -668,17 +668,17 @@ FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 ### 3.2 Column rationale
 
-| Column | Purpose |
-|---|---|
-| `job_id` | Stable identity key matching `crontask.WithJobID`; used to correlate rows across invocations |
-| `status` | State machine; drives alerting rules and the partial index on running jobs |
-| `scheduled_at` | When the scheduler decided to fire the job; enables drift analysis |
-| `started_at` / `finished_at` | Compute actual execution window; detect long-running jobs |
-| `duration_ms` | Pre-computed for dashboard queries; avoids repeated timestamp arithmetic |
-| `attempt` / `retry_count` | Distinguish first attempt from retries; feeds SLA calculations |
-| `last_error` | Persisted for post-mortem without requiring log correlation |
-| `next_run_at` | Enables "jobs overdue" alerting even when the scheduler itself is down |
-| `created_at` / `updated_at` | Immutable audit trail; `updated_at` maintained by DB trigger |
+| Column                       | Purpose                                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------------------------- |
+| `job_id`                     | Stable identity key matching `crontask.WithJobID`; used to correlate rows across invocations |
+| `status`                     | State machine; drives alerting rules and the partial index on running jobs                   |
+| `scheduled_at`               | When the scheduler decided to fire the job; enables drift analysis                           |
+| `started_at` / `finished_at` | Compute actual execution window; detect long-running jobs                                    |
+| `duration_ms`                | Pre-computed for dashboard queries; avoids repeated timestamp arithmetic                     |
+| `attempt` / `retry_count`    | Distinguish first attempt from retries; feeds SLA calculations                               |
+| `last_error`                 | Persisted for post-mortem without requiring log correlation                                  |
+| `next_run_at`                | Enables "jobs overdue" alerting even when the scheduler itself is down                       |
+| `created_at` / `updated_at`  | Immutable audit trail; `updated_at` maintained by DB trigger                                 |
 
 ### 3.3 Repository implementation
 
@@ -837,7 +837,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 
 	"myservice/internal/repository"
 )
@@ -965,7 +965,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 )
 
 // withDistributedLock wraps fn so it only executes when the caller acquires
@@ -1021,13 +1021,13 @@ without a code change.
 
 ### 4.4 Failure scenarios
 
-| Scenario | Outcome | Mitigation |
-|---|---|---|
-| Instance crashes while holding lock | Lock expires after TTL; another instance picks up the next scheduled tick | Set `lock_ttl` conservatively; ensure jobs are idempotent |
-| Redis connection lost during job | Lock key orphaned; `release` returns error (logged, not propagated) | TTL natural expiry; circuit-breaker on Redis client |
-| Clock drift between instances | SET NX TTL is server-side on Redis; client clock skew is irrelevant | No additional action needed |
-| Job takes longer than TTL | Another instance may re-acquire the lock mid-execution; duplicate work possible | Enforce `crontask.WithTimeout` ≤ `lock_ttl`; make jobs idempotent |
-| Lua `release` races with natural expiry | DEL is a no-op; no phantom deletion | The Lua check-and-delete pattern handles this atomically |
+| Scenario                                | Outcome                                                                         | Mitigation                                                        |
+| --------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| Instance crashes while holding lock     | Lock expires after TTL; another instance picks up the next scheduled tick       | Set `lock_ttl` conservatively; ensure jobs are idempotent         |
+| Redis connection lost during job        | Lock key orphaned; `release` returns error (logged, not propagated)             | TTL natural expiry; circuit-breaker on Redis client               |
+| Clock drift between instances           | SET NX TTL is server-side on Redis; client clock skew is irrelevant             | No additional action needed                                       |
+| Job takes longer than TTL               | Another instance may re-acquire the lock mid-execution; duplicate work possible | Enforce `crontask.WithTimeout` ≤ `lock_ttl`; make jobs idempotent |
+| Lua `release` races with natural expiry | DEL is a no-op; no phantom deletion                                             | The Lua check-and-delete pattern handles this atomically          |
 
 ### 4.5 Idempotency requirements
 
@@ -1233,11 +1233,11 @@ inner.Register(expr, fn,
 
 ### 7.3 Failure modes
 
-| Failure | Behaviour | Mitigation |
-|---|---|---|
-| Job ignores context cancellation | Job runs past shutdown deadline; process killed by orchestrator after `terminationGracePeriodSeconds` | Ensure all blocking I/O uses the ctx parameter |
-| DB connection closed before job finishes | Job returns error; persisted as `failed` on next startup | Use connection-pool `max_lifetime` and graceful pool close after scheduler shutdown |
-| Redis lock released after process exit | TTL expiry handles recovery; next pod picks up next tick | Lock TTL must be less than Kubernetes `terminationGracePeriodSeconds` |
+| Failure                                  | Behaviour                                                                                             | Mitigation                                                                          |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Job ignores context cancellation         | Job runs past shutdown deadline; process killed by orchestrator after `terminationGracePeriodSeconds` | Ensure all blocking I/O uses the ctx parameter                                      |
+| DB connection closed before job finishes | Job returns error; persisted as `failed` on next startup                                              | Use connection-pool `max_lifetime` and graceful pool close after scheduler shutdown |
+| Redis lock released after process exit   | TTL expiry handles recovery; next pod picks up next tick                                              | Lock TTL must be less than Kubernetes `terminationGracePeriodSeconds`               |
 
 ### 7.4 Kubernetes configuration recommendation
 
@@ -1248,7 +1248,7 @@ terminationGracePeriodSeconds: 60
 lifecycle:
   preStop:
     exec:
-      command: ["/bin/sleep", "5"]  # drain load-balancer connections
+      command: ["/bin/sleep", "5"] # drain load-balancer connections
 ```
 
 ---
@@ -1274,14 +1274,14 @@ crontask.WithErrorHandler(func(id string, err error) {
 
 Key log events and their recommended fields:
 
-| Event | Fields |
-|---|---|
-| Job started | `job_id`, `job_name`, `scheduled_at` |
-| Job succeeded | `job_id`, `duration_ms` |
-| Job failed | `job_id`, `duration_ms`, `attempt`, `error` |
-| Job retrying | `job_id`, `attempt`, `error`, `backoff_ms` |
-| Lock skipped | `job_id`, `lock_key` |
-| Scheduler shutdown | `timeout_ms`, `jobs_in_flight` |
+| Event              | Fields                                      |
+| ------------------ | ------------------------------------------- |
+| Job started        | `job_id`, `job_name`, `scheduled_at`        |
+| Job succeeded      | `job_id`, `duration_ms`                     |
+| Job failed         | `job_id`, `duration_ms`, `attempt`, `error` |
+| Job retrying       | `job_id`, `attempt`, `error`, `backoff_ms`  |
+| Lock skipped       | `job_id`, `lock_key`                        |
+| Scheduler shutdown | `timeout_ms`, `jobs_in_flight`              |
 
 ### 8.2 Prometheus metrics
 
@@ -1295,7 +1295,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/sivaosorg/replify/pkg/crontask"
+	"github.com/polarixa/replify/pkg/crontask"
 )
 
 // metricsCollector bridges MetricsHookInstance to prometheus.Collector.
@@ -1363,13 +1363,13 @@ router.GET("/metrics", handler.MetricsHandler(metricsHook))
 
 ### 8.3 Alerting strategy
 
-| Alert | Condition | Severity |
-|---|---|---|
-| Job not running | `next_run_at < NOW() - 2×interval` | Warning |
-| High failure rate | `failures / (successes + failures) > 0.05` over 15 min | Critical |
-| Long-running job | `status = 'running' AND started_at < NOW() - timeout × 1.5` | Warning |
-| Scheduler down | No `scheduler loop` log line in last 60 s | Critical |
-| Lock starvation | Same instance always wins lock (others always skip) | Warning |
+| Alert             | Condition                                                   | Severity |
+| ----------------- | ----------------------------------------------------------- | -------- |
+| Job not running   | `next_run_at < NOW() - 2×interval`                          | Warning  |
+| High failure rate | `failures / (successes + failures) > 0.05` over 15 min      | Critical |
+| Long-running job  | `status = 'running' AND started_at < NOW() - timeout × 1.5` | Warning  |
+| Scheduler down    | No `scheduler loop` log line in last 60 s                   | Critical |
+| Lock starvation   | Same instance always wins lock (others always skip)         | Warning  |
 
 ### 8.4 SLA considerations
 
@@ -1469,6 +1469,7 @@ the previous one finishes. `crontask` dispatches each due job in its own gorouti
 concurrent executions are possible by design.
 
 **Mitigation:**
+
 - Set `WithTimeout` to a value strictly less than the job interval.
 - Use `ConcurrencyLimiterHook(1)` for jobs that must never overlap.
 - Monitor `status = 'running'` rows whose `started_at` is older than expected.
@@ -1480,6 +1481,7 @@ from the application-level context timeout. A job holding a long transaction may
 killed by the DB but the Go context is still active.
 
 **Mitigation:**
+
 - Always pass the job's `ctx` to every database call (`db.ExecContext`, `db.QueryContext`).
 - Set `statement_timeout` in the DSN: `postgres://...?options=statement_timeout%3D25000`.
 - Keep the application timeout (`WithTimeout`) slightly shorter than the DB timeout.
@@ -1490,6 +1492,7 @@ If a job takes longer than the lock TTL, the key expires and another instance ma
 acquire the lock while the first is still executing.
 
 **Mitigation:**
+
 - Enforce `crontask.WithTimeout` ≤ `lock_ttl` as a startup validation:
 
 ```go
@@ -1508,12 +1511,12 @@ for _, t := range cfg.Crontask.Tasks {
 Any job that may execute more than once (due to retries, lock race, or duplicate
 scheduling) must be idempotent. Verify idempotency at the design stage:
 
-| Operation | Idempotent approach |
-|---|---|
-| Insert record | `ON CONFLICT DO NOTHING` |
-| Send email | Track sent emails in DB with unique `(job_id, recipient, date)` |
-| Charge payment | Use payment gateway's idempotency key |
-| Publish message | Use `message_id` + consumer-side deduplication |
+| Operation       | Idempotent approach                                             |
+| --------------- | --------------------------------------------------------------- |
+| Insert record   | `ON CONFLICT DO NOTHING`                                        |
+| Send email      | Track sent emails in DB with unique `(job_id, recipient, date)` |
+| Charge payment  | Use payment gateway's idempotency key                           |
+| Publish message | Use `message_id` + consumer-side deduplication                  |
 
 ### 10.6 Duplicate scheduling risk
 
@@ -1555,7 +1558,7 @@ care:
 - **Renaming a column:** requires application-side coordination (dual-write during
   transition or a maintenance window).
 - **Dropping a column:** remove application references first; deploy; then `ALTER TABLE
-  DROP COLUMN`.
+DROP COLUMN`.
 - **Index changes:** use `CREATE INDEX CONCURRENTLY` in Postgres to avoid table locks.
 
 Use a migration tool (`golang-migrate`, `goose`, or `Flyway`) and enforce that

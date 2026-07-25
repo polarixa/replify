@@ -52,19 +52,21 @@ Building RESTful APIs often requires repetitive boilerplate code for standardizi
 ### Install Package
 
 > Latest version
+
 ```bash
-go get github.com/sivaosorg/replify@latest
+go get github.com/polarixa/replify@latest
 ```
 
 > Specific version
+
 ```bash
-go get github.com/sivaosorg/replify@v0.1.0
+go get github.com/polarixa/replify@v0.1.0
 ```
 
 ### Import in Code
 
 ```go
-import "github.com/sivaosorg/replify"
+import "github.com/polarixa/replify"
 ```
 
 With [Go's module support](https://go.dev/wiki/Modules#how-to-use-modules), `go [build|run|test]` automatically fetches the necessary dependencies when you add the import.
@@ -78,7 +80,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify"
+    "github.com/polarixa/replify"
 )
 
 func main() {
@@ -90,31 +92,32 @@ func main() {
             "id":   "123",
             "name": "John Doe",
         })
-    
+
     fmt.Println(response.JSONPretty())
 }
 ```
 
 **Output:**
+
 ```json
 {
-    "data": {
-        "id": "123",
-        "name": "John Doe"
-    },
-    "headers": {
-        "code": 200,
-        "text": "OK"
-    },
-    "message": "User retrieved successfully",
-    "meta": {
-        "api_version": "v0.0.1",
-        "locale": "en_US",
-        "request_id": "d7e5ce24b796da94770911db36565bf9",
-        "requested_time": "2026-01-29T10:07:05.751501+07:00"
-    },
-    "status_code": 200,
-    "total": 0
+  "data": {
+    "id": "123",
+    "name": "John Doe"
+  },
+  "headers": {
+    "code": 200,
+    "text": "OK"
+  },
+  "message": "User retrieved successfully",
+  "meta": {
+    "api_version": "v0.0.1",
+    "locale": "en_US",
+    "request_id": "d7e5ce24b796da94770911db36565bf9",
+    "requested_time": "2026-01-29T10:07:05.751501+07:00"
+  },
+  "status_code": 200,
+  "total": 0
 }
 ```
 
@@ -127,7 +130,8 @@ The library produces responses in this standardized format:
   "status_code": 200,
   "message": "Resource retrieved successfully",
   "path": "/api/v1/users",
-  "data": [ // abstract data (can be array or object)
+  "data": [
+    // abstract data (can be array or object)
     {
       "id": "user_01J6G7W9K2M4X7V5P8B3Q2Z1NS",
       "username": "jdoe_dev",
@@ -159,12 +163,14 @@ The library produces responses in this standardized format:
     "api_version": "v1.0.4",
     "locale": "en_US",
     "requested_time": "2026-02-26T17:30:28.983Z",
-    "custom_fields": { // custom fields
+    "custom_fields": {
+      // custom fields
       "trace_id": "80eafc6a1655ec5a06595d155f1e6951",
       "origin_region": "us-east-1"
     }
   },
-  "debug": { // custom fields
+  "debug": {
+    // custom fields
     "trace_session_id": "4919e84fc26881e9fe790f5d07465db4",
     "execution_time_ms": 42
   }
@@ -173,26 +179,26 @@ The library produces responses in this standardized format:
 
 ### Field Descriptions
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `data` | `interface{}` | The primary data payload of the response |
-| `status_code` | `int` | HTTP status code for the response |
-| `message` | `string` | Human-readable message providing context |
-| `total` | `int` | Total number of items (used in non-paginated responses) |
-| `path` | `string` | Request path for which the response is generated |
-| `meta` | `object` | Metadata about the API response |
-| `meta.request_id` | `string` | Unique identifier for the request, useful for debugging |
-| `meta.api_version` | `string` | API version used for the request |
-| `meta.locale` | `string` | Locale used for the request (e.g., "en_US") |
-| `meta.requested_time` | `string` | Timestamp when the request was made (ISO 8601) |
-| `meta.custom_fields` | `object` | Additional custom metadata fields |
-| `pagination` | `object` | Pagination details, if applicable |
-| `pagination.page` | `int` | Current page number |
-| `pagination.per_page` | `int` | Number of items per page |
-| `pagination.total_items` | `int` | Total number of items available |
-| `pagination.total_pages` | `int` | Total number of pages |
-| `pagination.is_last` | `bool` | Indicates whether this is the last page |
-| `debug` | `object` | Debugging information (useful for development) |
+| Field                    | Type          | Description                                             |
+| ------------------------ | ------------- | ------------------------------------------------------- |
+| `data`                   | `interface{}` | The primary data payload of the response                |
+| `status_code`            | `int`         | HTTP status code for the response                       |
+| `message`                | `string`      | Human-readable message providing context                |
+| `total`                  | `int`         | Total number of items (used in non-paginated responses) |
+| `path`                   | `string`      | Request path for which the response is generated        |
+| `meta`                   | `object`      | Metadata about the API response                         |
+| `meta.request_id`        | `string`      | Unique identifier for the request, useful for debugging |
+| `meta.api_version`       | `string`      | API version used for the request                        |
+| `meta.locale`            | `string`      | Locale used for the request (e.g., "en_US")             |
+| `meta.requested_time`    | `string`      | Timestamp when the request was made (ISO 8601)          |
+| `meta.custom_fields`     | `object`      | Additional custom metadata fields                       |
+| `pagination`             | `object`      | Pagination details, if applicable                       |
+| `pagination.page`        | `int`         | Current page number                                     |
+| `pagination.per_page`    | `int`         | Number of items per page                                |
+| `pagination.total_items` | `int`         | Total number of items available                         |
+| `pagination.total_pages` | `int`         | Total number of pages                                   |
+| `pagination.is_last`     | `bool`        | Indicates whether this is the last page                 |
+| `debug`                  | `object`      | Debugging information (useful for development)          |
 
 ## Usage
 
@@ -265,8 +271,8 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify"
-    "github.com/sivaosorg/replify/pkg/randn"
+    "github.com/polarixa/replify"
+    "github.com/polarixa/replify/pkg/randn"
 )
 
 func main() {
@@ -277,7 +283,7 @@ func main() {
         WithTotalItems(120).
         WithTotalPages(34).
         WithPerPage(2)
-    
+
     // Create response
     w := replify.New().
         WithStatusCode(200).
@@ -289,11 +295,11 @@ func main() {
         WithPath("/api/v1/users").
         WithCustomFieldKVf("fields", "userID: %v", 103).
         WithPagination(p)
-    
+
     if !w.Available() {
         return
     }
-    
+
     // Access response properties
     fmt.Println(w.JSON())
     fmt.Println(w.StatusCode())
@@ -302,7 +308,7 @@ func main() {
     fmt.Println(w.Body())
     fmt.Println(w.IsSuccess())
     fmt.Println(w.Respond())
-    
+
     // Check metadata
     fmt.Println(w.Meta().IsCustomPresent())
     fmt.Println(w.Meta().IsApiVersionPresent())
@@ -320,7 +326,7 @@ import (
     "fmt"
     "log"
     "time"
-    "github.com/sivaosorg/replify"
+    "github.com/polarixa/replify"
 )
 
 func main() {
@@ -351,15 +357,15 @@ func main() {
         "status_code": 200,
         "total": 1
     }`
-    
+
     t := time.Now()
     w, err := replify.UnwrapJSON(jsonStr)
     diff := time.Since(t)
-    
+
     if err != nil {
         log.Fatalf("Error parsing JSON: %v", err)
     }
-    
+
     fmt.Printf("Exe time: %+v\n", diff.String())
     fmt.Printf("%+v\n", w.OnDebugging("___abc"))
     fmt.Printf("%+v\n", w.JSONPretty())
@@ -376,7 +382,7 @@ package main
 import (
     "encoding/json"
     "net/http"
-    "github.com/sivaosorg/replify"
+    "github.com/polarixa/replify"
 )
 
 type User struct {
@@ -389,7 +395,7 @@ type User struct {
 func GetUser(w http.ResponseWriter, r *http.Request) {
     id := getIDFromPath(r)
     user, err := findUserByID(id)
-    
+
     var response *replify.R
     if err != nil {
         response = replify.New().
@@ -404,7 +410,7 @@ func GetUser(w http.ResponseWriter, r *http.Request) {
             WithMessage("User retrieved successfully").
             WithRequestID(r.Header.Get("X-Request-ID"))
     }
-    
+
     respondJSON(w, response)
 }
 
@@ -419,7 +425,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
         respondJSON(w, response)
         return
     }
-    
+
     if err := validateUser(user); err != nil {
         response := replify.New().
             WithStatusCode(422).
@@ -428,7 +434,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
         respondJSON(w, response)
         return
     }
-    
+
     createdUser, err := createUser(user)
     if err != nil {
         response := replify.New().
@@ -438,7 +444,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
         respondJSON(w, response)
         return
     }
-    
+
     response := replify.New().
         WithStatusCode(201).
         WithBody(createdUser).
@@ -461,7 +467,7 @@ func ListUsers(w http.ResponseWriter, r *http.Request) {
     page := getQueryInt(r, "page", 1)
     perPage := getQueryInt(r, "per_page", 10)
     search := r.URL.Query().Get("search")
-    
+
     // Fetch users with pagination
     users, total, err := db.FindUsers(search, page, perPage)
     if err != nil {
@@ -474,18 +480,18 @@ func ListUsers(w http.ResponseWriter, r *http.Request) {
         respondJSON(w, response)
         return
     }
-    
+
     // Calculate pagination metadata
     totalPages := (total + perPage - 1) / perPage
     isLast := page >= totalPages
-    
+
     pagination := replify.Pages().
         WithPage(page).
         WithPerPage(perPage).
         WithTotalItems(total).
         WithTotalPages(totalPages).
         WithIsLast(isLast)
-    
+
     response := replify.New().
         WithStatusCode(200).
         WithBody(users).
@@ -494,7 +500,7 @@ func ListUsers(w http.ResponseWriter, r *http.Request) {
         WithMessage("Users retrieved successfully").
         WithPath(r.URL.Path).
         WithRequestID(r.Header.Get("X-Request-ID"))
-    
+
     respondJSON(w, response)
 }
 ```
@@ -504,15 +510,15 @@ func ListUsers(w http.ResponseWriter, r *http.Request) {
 ```go
 func ProcessOrder(w http.ResponseWriter, r *http.Request) {
     order, err := processOrderLogic(r)
-    
+
     response := replify.New()
-    
+
     if err != nil {
         response.
             WithStatusCode(500).
             WithErrorAck(err).
             WithMessage("Order processing failed")
-        
+
         // Add debug info in development
         if os.Getenv("ENV") == "development" {
             response.
@@ -526,7 +532,7 @@ func ProcessOrder(w http.ResponseWriter, r *http.Request) {
             WithBody(order).
             WithMessage("Order processed successfully")
     }
-    
+
     respondJSON(w, response)
 }
 ```
@@ -545,180 +551,181 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
 
 ### Core Functions
 
-| Function | Description |
-|----------|-------------|
-| `New() *wrapper` | Creates a new response wrapper |
-| `Pages() *pagination` | Creates a new pagination object |
-| `UnwrapJSON(jsonStr string) (*wrapper, error)` | Parses JSON string to wrapper |
+| Function                                       | Description                     |
+| ---------------------------------------------- | ------------------------------- |
+| `New() *wrapper`                               | Creates a new response wrapper  |
+| `Pages() *pagination`                          | Creates a new pagination object |
+| `UnwrapJSON(jsonStr string) (*wrapper, error)` | Parses JSON string to wrapper   |
 
 ### Configuration Methods
 
 #### Response Configuration
 
-| Method | Description |
-|--------|-------------|
-| `WithStatusCode(code int)` | Sets HTTP status code |
-| `WithBody(v interface{})` | Sets response body/data |
-| `WithMessage(message string)` | Sets response message |
-| `WithMessagef(format string, args...)` | Sets formatted message |
-| `WithError(message string)` | Sets error message |
-| `WithErrorf(format string, args...)` | Sets formatted error |
-| `WithErrorAck(err error)` | Sets error with stack trace |
-| `AppendError(err error, message string)` | Wraps error with context |
+| Method                                            | Description                        |
+| ------------------------------------------------- | ---------------------------------- |
+| `WithStatusCode(code int)`                        | Sets HTTP status code              |
+| `WithBody(v interface{})`                         | Sets response body/data            |
+| `WithMessage(message string)`                     | Sets response message              |
+| `WithMessagef(format string, args...)`            | Sets formatted message             |
+| `WithError(message string)`                       | Sets error message                 |
+| `WithErrorf(format string, args...)`              | Sets formatted error               |
+| `WithErrorAck(err error)`                         | Sets error with stack trace        |
+| `AppendError(err error, message string)`          | Wraps error with context           |
 | `AppendErrorf(err error, format string, args...)` | Wraps error with formatted context |
-| `WithPath(v string)` | Sets request path |
-| `WithPathf(v string, args...)` | Sets formatted request path |
-| `WithTotal(total int)` | Sets total items count |
+| `WithPath(v string)`                              | Sets request path                  |
+| `WithPathf(v string, args...)`                    | Sets formatted request path        |
+| `WithTotal(total int)`                            | Sets total items count             |
 
 #### Metadata Methods
 
-| Method | Description |
-|--------|-------------|
-| `WithRequestID(v string)` | Sets request ID |
-| `WithRequestIDf(format string, args...)` | Sets formatted request ID |
-| `WithApiVersion(v string)` | Sets API version |
-| `WithApiVersionf(format string, args...)` | Sets formatted API version |
-| `WithLocale(v string)` | Sets locale (e.g., "en_US") |
-| `WithRequestedTime(v time.Time)` | Sets request timestamp |
-| `WithCustomFieldKV(key string, value interface{})` | Adds custom metadata field |
-| `WithCustomFieldKVf(key, format string, args...)` | Adds formatted custom field |
-| `WithCustomFields(values map[string]interface{})` | Sets multiple custom fields |
-| `WithMeta(v *meta)` | Sets entire metadata object |
-| `WithHeader(v *header)` | Sets the header |
+| Method                                             | Description                 |
+| -------------------------------------------------- | --------------------------- |
+| `WithRequestID(v string)`                          | Sets request ID             |
+| `WithRequestIDf(format string, args...)`           | Sets formatted request ID   |
+| `WithApiVersion(v string)`                         | Sets API version            |
+| `WithApiVersionf(format string, args...)`          | Sets formatted API version  |
+| `WithLocale(v string)`                             | Sets locale (e.g., "en_US") |
+| `WithRequestedTime(v time.Time)`                   | Sets request timestamp      |
+| `WithCustomFieldKV(key string, value interface{})` | Adds custom metadata field  |
+| `WithCustomFieldKVf(key, format string, args...)`  | Adds formatted custom field |
+| `WithCustomFields(values map[string]interface{})`  | Sets multiple custom fields |
+| `WithMeta(v *meta)`                                | Sets entire metadata object |
+| `WithHeader(v *header)`                            | Sets the header             |
 
 #### Pagination Methods
 
-| Method | Description |
-|--------|-------------|
-| `WithPagination(v *pagination)` | Sets pagination object |
-| `WithPage(v int)` | Sets current page number |
-| `WithPerPage(v int)` | Sets items per page |
-| `WithTotalItems(v int)` | Sets total items count |
-| `WithTotalPages(v int)` | Sets total pages count |
-| `WithIsLast(v bool)` | Sets if current page is last |
+| Method                          | Description                  |
+| ------------------------------- | ---------------------------- |
+| `WithPagination(v *pagination)` | Sets pagination object       |
+| `WithPage(v int)`               | Sets current page number     |
+| `WithPerPage(v int)`            | Sets items per page          |
+| `WithTotalItems(v int)`         | Sets total items count       |
+| `WithTotalPages(v int)`         | Sets total pages count       |
+| `WithIsLast(v bool)`            | Sets if current page is last |
 
 #### Debugging Methods
 
-| Method | Description |
-|--------|-------------|
-| `WithDebugging(v map[string]interface{})` | Sets debug information map |
+| Method                                           | Description                 |
+| ------------------------------------------------ | --------------------------- |
+| `WithDebugging(v map[string]interface{})`        | Sets debug information map  |
 | `WithDebuggingKV(key string, value interface{})` | Adds single debug key-value |
-| `WithDebuggingKVf(key, format string, args...)` | Adds formatted debug value |
+| `WithDebuggingKVf(key, format string, args...)`  | Adds formatted debug value  |
 
 ### Query Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `Available()` | `bool` | Checks if wrapper is non-nil |
-| `StatusCode()` | `int` | Gets HTTP status code |
-| `StatusText()` | `string` | Gets status text (e.g., "OK") |
-| `Body()` | `interface{}` | Gets response body |
-| `Message()` | `string` | Gets response message |
-| `Error()` | `string` | Gets error message |
-| `Cause()` | `error` | Gets underlying error cause |
-| `Total()` | `int` | Gets total items |
-| `Meta()` | `*meta` | Gets metadata object |
-| `Header()` | `*header` | Gets header object |
-| `Pagination()` | `*pagination` | Gets pagination object |
-| `Debugging()` | `map[string]interface{}` | Gets debug information |
-| `OnDebugging(key string)` | `interface{}` | Gets specific debug value |
+| Method                    | Returns                  | Description                   |
+| ------------------------- | ------------------------ | ----------------------------- |
+| `Available()`             | `bool`                   | Checks if wrapper is non-nil  |
+| `StatusCode()`            | `int`                    | Gets HTTP status code         |
+| `StatusText()`            | `string`                 | Gets status text (e.g., "OK") |
+| `Body()`                  | `interface{}`            | Gets response body            |
+| `Message()`               | `string`                 | Gets response message         |
+| `Error()`                 | `string`                 | Gets error message            |
+| `Cause()`                 | `error`                  | Gets underlying error cause   |
+| `Total()`                 | `int`                    | Gets total items              |
+| `Meta()`                  | `*meta`                  | Gets metadata object          |
+| `Header()`                | `*header`                | Gets header object            |
+| `Pagination()`            | `*pagination`            | Gets pagination object        |
+| `Debugging()`             | `map[string]interface{}` | Gets debug information        |
+| `OnDebugging(key string)` | `interface{}`            | Gets specific debug value     |
 
 ### Conditional Check Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `IsSuccess()` | `bool` | Checks if status is 2xx |
-| `IsClientError()` | `bool` | Checks if status is 4xx |
-| `IsServerError()` | `bool` | Checks if status is 5xx |
-| `IsRedirection()` | `bool` | Checks if status is 3xx |
-| `IsError()` | `bool` | Checks if error exists or status is 4xx/5xx |
-| `IsErrorPresent()` | `bool` | Checks if error field exists |
-| `IsBodyPresent()` | `bool` | Checks if body exists |
-| `IsPagingPresent()` | `bool` | Checks if pagination exists |
-| `IsMetaPresent()` | `bool` | Checks if metadata exists |
-| `IsHeaderPresent()` | `bool` | Checks if header exists |
-| `IsDebuggingPresent()` | `bool` | Checks if debug info exists |
-| `IsDebuggingKeyPresent(key string)` | `bool` | Checks if specific debug key exists |
-| `IsLastPage()` | `bool` | Checks if current page is last |
-| `IsStatusCodePresent()` | `bool` | Checks if valid status code exists |
-| `IsTotalPresent()` | `bool` | Checks if total count exists |
+| Method                              | Returns | Description                                 |
+| ----------------------------------- | ------- | ------------------------------------------- |
+| `IsSuccess()`                       | `bool`  | Checks if status is 2xx                     |
+| `IsClientError()`                   | `bool`  | Checks if status is 4xx                     |
+| `IsServerError()`                   | `bool`  | Checks if status is 5xx                     |
+| `IsRedirection()`                   | `bool`  | Checks if status is 3xx                     |
+| `IsError()`                         | `bool`  | Checks if error exists or status is 4xx/5xx |
+| `IsErrorPresent()`                  | `bool`  | Checks if error field exists                |
+| `IsBodyPresent()`                   | `bool`  | Checks if body exists                       |
+| `IsPagingPresent()`                 | `bool`  | Checks if pagination exists                 |
+| `IsMetaPresent()`                   | `bool`  | Checks if metadata exists                   |
+| `IsHeaderPresent()`                 | `bool`  | Checks if header exists                     |
+| `IsDebuggingPresent()`              | `bool`  | Checks if debug info exists                 |
+| `IsDebuggingKeyPresent(key string)` | `bool`  | Checks if specific debug key exists         |
+| `IsLastPage()`                      | `bool`  | Checks if current page is last              |
+| `IsStatusCodePresent()`             | `bool`  | Checks if valid status code exists          |
+| `IsTotalPresent()`                  | `bool`  | Checks if total count exists                |
 
 ### Serialization Methods
 
-| Method | Returns | Description |
-|--------|---------|-------------|
-| `JSON()` | `string` | Returns compact JSON string |
-| `JSONPretty()` | `string` | Returns pretty-printed JSON |
-| `Respond()` | `map[string]interface{}` | Returns map representation |
-| `Reply()` | `R` | Returns R wrapper |
+| Method         | Returns                  | Description                 |
+| -------------- | ------------------------ | --------------------------- |
+| `JSON()`       | `string`                 | Returns compact JSON string |
+| `JSONPretty()` | `string`                 | Returns pretty-printed JSON |
+| `Respond()`    | `map[string]interface{}` | Returns map representation  |
+| `Reply()`      | `R`                      | Returns R wrapper           |
 
 ## HTTP Status Codes Reference
 
 ### Common API Scenarios
 
-| **Scenario** | **HTTP Status Codes** | **Example** |
-|--------------|----------------------|-------------|
-| **Successful Resource Retrieval** | 200 OK, 304 Not Modified | `GET /users/123` - Returns user data |
-| **Resource Creation** | 201 Created | `POST /users` - Creates a new user |
-| **Asynchronous Processing** | 202 Accepted | `POST /large-file` - File upload starts |
-| **Validation Errors** | 400 Bad Request | `POST /users` - Missing required field |
-| **Authentication Issues** | 401 Unauthorized, 403 Forbidden | Invalid credentials or permissions |
-| **Rate Limiting** | 429 Too Many Requests | Exceeded API request limits |
-| **Missing Resource** | 404 Not Found | `GET /users/999` - User not found |
-| **Server Failures** | 500 Internal Server Error, 503 Service Unavailable | Database failure or maintenance |
-| **Version Conflicts** | 409 Conflict | Outdated version causing conflict |
+| **Scenario**                      | **HTTP Status Codes**                              | **Example**                             |
+| --------------------------------- | -------------------------------------------------- | --------------------------------------- |
+| **Successful Resource Retrieval** | 200 OK, 304 Not Modified                           | `GET /users/123` - Returns user data    |
+| **Resource Creation**             | 201 Created                                        | `POST /users` - Creates a new user      |
+| **Asynchronous Processing**       | 202 Accepted                                       | `POST /large-file` - File upload starts |
+| **Validation Errors**             | 400 Bad Request                                    | `POST /users` - Missing required field  |
+| **Authentication Issues**         | 401 Unauthorized, 403 Forbidden                    | Invalid credentials or permissions      |
+| **Rate Limiting**                 | 429 Too Many Requests                              | Exceeded API request limits             |
+| **Missing Resource**              | 404 Not Found                                      | `GET /users/999` - User not found       |
+| **Server Failures**               | 500 Internal Server Error, 503 Service Unavailable | Database failure or maintenance         |
+| **Version Conflicts**             | 409 Conflict                                       | Outdated version causing conflict       |
 
 ### Detailed Status Codes
 
 #### Success (2xx)
 
-| Code | Status | Use Case |
-|------|--------|----------|
-| 200 | OK | Successful GET, PUT, PATCH |
-| 201 | Created | Successful POST (resource created) |
-| 202 | Accepted | Async processing started |
-| 204 | No Content | Successful DELETE |
-| 206 | Partial Content | Video streaming, range requests |
+| Code | Status          | Use Case                           |
+| ---- | --------------- | ---------------------------------- |
+| 200  | OK              | Successful GET, PUT, PATCH         |
+| 201  | Created         | Successful POST (resource created) |
+| 202  | Accepted        | Async processing started           |
+| 204  | No Content      | Successful DELETE                  |
+| 206  | Partial Content | Video streaming, range requests    |
 
 #### Redirection (3xx)
 
-| Code | Status | Use Case |
-|------|--------|----------|
-| 301 | Moved Permanently | Resource permanently moved |
-| 302 | Found | Temporary redirect |
-| 304 | Not Modified | Cached content still valid |
-| 307 | Temporary Redirect | POST redirect maintaining method |
-| 308 | Permanent Redirect | Permanent redirect maintaining method |
+| Code | Status             | Use Case                              |
+| ---- | ------------------ | ------------------------------------- |
+| 301  | Moved Permanently  | Resource permanently moved            |
+| 302  | Found              | Temporary redirect                    |
+| 304  | Not Modified       | Cached content still valid            |
+| 307  | Temporary Redirect | POST redirect maintaining method      |
+| 308  | Permanent Redirect | Permanent redirect maintaining method |
 
 #### Client Errors (4xx)
 
-| Code | Status | Use Case |
-|------|--------|----------|
-| 400 | Bad Request | Invalid request format/data |
-| 401 | Unauthorized | Missing/invalid authentication |
-| 403 | Forbidden | Insufficient permissions |
-| 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | Resource conflict (duplicate) |
-| 413 | Payload Too Large | Request body too large |
-| 415 | Unsupported Media Type | Invalid content type |
-| 422 | Unprocessable Entity | Validation errors |
-| 429 | Too Many Requests | Rate limiting |
+| Code | Status                 | Use Case                       |
+| ---- | ---------------------- | ------------------------------ |
+| 400  | Bad Request            | Invalid request format/data    |
+| 401  | Unauthorized           | Missing/invalid authentication |
+| 403  | Forbidden              | Insufficient permissions       |
+| 404  | Not Found              | Resource doesn't exist         |
+| 409  | Conflict               | Resource conflict (duplicate)  |
+| 413  | Payload Too Large      | Request body too large         |
+| 415  | Unsupported Media Type | Invalid content type           |
+| 422  | Unprocessable Entity   | Validation errors              |
+| 429  | Too Many Requests      | Rate limiting                  |
 
 #### Server Errors (5xx)
 
-| Code | Status | Use Case |
-|------|--------|----------|
-| 500 | Internal Server Error | Unexpected server error |
-| 501 | Not Implemented | Feature not implemented |
-| 502 | Bad Gateway | Upstream service error |
-| 503 | Service Unavailable | Service down/maintenance |
-| 504 | Gateway Timeout | Upstream timeout |
+| Code | Status                | Use Case                 |
+| ---- | --------------------- | ------------------------ |
+| 500  | Internal Server Error | Unexpected server error  |
+| 501  | Not Implemented       | Feature not implemented  |
+| 502  | Bad Gateway           | Upstream service error   |
+| 503  | Service Unavailable   | Service down/maintenance |
+| 504  | Gateway Timeout       | Upstream timeout         |
 
 ## Best Practices
 
 ### ✅ Do's
 
 1. **Always set status codes**
+
    ```go
    response := replify.New().
        WithStatusCode(200).
@@ -726,6 +733,7 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
    ```
 
 2. **Use request IDs for tracing**
+
    ```go
    response := replify.New().
        WithRequestID(r.Header.Get("X-Request-ID")).
@@ -733,6 +741,7 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
    ```
 
 3. **Include API version**
+
    ```go
    response := replify.New().
        WithApiVersion("v1.0.0").
@@ -740,6 +749,7 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
    ```
 
 4. **Use WithErrorAck for stack traces**
+
    ```go
    response := replify.New().
        WithStatusCode(500).
@@ -747,6 +757,7 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
    ```
 
 5. **Check response status before processing**
+
    ```go
    if response.IsSuccess() {
        processData(response.Body())
@@ -764,20 +775,22 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
 ### ❌ Don'ts
 
 1. **Don't forget to set status codes**
+
    ```go
    // ❌ Bad
    response := replify.New().WithBody(data)
-   
+
    // ✅ Good
    response := replify.New().WithStatusCode(200).WithBody(data)
    ```
 
 2. **Don't expose sensitive debug info in production**
+
    ```go
    // ❌ Bad
    response := replify.New().
        WithDebuggingKV("database_password", dbPass)
-   
+
    // ✅ Good
    if os.Getenv("ENV") == "development" {
        response.WithDebuggingKV("query", sqlQuery)
@@ -785,19 +798,21 @@ The `R` type is a high-level abstraction providing a simplified interface for ha
    ```
 
 3. **Don't use generic error messages**
+
    ```go
    // ❌ Bad
    WithError("Error occurred")
-   
+
    // ✅ Good
    WithError("Failed to create user: email already exists")
    ```
 
 4. **Don't ignore error checking**
+
    ```go
    // ❌ Bad
    wrapper, _ := replify.UnwrapJSON(jsonStr)
-   
+
    // ✅ Good
    wrapper, err := replify.UnwrapJSON(jsonStr)
    if err != nil {
@@ -845,15 +860,15 @@ HTTP Request → wrapper.WithBody(data) → wrapper.QueryJSONBody("user.name")
 
 ### When to Use fj Instead of encoding/json
 
-| Scenario | Recommended approach |
-|---|---|
-| Extract one or a few fields from a large response body | `fj` / `QueryJSONBody` |
-| Validate that the body is well-formed JSON | `fj.IsValidJSON` / `ValidJSONBody` |
-| Search leaf values or keys across an unknown schema | `fj.Search` / `SearchJSONBody*` |
-| Apply streaming transforms (pretty-print, minify, etc.) | `fj` transformers |
-| Bind the full payload into a typed struct | `encoding/json` or `json-iterator` |
-| Write or modify JSON | `encoding/json` |
-| JSON schema validation | a dedicated schema library |
+| Scenario                                                | Recommended approach               |
+| ------------------------------------------------------- | ---------------------------------- |
+| Extract one or a few fields from a large response body  | `fj` / `QueryJSONBody`             |
+| Validate that the body is well-formed JSON              | `fj.IsValidJSON` / `ValidJSONBody` |
+| Search leaf values or keys across an unknown schema     | `fj.Search` / `SearchJSONBody*`    |
+| Apply streaming transforms (pretty-print, minify, etc.) | `fj` transformers                  |
+| Bind the full payload into a typed struct               | `encoding/json` or `json-iterator` |
+| Write or modify JSON                                    | `encoding/json`                    |
+| JSON schema validation                                  | a dedicated schema library         |
 
 ### Path Syntax Quick Reference
 
@@ -878,7 +893,7 @@ Dots and wildcards in key names can be escaped with a backslash (`\`).
 #### Direct fj usage
 
 ```go
-import "github.com/sivaosorg/replify/pkg/fj"
+import "github.com/polarixa/replify/pkg/fj"
 
 json := `{
     "user": {"name": "Alice", "age": 30, "active": true},
@@ -1013,67 +1028,67 @@ path.@transformerName:{"key":"value"}
 
 #### Core transformers
 
-| Transformer | Alias(es) | Input | Description |
-|---|---|---|---|
-| `@pretty` | — | any | Pretty-print (indented) JSON. Accepts optional `{"sort_keys":true,"indent":"\t","prefix":"","width":80}`. |
-| `@minify` | `@ugly` | any | Compact single-line JSON (all whitespace removed). |
-| `@valid` | — | any | Returns `"true"` / `"false"` — whether the input is valid JSON. |
-| `@this` | — | any | Identity — returns the input unchanged. |
-| `@reverse` | — | array \| object | Reverses element order (array) or key order (object). |
-| `@flatten` | — | array | Shallow-flatten nested arrays. Pass `{"deep":true}` to recurse. |
-| `@join` | — | array of objects | Merge an array of objects into one object. Pass `{"preserve":true}` to keep duplicate keys. |
-| `@keys` | — | object | Return a JSON array of the object's keys. |
-| `@values` | — | object | Return a JSON array of the object's values. |
-| `@group` | — | object of arrays | Zip object-of-arrays into an array-of-objects. |
-| `@search` | — | any | `@search:path` — collect all values reachable at `path` anywhere in the tree. |
-| `@json` | — | string | Parse the string as JSON and return the value. |
-| `@string` | — | any | Encode the value as a JSON string literal. |
+| Transformer | Alias(es) | Input            | Description                                                                                               |
+| ----------- | --------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `@pretty`   | —         | any              | Pretty-print (indented) JSON. Accepts optional `{"sort_keys":true,"indent":"\t","prefix":"","width":80}`. |
+| `@minify`   | `@ugly`   | any              | Compact single-line JSON (all whitespace removed).                                                        |
+| `@valid`    | —         | any              | Returns `"true"` / `"false"` — whether the input is valid JSON.                                           |
+| `@this`     | —         | any              | Identity — returns the input unchanged.                                                                   |
+| `@reverse`  | —         | array \| object  | Reverses element order (array) or key order (object).                                                     |
+| `@flatten`  | —         | array            | Shallow-flatten nested arrays. Pass `{"deep":true}` to recurse.                                           |
+| `@join`     | —         | array of objects | Merge an array of objects into one object. Pass `{"preserve":true}` to keep duplicate keys.               |
+| `@keys`     | —         | object           | Return a JSON array of the object's keys.                                                                 |
+| `@values`   | —         | object           | Return a JSON array of the object's values.                                                               |
+| `@group`    | —         | object of arrays | Zip object-of-arrays into an array-of-objects.                                                            |
+| `@search`   | —         | any              | `@search:path` — collect all values reachable at `path` anywhere in the tree.                             |
+| `@json`     | —         | string           | Parse the string as JSON and return the value.                                                            |
+| `@string`   | —         | any              | Encode the value as a JSON string literal.                                                                |
 
 #### String transformers
 
-| Transformer | Alias(es) | Description |
-|---|---|---|
-| `@uppercase` | `@upper` | Convert all characters to upper-case. |
-| `@lowercase` | `@lower` | Convert all characters to lower-case. |
-| `@flip` | — | Reverse the characters of the string. |
-| `@trim` | — | Strip leading/trailing whitespace. |
-| `@snakecase` | `@snake`, `@snakeCase` | Convert to `snake_case`. |
-| `@camelcase` | `@camel`, `@camelCase` | Convert to `camelCase`. |
-| `@kebabcase` | `@kebab`, `@kebabCase` | Convert to `kebab-case`. |
-| `@replace` | — | `@replace:{"target":"old","replacement":"new"}` — replace first occurrence. |
-| `@replaceAll` | — | `@replaceAll:{"target":"old","replacement":"new"}` — replace all occurrences. |
-| `@hex` | — | Hex-encode the value. |
-| `@bin` | — | Binary-encode the value. |
-| `@insertAt` | — | `@insertAt:{"index":5,"insert":"XYZ"}` — insert a substring at position. |
-| `@wc` | — | Return the word-count of a string as an integer. |
-| `@padLeft` | — | `@padLeft:{"padding":"*","length":10}` — left-pad to a fixed width. |
-| `@padRight` | — | `@padRight:{"padding":"*","length":10}` — right-pad to a fixed width. |
+| Transformer   | Alias(es)              | Description                                                                   |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `@uppercase`  | `@upper`               | Convert all characters to upper-case.                                         |
+| `@lowercase`  | `@lower`               | Convert all characters to lower-case.                                         |
+| `@flip`       | —                      | Reverse the characters of the string.                                         |
+| `@trim`       | —                      | Strip leading/trailing whitespace.                                            |
+| `@snakecase`  | `@snake`, `@snakeCase` | Convert to `snake_case`.                                                      |
+| `@camelcase`  | `@camel`, `@camelCase` | Convert to `camelCase`.                                                       |
+| `@kebabcase`  | `@kebab`, `@kebabCase` | Convert to `kebab-case`.                                                      |
+| `@replace`    | —                      | `@replace:{"target":"old","replacement":"new"}` — replace first occurrence.   |
+| `@replaceAll` | —                      | `@replaceAll:{"target":"old","replacement":"new"}` — replace all occurrences. |
+| `@hex`        | —                      | Hex-encode the value.                                                         |
+| `@bin`        | —                      | Binary-encode the value.                                                      |
+| `@insertAt`   | —                      | `@insertAt:{"index":5,"insert":"XYZ"}` — insert a substring at position.      |
+| `@wc`         | —                      | Return the word-count of a string as an integer.                              |
+| `@padLeft`    | —                      | `@padLeft:{"padding":"*","length":10}` — left-pad to a fixed width.           |
+| `@padRight`   | —                      | `@padRight:{"padding":"*","length":10}` — right-pad to a fixed width.         |
 
 #### Object transformers
 
-| Transformer | Description |
-|---|---|
-| `@project` | Pick and/or rename fields from an object. Arg: `{"pick":["f1","f2"],"rename":{"f1":"newName"}}`. Omit `pick` to keep all fields; omit `rename` for no renaming. |
-| `@default` | Inject fallback values for fields that are absent or `null`. Arg: `{"field":"defaultValue",...}`. Existing non-null fields are never overwritten. |
+| Transformer | Description                                                                                                                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@project`  | Pick and/or rename fields from an object. Arg: `{"pick":["f1","f2"],"rename":{"f1":"newName"}}`. Omit `pick` to keep all fields; omit `rename` for no renaming. |
+| `@default`  | Inject fallback values for fields that are absent or `null`. Arg: `{"field":"defaultValue",...}`. Existing non-null fields are never overwritten.               |
 
 #### Array transformers
 
-| Transformer | Description |
-|---|---|
-| `@filter` | Keep only elements matching a condition. Arg: `{"key":"field","op":"eq","value":val}`. Operators: `eq` (default), `ne`, `gt`, `gte`, `lt`, `lte`, `contains`. |
-| `@pluck` | Extract a named field (supports dot-notation paths) from every element. Arg: field path string, e.g. `@pluck:name` or `@pluck:addr.city`. |
-| `@first` | Return the first element of the array, or `null` if empty. |
-| `@last` | Return the last element of the array, or `null` if empty. |
-| `@count` | Return the number of elements (array) or key-value pairs (object) as an integer. Scalars return `0`. |
-| `@sum` | Sum all numeric values in the array; non-numeric elements are skipped. Returns `0` for empty arrays. |
-| `@min` | Return the minimum numeric value in the array. Returns `null` when no numbers are present. |
-| `@max` | Return the maximum numeric value in the array. Returns `null` when no numbers are present. |
+| Transformer | Description                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@filter`   | Keep only elements matching a condition. Arg: `{"key":"field","op":"eq","value":val}`. Operators: `eq` (default), `ne`, `gt`, `gte`, `lt`, `lte`, `contains`. |
+| `@pluck`    | Extract a named field (supports dot-notation paths) from every element. Arg: field path string, e.g. `@pluck:name` or `@pluck:addr.city`.                     |
+| `@first`    | Return the first element of the array, or `null` if empty.                                                                                                    |
+| `@last`     | Return the last element of the array, or `null` if empty.                                                                                                     |
+| `@count`    | Return the number of elements (array) or key-value pairs (object) as an integer. Scalars return `0`.                                                          |
+| `@sum`      | Sum all numeric values in the array; non-numeric elements are skipped. Returns `0` for empty arrays.                                                          |
+| `@min`      | Return the minimum numeric value in the array. Returns `null` when no numbers are present.                                                                    |
+| `@max`      | Return the maximum numeric value in the array. Returns `null` when no numbers are present.                                                                    |
 
 #### Value normalization transformers
 
-| Transformer | Description |
-|---|---|
-| `@coerce` | Convert a scalar to a target type. Arg: `{"to":"string"}`, `{"to":"number"}`, or `{"to":"bool"}`. Objects and arrays are returned unchanged. |
+| Transformer | Description                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@coerce`   | Convert a scalar to a target type. Arg: `{"to":"string"}`, `{"to":"number"}`, or `{"to":"bool"}`. Objects and arrays are returned unchanged. |
 
 #### Examples
 
@@ -1350,7 +1365,7 @@ paths := response.FindJSONBodyPathsMatch("err*")
 ### Data Manipulation Helpers
 
 ```go
-import "github.com/sivaosorg/replify/pkg/fj"
+import "github.com/polarixa/replify/pkg/fj"
 
 // Count elements at a path
 n := response.CountJSONBody("items")
@@ -1449,16 +1464,19 @@ sorted := response.SortJSONBody("products", "price", true)
 To contribute to this project, follow these steps:
 
 1. **Clone the repository**
+
    ```bash
-   git clone --depth 1 https://github.com/sivaosorg/replify.git
+   git clone --depth 1 https://github.com/polarixa/replify.git
    ```
 
 2. **Navigate to the project directory**
+
    ```bash
    cd replify
    ```
 
 3. **Prepare the project environment**
+
    ```bash
    go mod tidy
    ```
@@ -1469,6 +1487,7 @@ To contribute to this project, follow these steps:
    - Update documentation
 
 5. **Run tests**
+
    ```bash
    go test ./...
    ```
@@ -1483,23 +1502,23 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Part of the **replify** ecosystem:
 
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library (this package)
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Type-safe collection utilities
-- [common](https://github.com/sivaosorg/replify/pkg/common) - Reflection-based utilities
-- [encoding](https://github.com/sivaosorg/replify/pkg/encoding) - JSON encoding utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [msort](https://github.com/sivaosorg/replify/pkg/msort) - Map sorting utilities
-- [randn](https://github.com/sivaosorg/replify/pkg/randn) - Random data generation
-- [ref](https://github.com/sivaosorg/replify/pkg/ref) - Pointer utilities
-- [strutil](https://github.com/sivaosorg/replify/pkg/strutil) - String utilities
-- [truncate](https://github.com/sivaosorg/replify/pkg/truncate) - String truncation utilities
+- [replify](https://github.com/polarixa/replify) - API response wrapping library (this package)
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Type-safe collection utilities
+- [common](https://github.com/polarixa/replify/pkg/common) - Reflection-based utilities
+- [encoding](https://github.com/polarixa/replify/pkg/encoding) - JSON encoding utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [msort](https://github.com/polarixa/replify/pkg/msort) - Map sorting utilities
+- [randn](https://github.com/polarixa/replify/pkg/randn) - Random data generation
+- [ref](https://github.com/polarixa/replify/pkg/ref) - Pointer utilities
+- [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities
+- [truncate](https://github.com/polarixa/replify/pkg/truncate) - String truncation utilities
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/sivaosorg/replify/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/sivaosorg/replify/discussions)
+- **Issues**: [GitHub Issues](https://github.com/polarixa/replify/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/polarixa/replify/discussions)
 
 ## Acknowledgments
 

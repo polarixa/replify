@@ -30,7 +30,7 @@ import (
     "net/http"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func loggingMiddleware(log *slogger.Logger, next http.Handler) http.Handler {
@@ -60,11 +60,11 @@ func loggingMiddleware(log *slogger.Logger, next http.Handler) http.Handler {
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
+| Pros                                                             | Cons                                                                         |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Every log line in a request carries `request_id` for correlation | Request ID must be propagated via context; forgetting `WithContext` loses it |
-| Level-aware: 5xx → Error, 4xx → Warn, 2xx → Info | Async handlers must explicitly carry ctx |
-| Zero allocation for `String` and `Duration` fields | — |
+| Level-aware: 5xx → Error, 4xx → Warn, 2xx → Info                 | Async handlers must explicitly carry ctx                                     |
+| Zero allocation for `String` and `Duration` fields               | —                                                                            |
 
 ---
 
@@ -91,7 +91,7 @@ import (
     "context"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 const slowQueryThreshold = 100 * time.Millisecond
@@ -135,11 +135,11 @@ func (r *UserRepository) FindByEmail(ctx context.Context, email string) (*User, 
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
-| `latency` is queryable — easy to build a slow-query dashboard | Adds a timing call to every query; negligible but not zero overhead |
-| Consistent field names across all repositories | Threshold is hardcoded; should be configurable via Options |
-| `Named("db.users")` distinguishes queries from different repos | — |
+| Pros                                                           | Cons                                                                |
+| -------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `latency` is queryable — easy to build a slow-query dashboard  | Adds a timing call to every query; negligible but not zero overhead |
+| Consistent field names across all repositories                 | Threshold is hardcoded; should be configurable via Options          |
+| `Named("db.users")` distinguishes queries from different repos | —                                                                   |
 
 ---
 
@@ -167,7 +167,7 @@ import (
     "fmt"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 type Worker struct {
@@ -235,11 +235,11 @@ func (w *Worker) processJob(ctx context.Context, job Job) {
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
+| Pros                                                                              | Cons                                                                         |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | Worker ID is in every log line — easy to correlate spikes with individual workers | Deferred recover adds a goroutine frame; use `runtime.Stack` for full traces |
-| Panics are logged instead of silently crashing the pool | — |
-| `elapsed` on every job enables latency percentile analysis | — |
+| Panics are logged instead of silently crashing the pool                           | —                                                                            |
+| `elapsed` on every job enables latency percentile analysis                        | —                                                                            |
 
 ---
 
@@ -267,7 +267,7 @@ import (
     "os"
 
     "go.opentelemetry.io/otel/trace"
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -313,6 +313,7 @@ func processPayment(ctx context.Context, payment Payment) error {
 ```
 
 **Sample JSON output:**
+
 ```json
 {
   "ts": "2026-01-15T10:00:00Z",
@@ -322,7 +323,7 @@ func processPayment(ctx context.Context, payment Payment) error {
   "service": "payment-service",
   "version": "2.4.1",
   "trace_id": "4bf92f3577b34da6a3ce929d0e0e4736",
-  "span_id":  "00f067aa0ba902b7",
+  "span_id": "00f067aa0ba902b7",
   "payment_id": "pay-789",
   "currency": "USD",
   "amount_cents": 4999
@@ -331,11 +332,11 @@ func processPayment(ctx context.Context, payment Payment) error {
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
-| Every log line is directly joinable to a distributed trace | Requires OpenTelemetry instrumentation in the application |
+| Pros                                                          | Cons                                                                           |
+| ------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| Every log line is directly joinable to a distributed trace    | Requires OpenTelemetry instrumentation in the application                      |
 | `service` and `version` are bound once, not repeated per call | Trace IDs are opaque strings; correlation requires a frontend (Jaeger, Zipkin) |
-| JSON output integrates with any modern observability stack | — |
+| JSON output integrates with any modern observability stack    | —                                                                              |
 
 ---
 
@@ -362,7 +363,7 @@ import (
     "flag"
     "os"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 var (
@@ -405,6 +406,7 @@ func main() {
 ```
 
 **Interactive terminal output (coloured):**
+
 ```
  INFO  starting command=deploy
  INFO  deploying service app=my-api env=staging
@@ -412,17 +414,23 @@ func main() {
 ```
 
 **JSON output (`--json`):**
+
 ```json
-{"ts":"2026-01-15T10:00:00Z","level":"INFO","msg":"starting","command":"deploy"}
+{
+  "ts": "2026-01-15T10:00:00Z",
+  "level": "INFO",
+  "msg": "starting",
+  "command": "deploy"
+}
 ```
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
+| Pros                                                            | Cons                                                                                 |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | Single formatter flag switches between human and machine output | Developers must remember to use `os.Stderr` for logs and `os.Stdout` for data output |
-| ANSI colors only on TTY — no escape sequences in pipes | `--verbose` only affects the root level; sub-commands cannot override independently |
-| `WithDisableTimestamp()` keeps output clean in interactive use | — |
+| ANSI colors only on TTY — no escape sequences in pipes          | `--verbose` only affects the root level; sub-commands cannot override independently  |
+| `WithDisableTimestamp()` keeps output clean in interactive use  | —                                                                                    |
 
 ---
 
@@ -450,7 +458,7 @@ import (
     "os"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 var auditLog *slogger.Logger
@@ -510,6 +518,7 @@ func generateEventID() string {
 ```
 
 **Usage:**
+
 ```go
 audit.Event(ctx,
     claims.UserID,
@@ -521,6 +530,7 @@ audit.Event(ctx,
 ```
 
 **Sample JSON output:**
+
 ```json
 {
   "ts": "2026-01-15T10:00:00Z",
@@ -542,11 +552,11 @@ audit.Event(ctx,
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
-| Mandatory fields (`actor`, `action`, `resource`) ensure schema compliance | A schema contract enforced only by convention; no compile-time guarantee |
-| Separate logger prevents audit noise from mixing with application logs | Audit logger must never be silenced — `FatalLevel` + `os.Exit(1)` would lose events |
-| File rotation keeps archives small and manageable | Compliance requirements may mandate a tamper-evident log store (use a hook to ship to WORM storage) |
+| Pros                                                                      | Cons                                                                                                |
+| ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Mandatory fields (`actor`, `action`, `resource`) ensure schema compliance | A schema contract enforced only by convention; no compile-time guarantee                            |
+| Separate logger prevents audit noise from mixing with application logs    | Audit logger must never be silenced — `FatalLevel` + `os.Exit(1)` would lose events                 |
+| File rotation keeps archives small and manageable                         | Compliance requirements may mandate a tamper-evident log store (use a hook to ship to WORM storage) |
 
 ---
 
@@ -576,7 +586,7 @@ import (
     "syscall"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 func main() {
@@ -638,6 +648,7 @@ func mustHostname() string {
 ```
 
 **Archive structure after several rotations:**
+
 ```
 /var/log/my-service/
 ├── debug.log                          (active, current day)
@@ -659,10 +670,9 @@ func mustHostname() string {
 
 ### Pros and cons
 
-| Pros | Cons |
-|---|---|
-| Per-level files allow `grep`/`tail` to focus on severity | Four open file handles per service instance; manageable but worth tracking |
-| Compressed archives (`.zip`) reduce disk usage by 80-95% for typical log content | Archived files must be explicitly decompressed before `grep`/analysis |
-| SIGHUP integration allows logrotate(8) compatibility | Go's `os.Rename` is atomic on Linux but not on all OSes |
-| `host` field in every entry simplifies multi-node debugging | For Kubernetes, prefer stdout and let the container runtime handle rotation |
-
+| Pros                                                                             | Cons                                                                        |
+| -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Per-level files allow `grep`/`tail` to focus on severity                         | Four open file handles per service instance; manageable but worth tracking  |
+| Compressed archives (`.zip`) reduce disk usage by 80-95% for typical log content | Archived files must be explicitly decompressed before `grep`/analysis       |
+| SIGHUP integration allows logrotate(8) compatibility                             | Go's `os.Rename` is atomic on Linux but not on all OSes                     |
+| `host` field in every entry simplifies multi-node debugging                      | For Kubernetes, prefer stdout and let the container runtime handle rotation |

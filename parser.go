@@ -3,8 +3,8 @@ package replify
 import (
 	"reflect"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/fj"
 )
 
 // JSONBodyParser parses the body of the wrapper as JSON and returns a fj.Context for the

@@ -18,6 +18,7 @@ The `ref` package solves common pointer-related challenges in Go by providing:
 ## Use Cases
 
 ### When to Use
+
 - ✅ **API requests/responses** - optional fields with `omitempty`
 - ✅ **Database models** - nullable fields that can be NULL
 - ✅ **Configuration management** - optional settings with defaults
@@ -28,6 +29,7 @@ The `ref` package solves common pointer-related challenges in Go by providing:
 - ✅ **Functional transformations** - map/filter operations on optional values
 
 ### When Not to Use
+
 - ❌ **Simple non-optional values** - use regular values instead
 - ❌ **Always-present data** - pointers add unnecessary complexity
 - ❌ **Performance-critical hot paths** - pointer operations have overhead
@@ -36,13 +38,13 @@ The `ref` package solves common pointer-related challenges in Go by providing:
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/ref"
+import "github.com/polarixa/replify/pkg/ref"
 ```
 
 **Requirements:** Go 1.18 or higher (for generics support)
@@ -56,26 +58,26 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/ref"
+    "github.com/polarixa/replify/pkg/ref"
 )
 
 func main() {
     // Create pointers inline
     name := ref.Ptr("John Doe")
     age := ref.Ptr(30)
-    
+
     // Safe dereferencing
     fmt.Println(ref.Deref(name))     // "John Doe"
     fmt.Println(ref.Deref((*string)(nil))) // "" (zero value)
-    
+
     // With custom defaults
     fmt.Println(ref.DerefOr((*int)(nil), 100)) // 100
-    
+
     // Nil checking
     if ref.IsNotNil(name) {
         fmt.Println("Name is provided:", *name)
     }
-    
+
     // Transform pointer values
     upper := ref.Map(name, strings.ToUpper)
     fmt.Println(*upper) // "JOHN DOE"
@@ -152,11 +154,11 @@ type User struct {
 
 func DisplayUser(user User) {
     fmt.Printf("User: %s\n", user.Name)
-    
+
     // Safe dereferencing with zero values
     email := ref.Deref(user.Email) // "" if nil
     phone := ref.Deref(user.Phone) // "" if nil
-    
+
     if email != "" {
         fmt.Printf("Email: %s\n", email)
     }
@@ -180,17 +182,17 @@ func ValidateCreateUser(req CreateUserRequest) error {
     if !ref.All(req.Name, req.Email, req.Password) {
         return errors.New("all fields are required")
     }
-    
+
     // Safe to dereference after validation
     name := ref.Must(req.Name)
     email := ref.Must(req.Email)
     password := ref.Must(req.Password)
-    
+
     // Additional validation...
     if len(name) < 2 {
         return errors.New("name too short")
     }
-    
+
     return nil
 }
 ```
@@ -207,7 +209,7 @@ type UpdateUserRequest struct {
 func UpdateUser(userID int, req UpdateUserRequest) error {
     // Only update provided fields
     updates := make(map[string]interface{})
-    
+
     if ref.IsNotNil(req.Name) {
         updates["name"] = *req.Name
     }
@@ -217,11 +219,11 @@ func UpdateUser(userID int, req UpdateUserRequest) error {
     if ref.IsNotNil(req.Age) {
         updates["age"] = *req.Age
     }
-    
+
     if len(updates) == 0 {
         return errors.New("no fields to update")
     }
-    
+
     return db.Model(&User{}).Where("id = ?", userID).Updates(updates).Error
 }
 ```
@@ -310,7 +312,7 @@ ref.IfElse(user.Phone,
 func GetUserName(userID int) *string {
     // Try cache first (fast)
     cached := getFromCache(userID)
-    
+
     // Only query database if cache miss (expensive)
     return ref.OrElseGet(cached, func() *string {
         return queryDatabase(userID)
@@ -445,13 +447,14 @@ if ref.IsNotNil(zipCode) {
 
 ### Pointer Creation
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `Ptr[T any](v T) *T` | Creates pointer to value | Inline pointer creation |
-| `ToPtr[T comparable](v T) *T` | Creates pointer only if not zero value | Omit zero values |
-| `Copy[T any](ptr *T) *T` | Creates independent copy | Deep copy pointer value |
+| Function                      | Signature                              | Description             |
+| ----------------------------- | -------------------------------------- | ----------------------- |
+| `Ptr[T any](v T) *T`          | Creates pointer to value               | Inline pointer creation |
+| `ToPtr[T comparable](v T) *T` | Creates pointer only if not zero value | Omit zero values        |
+| `Copy[T any](ptr *T) *T`      | Creates independent copy               | Deep copy pointer value |
 
 **Examples:**
+
 ```go
 name := ref.Ptr("John")          // &"John"
 age := ref.ToPtr(0)              // nil (zero value)
@@ -462,14 +465,15 @@ clone := ref.Copy(name)          // Independent copy
 
 ### Safe Dereferencing
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `Deref[T any](ptr *T) T` | Returns value or zero value | Safe deref with zero default |
-| `DerefOr[T any](ptr *T, def T) T` | Returns value or custom default | Safe deref with custom default |
-| `Must[T any](ptr *T) T` | Returns value or panics | For validated non-nil pointers |
-| `MustPtr[T any](ptr *T, msg string) T` | Returns value or panics with message | With custom panic message |
+| Function                               | Signature                            | Description                    |
+| -------------------------------------- | ------------------------------------ | ------------------------------ |
+| `Deref[T any](ptr *T) T`               | Returns value or zero value          | Safe deref with zero default   |
+| `DerefOr[T any](ptr *T, def T) T`      | Returns value or custom default      | Safe deref with custom default |
+| `Must[T any](ptr *T) T`                | Returns value or panics              | For validated non-nil pointers |
+| `MustPtr[T any](ptr *T, msg string) T` | Returns value or panics with message | With custom panic message      |
 
 **Examples:**
+
 ```go
 value := ref.Deref(ptr)          // Zero value if nil
 value := ref.DerefOr(ptr, 100)   // 100 if nil
@@ -481,13 +485,14 @@ value := ref.MustPtr(ptr, "required") // Panics with message
 
 ### Nil Checking
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `IsNil[T any](ptr *T) bool` | Checks if pointer is nil | Explicit nil check |
-| `IsNotNil[T any](ptr *T) bool` | Checks if pointer is not nil | Positive condition check |
-| `Equal[T comparable](a, b *T) bool` | Compares pointer values | Deep equality check |
+| Function                            | Signature                    | Description              |
+| ----------------------------------- | ---------------------------- | ------------------------ |
+| `IsNil[T any](ptr *T) bool`         | Checks if pointer is nil     | Explicit nil check       |
+| `IsNotNil[T any](ptr *T) bool`      | Checks if pointer is not nil | Positive condition check |
+| `Equal[T comparable](a, b *T) bool` | Compares pointer values      | Deep equality check      |
 
 **Examples:**
+
 ```go
 if ref.IsNil(ptr) { }
 if ref.IsNotNil(ptr) { }
@@ -498,15 +503,16 @@ if ref.Equal(ptr1, ptr2) { }
 
 ### Functional Operations
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `Map[T, R](ptr *T, fn func(T) R) *R` | Transform pointer value | Apply function if non-nil |
-| `FlatMap[T, R](ptr *T, fn func(T) *R) *R` | Chain optional operations | For nested optionals |
-| `Filter[T](ptr *T, pred func(T) bool) *T` | Filter by predicate | Keep if condition true |
-| `MapOr[T, R](ptr *T, fn func(T) R, def R) R` | Map with default | Transform or return default |
-| `Validate[T](ptr *T, validator func(T) error) *T` | Validate pointer value | Filter by validation |
+| Function                                          | Signature                 | Description                 |
+| ------------------------------------------------- | ------------------------- | --------------------------- |
+| `Map[T, R](ptr *T, fn func(T) R) *R`              | Transform pointer value   | Apply function if non-nil   |
+| `FlatMap[T, R](ptr *T, fn func(T) *R) *R`         | Chain optional operations | For nested optionals        |
+| `Filter[T](ptr *T, pred func(T) bool) *T`         | Filter by predicate       | Keep if condition true      |
+| `MapOr[T, R](ptr *T, fn func(T) R, def R) R`      | Map with default          | Transform or return default |
+| `Validate[T](ptr *T, validator func(T) error) *T` | Validate pointer value    | Filter by validation        |
 
 **Examples:**
+
 ```go
 upper := ref.Map(name, strings.ToUpper)
 adult := ref.Filter(age, func(a int) bool { return a >= 18 })
@@ -517,14 +523,15 @@ result := ref.MapOr(name, transform, "default")
 
 ### Fallback and Coalescing
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `CoalescePtr[T](ptrs ...*T) *T` | First non-nil pointer | Returns pointer |
-| `Coalesce[T](ptrs ...*T) T` | First non-nil value | Returns dereferenced value |
-| `OrElse[T](ptr, alt *T) *T` | Fallback pointer | Returns ptr or alternative |
-| `OrElseGet[T](ptr *T, fn func() *T) *T` | Lazy fallback | Compute fallback only if needed |
+| Function                                | Signature             | Description                     |
+| --------------------------------------- | --------------------- | ------------------------------- |
+| `CoalescePtr[T](ptrs ...*T) *T`         | First non-nil pointer | Returns pointer                 |
+| `Coalesce[T](ptrs ...*T) T`             | First non-nil value   | Returns dereferenced value      |
+| `OrElse[T](ptr, alt *T) *T`             | Fallback pointer      | Returns ptr or alternative      |
+| `OrElseGet[T](ptr *T, fn func() *T) *T` | Lazy fallback         | Compute fallback only if needed |
 
 **Examples:**
+
 ```go
 ptr := ref.CoalescePtr(user, env, default)
 val := ref.Coalesce(user, env, default)
@@ -536,12 +543,13 @@ ptr := ref.OrElseGet(cached, fetchFromDB)
 
 ### Conditional Execution
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `If[T](ptr *T, fn func(T)) bool` | Execute if non-nil | Side effect on value |
-| `IfElse[T](ptr *T, onPresent func(T), onAbsent func())` | If-else branching | Execute based on presence |
+| Function                                                | Signature          | Description               |
+| ------------------------------------------------------- | ------------------ | ------------------------- |
+| `If[T](ptr *T, fn func(T)) bool`                        | Execute if non-nil | Side effect on value      |
+| `IfElse[T](ptr *T, onPresent func(T), onAbsent func())` | If-else branching  | Execute based on presence |
 
 **Examples:**
+
 ```go
 executed := ref.If(email, sendEmail)
 ref.IfElse(phone, sendSMS, logMissing)
@@ -551,12 +559,13 @@ ref.IfElse(phone, sendSMS, logMissing)
 
 ### Bulk Operations
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
+| Function                  | Signature         | Description              |
+| ------------------------- | ----------------- | ------------------------ |
 | `All[T](ptrs ...*T) bool` | Check all non-nil | Validate required fields |
-| `Any[T](ptrs ...*T) bool` | Check any non-nil | At least one present |
+| `Any[T](ptrs ...*T) bool` | Check any non-nil | At least one present     |
 
 **Examples:**
+
 ```go
 if ref.All(name, email, password) { /* all required */ }
 if ref.Any(email, phone, address) { /* at least one */ }
@@ -567,26 +576,28 @@ if ref.Any(email, phone, address) { /* at least one */ }
 ### ⚠️ Common Pitfalls
 
 1. **Overusing Must**
+
    ```go
    // ❌ Bad: May panic in production
    name := ref.Must(req.Name)
-   
+
    // ✅ Good: Validate first or use safe alternatives
    if ref.IsNil(req.Name) {
        return errors.New("name required")
    }
    name := *req.Name
-   
+
    // ✅ Better: Use with defaults
    name := ref.DerefOr(req.Name, "Anonymous")
    ```
 
 2. **Not Checking Validation Results**
+
    ```go
    // ❌ Bad: Assuming validation succeeded
    validEmail := ref.Validate(email, isValidEmail)
    sendEmail(*validEmail) // May panic if nil
-   
+
    // ✅ Good: Check result
    if validEmail := ref.Validate(email, isValidEmail); ref.IsNotNil(validEmail) {
        sendEmail(*validEmail)
@@ -594,13 +605,14 @@ if ref.Any(email, phone, address) { /* at least one */ }
    ```
 
 3. **Unnecessary Pointer Usage**
+
    ```go
    // ❌ Bad: Pointer for always-present field
    type User struct {
        ID   *int    // Always present, shouldn't be pointer
        Name *string // Always present, shouldn't be pointer
    }
-   
+
    // ✅ Good: Only optional fields are pointers
    type User struct {
        ID    int
@@ -611,12 +623,13 @@ if ref.Any(email, phone, address) { /* at least one */ }
    ```
 
 4. **Modifying Shared Pointers**
+
    ```go
    // ❌ Dangerous: Modifying shared pointer
    ptr1 := ref.Ptr("original")
    ptr2 := ptr1
    *ptr2 = "modified" // Affects ptr1 too!
-   
+
    // ✅ Safe: Use Copy for independent values
    ptr1 := ref.Ptr("original")
    ptr2 := ref.Copy(ptr1)
@@ -626,6 +639,7 @@ if ref.Any(email, phone, address) { /* at least one */ }
 ### 💡 Recommendations
 
 ✅ **Use for optional fields**
+
 ```go
 type Config struct {
     Host     string  // Required
@@ -636,6 +650,7 @@ type Config struct {
 ```
 
 ✅ **Use ToPtr for omitting zero values**
+
 ```go
 req := APIRequest{
     Name:  ref.ToPtr(name),  // Omit if ""
@@ -645,6 +660,7 @@ req := APIRequest{
 ```
 
 ✅ **Validate before Must**
+
 ```go
 if !ref.All(req.Name, req.Email) {
     return errors.New("missing required fields")
@@ -655,6 +671,7 @@ email := ref.Must(req.Email)
 ```
 
 ✅ **Use functional operations for transformations**
+
 ```go
 // Clean and expressive
 normalized := ref.Map(email, normalizeEmail)
@@ -662,6 +679,7 @@ adult := ref.Filter(age, isAdult)
 ```
 
 ✅ **Leverage OrElseGet for expensive operations**
+
 ```go
 // Only query DB if cache miss
 data := ref.OrElseGet(cached, queryDatabase)
@@ -690,11 +708,13 @@ go func() {
 ### ⚡ Performance Considerations
 
 **Pointer overhead:**
+
 - Pointers add memory indirection (slower access)
 - Heap allocations (GC pressure)
 - Use only when optionality is needed
 
 **Optimization tips:**
+
 ```go
 // ❌ Inefficient: Unnecessary pointers
 type Point struct {
@@ -719,6 +739,7 @@ type User struct {
 ### 🐛 Debugging Tips
 
 **Check for nil before dereferencing:**
+
 ```go
 if ref.IsNotNil(ptr) {
     value := *ptr
@@ -728,6 +749,7 @@ if ref.IsNotNil(ptr) {
 ```
 
 **Use Must in tests, avoid in production:**
+
 ```go
 // ✅ OK in tests
 func TestUser(t *testing.T) {
@@ -750,7 +772,7 @@ Example tests:
 func TestPtr(t *testing.T) {
     value := 42
     ptr := ref.Ptr(value)
-    
+
     assert.NotNil(t, ptr)
     assert.Equal(t, 42, *ptr)
 }
@@ -759,7 +781,7 @@ func TestDerefOr(t *testing.T) {
     var nilPtr *int
     result := ref.DerefOr(nilPtr, 100)
     assert.Equal(t, 100, result)
-    
+
     ptr := ref.Ptr(42)
     result = ref.DerefOr(ptr, 100)
     assert.Equal(t, 42, result)
@@ -777,33 +799,36 @@ func TestDerefOr(t *testing.T) {
 ## When to Use vs. Explicit Nil Checks
 
 **Use `ref` when:**
+
 - Working with optional struct fields
 - Building APIs with `omitempty`
 - Configuration with defaults
 - Functional transformations
 
 **Use explicit nil checks when:**
+
 - Simple one-off nil checks
 - Performance-critical paths
 - When clarity is more important than brevity
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Type-safe collection utilities
-- [common](https://github.com/sivaosorg/replify/pkg/common) - Reflection-based utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [strutil](https://github.com/sivaosorg/replify/pkg/strutil) - String utilities
-- [randn](https://github.com/sivaosorg/replify/pkg/randn) - Random data generation
-- [encoding](https://github.com/sivaosorg/replify/pkg/encoding) - JSON encoding utilities
+
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Type-safe collection utilities
+- [common](https://github.com/polarixa/replify/pkg/common) - Reflection-based utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities
+- [randn](https://github.com/polarixa/replify/pkg/randn) - Random data generation
+- [encoding](https://github.com/polarixa/replify/pkg/encoding) - JSON encoding utilities

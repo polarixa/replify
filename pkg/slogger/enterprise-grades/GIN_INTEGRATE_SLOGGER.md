@@ -24,15 +24,15 @@ Gin ships with its own `gin.Logger()` middleware that writes plaintext lines to
 `os.Stdout`. That is acceptable for toy projects, but production services need
 more:
 
-| Requirement | Gin default | slogger |
-|---|---|---|
-| Structured JSON fields | ✗ | ✓ |
-| Per-request trace/span IDs | ✗ | ✓ |
-| Context-propagated fields | ✗ | ✓ |
-| Per-level file rotation | ✗ | ✓ |
-| Hook-based alerting | ✗ | ✓ |
-| Sampling for chatty routes | ✗ | ✓ |
-| Zero external dependencies | N/A | ✓ |
+| Requirement                | Gin default | slogger |
+| -------------------------- | ----------- | ------- |
+| Structured JSON fields     | ✗           | ✓       |
+| Per-request trace/span IDs | ✗           | ✓       |
+| Context-propagated fields  | ✗           | ✓       |
+| Per-level file rotation    | ✗           | ✓       |
+| Hook-based alerting        | ✗           | ✓       |
+| Sampling for chatty routes | ✗           | ✓       |
+| Zero external dependencies | N/A         | ✓       |
 
 Replacing Gin's default logger with slogger gives you:
 
@@ -62,7 +62,7 @@ import (
     "os"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 // Init configures the global slogger instance for the application.
@@ -143,7 +143,7 @@ import (
     "time"
 
     "github.com/gin-gonic/gin"
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 // SloggerMiddleware returns a Gin middleware that logs every request using
@@ -263,7 +263,7 @@ package service
 import (
     "context"
 
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
 )
 
 // UserService handles user business logic with structured logging.
@@ -301,13 +301,23 @@ func (s *UserService) Create(ctx context.Context, req CreateUserRequest) (*User,
 ```
 
 **Text output example:**
+
 ```
 2026-01-15T10:00:00Z INFO  [user-service] creating user email=alice@example.com request_id=req-001 trace_id=abc123
 ```
 
 **JSON output example:**
+
 ```json
-{"ts":"2026-01-15T10:00:00Z","level":"INFO","name":"user-service","msg":"creating user","email":"alice@example.com","request_id":"req-001","trace_id":"abc123"}
+{
+  "ts": "2026-01-15T10:00:00Z",
+  "level": "INFO",
+  "name": "user-service",
+  "msg": "creating user",
+  "email": "alice@example.com",
+  "request_id": "req-001",
+  "trace_id": "abc123"
+}
 ```
 
 ---
@@ -348,12 +358,12 @@ func SloggerMiddleware() gin.HandlerFunc {
 After the middleware runs, every `log.WithContext(ctx)` call anywhere in the
 request's call stack will automatically include:
 
-| Field | Example | Source |
-|---|---|---|
-| `request_id` | `"req-abc123"` | X-Request-ID header |
-| `trace_id` | `"4bf92f3577b34da6..."` | OpenTelemetry span |
-| `span_id` | `"00f067aa0ba902b7"` | OpenTelemetry span |
-| `user_id` | `"u-42"` | Set after authentication |
+| Field        | Example                 | Source                   |
+| ------------ | ----------------------- | ------------------------ |
+| `request_id` | `"req-abc123"`          | X-Request-ID header      |
+| `trace_id`   | `"4bf92f3577b34da6..."` | OpenTelemetry span       |
+| `span_id`    | `"00f067aa0ba902b7"`    | OpenTelemetry span       |
+| `user_id`    | `"u-42"`                | Set after authentication |
 
 Add the user ID after authentication:
 
@@ -403,6 +413,7 @@ slogger.SetGlobalLogger(log)
 ```
 
 The archive structure produced:
+
 ```
 /var/log/my-api/
 ├── info.log              (active)
@@ -515,8 +526,8 @@ slogger:
     # File names for each severity level.
     # These correspond to the four level buckets managed by LevelFileWriter.
     # Trace-level entries route to debug.log; Fatal/Panic route to error.log.
-    info_file:  info.log
-    warn_file:  warn.log
+    info_file: info.log
+    warn_file: warn.log
     error_file: error.log
     debug_file: debug.log
 
@@ -635,7 +646,7 @@ import (
     "time"
 
     "gopkg.in/yaml.v3"
-    "github.com/sivaosorg/replify/pkg/slogger"
+    "github.com/polarixa/replify/pkg/slogger"
     "myapp/config"
 )
 
@@ -733,13 +744,13 @@ func main() {
 The following environment variables are checked after the YAML file is parsed
 and take precedence when set:
 
-| Variable | YAML equivalent | Example |
-|---|---|---|
-| `LOG_LEVEL` | `slogger.level` | `LOG_LEVEL=debug` |
-| `LOG_FORMATTER` | `slogger.formatter` | `LOG_FORMATTER=json` |
-| `LOG_DIR` | `slogger.file.directory` | `LOG_DIR=/var/log/my-api` |
+| Variable               | YAML equivalent            | Example                     |
+| ---------------------- | -------------------------- | --------------------------- |
+| `LOG_LEVEL`            | `slogger.level`            | `LOG_LEVEL=debug`           |
+| `LOG_FORMATTER`        | `slogger.formatter`        | `LOG_FORMATTER=json`        |
+| `LOG_DIR`              | `slogger.file.directory`   | `LOG_DIR=/var/log/my-api`   |
 | `LOG_ROTATION_ENABLED` | `slogger.rotation.enabled` | `LOG_ROTATION_ENABLED=true` |
-| `LOG_CALLER_ENABLED` | `slogger.caller.enabled` | `LOG_CALLER_ENABLED=false` |
+| `LOG_CALLER_ENABLED`   | `slogger.caller.enabled`   | `LOG_CALLER_ENABLED=false`  |
 
 Extend `applyConfig` to check these variables using `os.Getenv` after parsing
 the YAML struct, substituting the environment value when non-empty.

@@ -16,6 +16,7 @@ The `randn` package simplifies random data generation in Go by providing:
 ## Use Cases
 
 ### When to Use
+
 - ✅ **UUID generation** - create unique identifiers for database records
 - ✅ **Session tokens** - generate secure session IDs
 - ✅ **API keys** - create cryptographically secure keys
@@ -27,6 +28,7 @@ The `randn` package simplifies random data generation in Go by providing:
 - ✅ **Simulations** - random data for statistical simulations
 
 ### When Not to Use
+
 - ❌ **Cryptographic keys** - use dedicated crypto libraries (e.g., `crypto/ecdsa`, `crypto/rsa`)
 - ❌ **Password hashing** - use `bcrypt`, `argon2`, or similar
 - ❌ **Cross-platform UUIDs** - `UUID()` relies on `/dev/urandom` (Unix-only)
@@ -36,16 +38,17 @@ The `randn` package simplifies random data generation in Go by providing:
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/randn"
+import "github.com/polarixa/replify/pkg/randn"
 ```
 
-**Requirements:** 
+**Requirements:**
+
 - Go 1.13 or higher
 - Unix-based system for UUID functions (Linux, macOS, BSD)
 
@@ -58,7 +61,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/randn"
+    "github.com/polarixa/replify/pkg/randn"
 )
 
 func main() {
@@ -208,6 +211,7 @@ iv := randn.RandByte(16)
 ### 6. Practical Use Cases
 
 #### Database Record IDs
+
 ```go
 type User struct {
     ID        string
@@ -220,7 +224,7 @@ func NewUser(name string) (*User, error) {
     if err != nil {
         return nil, fmt.Errorf("failed to generate user ID: %w", err)
     }
-    
+
     return &User{
         ID:        uuid,
         Name:      name,
@@ -230,6 +234,7 @@ func NewUser(name string) (*User, error) {
 ```
 
 #### Session Token Generation
+
 ```go
 type Session struct {
     Token     string
@@ -247,6 +252,7 @@ func CreateSession(userID string) *Session {
 ```
 
 #### API Key Generation
+
 ```go
 func GenerateAPIKey() string {
     // Format: prefix + secure random ID
@@ -262,6 +268,7 @@ fmt.Println(apiKey)
 ```
 
 #### Invitation Code Generation
+
 ```go
 func GenerateInviteCode() string {
     // 8-character alphanumeric code
@@ -275,6 +282,7 @@ fmt.Println("Invite code:", code)
 ```
 
 #### Random Test Data
+
 ```go
 type TestUser struct {
     ID    string
@@ -292,6 +300,7 @@ func GenerateTestUser() TestUser {
 ```
 
 #### Time-Ordered IDs
+
 ```go
 // Generate sortable IDs based on timestamp
 func GenerateOrderedID() string {
@@ -308,16 +317,17 @@ ids := []string{
 ```
 
 #### Random Sampling
+
 ```go
 // Select random items from a list
 func RandomSample(items []string, count int) []string {
     if count > len(items) {
         count = len(items)
     }
-    
+
     selected := make([]string, 0, count)
     used := make(map[int]bool)
-    
+
     for len(selected) < count {
         idx := randn.RandIntr(0, len(items)-1)
         if !used[idx] {
@@ -325,12 +335,13 @@ func RandomSample(items []string, count int) []string {
             used[idx] = true
         }
     }
-    
+
     return selected
 }
 ```
 
 #### Simulation Data
+
 ```go
 // Generate random sensor readings
 type SensorReading struct {
@@ -354,11 +365,11 @@ func SimulateSensorReading() SensorReading {
 
 ### UUID Functions
 
-| Function | Description | Returns | Error Handling |
-|----------|-------------|---------|----------------|
-| `UUID() (string, error)` | Generate standard UUID with dashes | UUID string | Returns error if `/dev/urandom` unavailable |
-| `UUIDSep(delimiter string) (string, error)` | Generate UUID with custom delimiter | UUID string | Returns error if `/dev/urandom` unavailable |
-| `RandUUID() string` | Generate UUID without error handling | UUID string or empty | Returns `""` on error |
+| Function                                    | Description                          | Returns              | Error Handling                              |
+| ------------------------------------------- | ------------------------------------ | -------------------- | ------------------------------------------- |
+| `UUID() (string, error)`                    | Generate standard UUID with dashes   | UUID string          | Returns error if `/dev/urandom` unavailable |
+| `UUIDSep(delimiter string) (string, error)` | Generate UUID with custom delimiter  | UUID string          | Returns error if `/dev/urandom` unavailable |
+| `RandUUID() string`                         | Generate UUID without error handling | UUID string or empty | Returns `""` on error                       |
 
 **UUID Format:** `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` (32 hex digits with dashes)
 
@@ -368,11 +379,11 @@ func SimulateSensorReading() SensorReading {
 
 ### ID Generation Functions
 
-| Function | Description | Parameters | Returns |
-|----------|-------------|------------|---------|
-| `RandID(length int) string` | Alphanumeric ID | `length` - ID length | Random string (A-Z, a-z, 0-9) |
-| `CryptoID() string` | Cryptographically secure hex ID | None | 32-character hex string |
-| `TimeID() string` | Timestamp-based ID | None | Nanosecond timestamp + random int |
+| Function                    | Description                     | Parameters           | Returns                           |
+| --------------------------- | ------------------------------- | -------------------- | --------------------------------- |
+| `RandID(length int) string` | Alphanumeric ID                 | `length` - ID length | Random string (A-Z, a-z, 0-9)     |
+| `CryptoID() string`         | Cryptographically secure hex ID | None                 | 32-character hex string           |
+| `TimeID() string`           | Timestamp-based ID              | None                 | Nanosecond timestamp + random int |
 
 **RandID Characters:** `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789`
 
@@ -384,12 +395,13 @@ func SimulateSensorReading() SensorReading {
 
 ### Random Integer Functions
 
-| Function | Description | Parameters | Returns | Range |
-|----------|-------------|------------|---------|-------|
-| `RandInt() int` | Random integer | None | Random int | Full int range |
-| `RandIntr(min, max int) int` | Random integer in range | `min`, `max` (inclusive) | Random int | [min, max] |
+| Function                     | Description             | Parameters               | Returns    | Range          |
+| ---------------------------- | ----------------------- | ------------------------ | ---------- | -------------- |
+| `RandInt() int`              | Random integer          | None                     | Random int | Full int range |
+| `RandIntr(min, max int) int` | Random integer in range | `min`, `max` (inclusive) | Random int | [min, max]     |
 
 **RandIntr Behavior:**
+
 - Both bounds are **inclusive**: `RandIntr(1, 10)` can return 1 or 10
 - If `min >= max`, returns `min`
 - Automatically reseeds on each call for better randomness
@@ -398,11 +410,11 @@ func SimulateSensorReading() SensorReading {
 
 ### Random Float Functions
 
-| Function | Description | Parameters | Returns | Range |
-|----------|-------------|------------|---------|-------|
-| `RandFt64() float64` | Random float64 | None | Random float64 | [0.0, 1.0) |
+| Function                                | Description      | Parameters     | Returns        | Range        |
+| --------------------------------------- | ---------------- | -------------- | -------------- | ------------ |
+| `RandFt64() float64`                    | Random float64   | None           | Random float64 | [0.0, 1.0)   |
 | `RandFt64r(start, end float64) float64` | Float64 in range | `start`, `end` | Random float64 | [start, end) |
-| `RandFt32() float32` | Random float32 | None | Random float32 | [0.0, 1.0) |
+| `RandFt32() float32`                    | Random float32   | None           | Random float32 | [0.0, 1.0)   |
 | `RandFt32r(start, end float32) float32` | Float32 in range | `start`, `end` | Random float32 | [start, end) |
 
 **Note:** Upper bound is **exclusive** for float functions.
@@ -411,11 +423,12 @@ func SimulateSensorReading() SensorReading {
 
 ### Random Byte Functions
 
-| Function | Description | Parameters | Returns |
-|----------|-------------|------------|---------|
+| Function                     | Description           | Parameters                | Returns    |
+| ---------------------------- | --------------------- | ------------------------- | ---------- |
 | `RandByte(count int) []byte` | Generate random bytes | `count` - number of bytes | Byte slice |
 
 **Use Cases:**
+
 - Encryption IVs (Initialization Vectors)
 - Salts for password hashing
 - Random binary data
@@ -426,11 +439,12 @@ func SimulateSensorReading() SensorReading {
 ### ⚠️ Common Pitfalls
 
 1. **UUID Platform Dependency**
+
    ```go
    // ❌ Won't work on Windows
    uuid, err := randn.UUID()
    // Requires Unix-based system (/dev/urandom)
-   
+
    // ✅ Always check for errors
    uuid, err := randn.UUID()
    if err != nil {
@@ -440,18 +454,20 @@ func SimulateSensorReading() SensorReading {
    ```
 
 2. **RandIntr Range Confusion**
+
    ```go
    // ✅ Correct: both bounds inclusive
    dice := randn.RandIntr(1, 6)  // Can return 1, 2, 3, 4, 5, or 6
-   
+
    // ❌ Common mistake: forgetting upper bound is inclusive
    index := randn.RandIntr(0, len(slice))  // Wrong! Can exceed slice bounds
-   
+
    // ✅ Correct: adjust upper bound
    index := randn.RandIntr(0, len(slice)-1)
    ```
 
 3. **Float Range Boundaries**
+
    ```go
    // Note: upper bound is exclusive for floats
    val := randn.RandFt64r(0.0, 1.0)  // Returns [0.0, 1.0)
@@ -459,10 +475,11 @@ func SimulateSensorReading() SensorReading {
    ```
 
 4. **Security vs Performance**
+
    ```go
    // ❌ Don't use RandID for security-critical tasks
    apiKey := randn.RandID(32)  // Not cryptographically secure
-   
+
    // ✅ Use CryptoID for security
    apiKey := randn.CryptoID()  // Cryptographically secure
    ```
@@ -470,6 +487,7 @@ func SimulateSensorReading() SensorReading {
 ### 💡 Recommendations
 
 ✅ **Use appropriate functions for the task**
+
 ```go
 // For database IDs (readability + uniqueness)
 userID := randn.UUID()
@@ -485,6 +503,7 @@ logID := randn.TimeID()
 ```
 
 ✅ **Error handling for UUIDs**
+
 ```go
 // Always handle UUID errors in production
 uuid, err := randn.UUID()
@@ -496,6 +515,7 @@ if err != nil {
 ```
 
 ✅ **Validate ranges before calling RandIntr**
+
 ```go
 func RandomIndex(sliceLen int) int {
     if sliceLen <= 0 {
@@ -506,6 +526,7 @@ func RandomIndex(sliceLen int) int {
 ```
 
 ✅ **Use appropriate ID lengths**
+
 ```go
 // Short codes (human-readable): 6-8 characters
 inviteCode := randn.RandID(8)
@@ -518,6 +539,7 @@ sessionToken := randn.RandID(32)
 ```
 
 ✅ **Prefix IDs for identification**
+
 ```go
 func GenerateUserID() string {
     return "usr_" + randn.RandID(16)
@@ -531,6 +553,7 @@ func GenerateOrderID() string {
 ### 🔒 Security Considerations
 
 **When to use CryptoID:**
+
 - ✅ API keys
 - ✅ Session tokens
 - ✅ OAuth secrets
@@ -539,6 +562,7 @@ func GenerateOrderID() string {
 - ✅ CSRF tokens
 
 **When RandID is sufficient:**
+
 - ✅ Non-sensitive unique IDs
 - ✅ Test data
 - ✅ Temporary identifiers
@@ -546,6 +570,7 @@ func GenerateOrderID() string {
 - ✅ Gaming/simulation
 
 **Security notes:**
+
 ```go
 // ❌ Don't use for cryptographic keys
 key := randn.RandByte(32)  // Uses math/rand, not crypto/rand
@@ -559,20 +584,24 @@ rand.Read(key)
 ### ⚡ Performance Tips
 
 **Fast operations (math/rand):**
+
 - `RandInt()`, `RandIntr()` - Very fast
 - `RandFt64()`, `RandFt32()` - Very fast
 - `RandID()` - Fast for short lengths
 - `RandByte()` - Fast
 
 **Moderate operations:**
+
 - `UUID()`, `RandUUID()` - File I/O overhead
 - `UUIDSep()` - File I/O overhead
 - `TimeID()` - System call overhead
 
 **Slower operations (crypto/rand):**
+
 - `CryptoID()` - Cryptographically secure, slower
 
 **Optimization strategies:**
+
 ```go
 // ✅ Generate IDs in batch for better performance
 func GenerateBatchIDs(count int) []string {
@@ -596,6 +625,7 @@ func ReuseByteSlice() {
 ### 🐛 Debugging Tips
 
 **Check UUID generation:**
+
 ```go
 uuid, err := randn.UUID()
 if err != nil {
@@ -606,6 +636,7 @@ fmt.Printf("UUID: %s (length: %d)\n", uuid, len(uuid))
 ```
 
 **Verify randomness:**
+
 ```go
 // Generate multiple values to check distribution
 for i := 0; i < 10; i++ {
@@ -614,6 +645,7 @@ for i := 0; i < 10; i++ {
 ```
 
 **Test edge cases:**
+
 ```go
 // Same min and max
 fmt.Println(randn.RandIntr(5, 5))  // Always returns 5
@@ -664,12 +696,12 @@ func TestUUIDFormat(t *testing.T) {
     if err != nil {
         t.Skip("Skipping UUID test (requires /dev/urandom)")
     }
-    
+
     // Check format (8-4-4-4-12)
     if len(uuid) != 36 {
         t.Errorf("UUID length = %d, want 36", len(uuid))
     }
-    
+
     // Check dashes at correct positions
     if uuid[8] != '-' || uuid[13] != '-' || uuid[18] != '-' || uuid[23] != '-' {
         t.Errorf("UUID format incorrect: %s", uuid)
@@ -714,24 +746,25 @@ rand.Seed(time.Now().UnixNano())
 val := rand.Intn(100)
 
 // After (randn)
-import "github.com/sivaosorg/replify/pkg/randn"
+import "github.com/polarixa/replify/pkg/randn"
 val := randn.RandIntr(0, 99)
 ```
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Collection utilities
-- [strutil](https://github.com/sivaosorg/replify/pkg/strutil) - String utilities
+
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Collection utilities
+- [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities

@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // With returns a child Logger that inherits all settings and prepends the

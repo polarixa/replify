@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/coll"
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/fj"
-	"github.com/sivaosorg/replify/pkg/randn"
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/strchain"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/coll"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/randn"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // WithApiVersion sets the API version for the [meta] instance.

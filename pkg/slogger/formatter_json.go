@@ -3,8 +3,8 @@ package slogger
 import (
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // WithTimeFormat overrides the timestamp layout used in JSON output.

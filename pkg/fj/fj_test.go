@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sivaosorg/replify"
-	"github.com/sivaosorg/replify/pkg/fj"
+	"github.com/polarixa/replify"
+	"github.com/polarixa/replify/pkg/fj"
 )
 
 // ///////////////////////////

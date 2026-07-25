@@ -6,7 +6,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/randn"
+	"github.com/polarixa/replify/pkg/randn"
 )
 
 // Start begins the scheduler loop in a background goroutine. It returns

@@ -7,6 +7,7 @@
 The `coll` package provides a comprehensive suite of collection utilities inspired by functional programming patterns. It eliminates boilerplate code for common operations like filtering, mapping, reducing, and grouping, while maintaining type safety through Go's generics system.
 
 **Key Features:**
+
 - 🎯 **Type-safe generics** - works with any type using Go 1.18+ generics
 - 🔄 **Functional operations** - map, filter, reduce, and more
 - 📦 **Multiple data structures** - slices, maps, sets, stacks, and hashmaps
@@ -20,6 +21,7 @@ The `coll` package provides a comprehensive suite of collection utilities inspir
 ## Use Cases
 
 ### When to Use
+
 - ✅ **Data transformation** - convert between types, reshape structures
 - ✅ **Filtering and searching** - find, filter, or check elements
 - ✅ **Aggregation** - sum, count, group, or reduce data
@@ -30,6 +32,7 @@ The `coll` package provides a comprehensive suite of collection utilities inspir
 - ✅ **HashMap operations** - type-safe key-value storage
 
 ### When Not to Use
+
 - ❌ **Simple iterations** - use native `for` loops for basic iteration
 - ❌ **Performance-critical hot paths** - hand-optimized loops may be faster
 - ❌ **When mutability is required** - most functions return new collections
@@ -39,13 +42,13 @@ The `coll` package provides a comprehensive suite of collection utilities inspir
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/coll"
+import "github.com/polarixa/replify/pkg/coll"
 ```
 
 **Requirements:** Go 1.18 or higher (for generics support)
@@ -59,7 +62,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/coll"
+    "github.com/polarixa/replify/pkg/coll"
 )
 
 func main() {
@@ -436,48 +439,57 @@ fmt.Println(areEqual) // true
 ### Slice Operations
 
 #### Transformation
+
 - `Map[T, U](slice []T, f func(T) U) []U` - Transform each element
 - `FlatMap[T, U](slice []T, mapper func(T) []U) []U` - Map and flatten
 - `MapWithIndex[T, U](slice []T, mapper func(T, int) U) []U` - Map with index
 
 #### Filtering
+
 - `Filter[T](slice []T, condition func(T) bool) []T` - Keep matching elements
 - `Reject[T](slice []T, condition func(T) bool) []T` - Remove matching elements
 - `Compact[T](slice []T) []T` - Remove zero values
 
 #### Searching
+
 - `Contains[T](slice []T, item T) bool` - Check if element exists
 - `Find[T](slice []T, predicate func(T) bool) (T, bool)` - Find first match
 - `IndexOf[T](slice []T, item T) int` - Get index of element
 - `LastIndexOf[T](slice []T, item T) int` - Get last index
 
 #### Aggregation
+
 - `Reduce[T, U](slice []T, accumulator func(U, T) U, initial U) U` - Reduce to single value
 - `Sum[T](slice []T, transformer func(T) float64) float64` - Sum transformed values
 
 #### Predicates
+
 - `AllMatch[T](slice []T, predicate func(T) bool) bool` - Check if all match
 - `AnyMatch[T](slice []T, predicate func(T) bool) bool` - Check if any match
 - `NoneMatch[T](slice []T, predicate func(T) bool) bool` - Check if none match
 
 #### Set Operations
+
 - `Unique[T](slice []T) []T` - Remove duplicates
 - `Intersection[T](a, b []T) []T` - Common elements
 - `Union[T](a, b []T) []T` - All unique elements from both
 - `Difference[T](a, b []T) []T` - Elements in a but not in b
 
 #### Partitioning
+
 - `Chunk[T](slice []T, size int) [][]T` - Split into chunks
 - `Partition[T](slice []T, predicate func(T) bool) ([]T, []T)` - Split by condition
 - `GroupBy[T, K](slice []T, keyFunc func(T) K) map[K][]T` - Group by key
 - `Split[T](slice []T, index int) ([]T, []T)` - Split at index
 
 #### Ordering
+
 - `Sort[T](slice []T, comparer func(T, T) bool) []T` - Custom sort
 - `Reverse[T](slice []T) []T` - Reverse order
 - `Shuffle[T](slice []T) []T` - Random order
 
 #### Utilities
+
 - `Take[T](slice []T, n int) []T` - First N elements
 - `Skip[T](slice []T, n int) []T` - Skip first N elements
 - `Push[T](slice []T, element T) []T` - Append element
@@ -529,22 +541,24 @@ fmt.Println(areEqual) // true
 ### ⚠️ Common Pitfalls
 
 1. **Mutability**: Most functions return new collections, not modifying originals
+
    ```go
    // ❌ Wrong: expecting mutation
    numbers := []int{1, 2, 3}
    coll.Filter(numbers, func(n int) bool { return n > 1 })
    // numbers is still [1, 2, 3]
-   
+
    // ✅ Correct: capture return value
    filtered := coll.Filter(numbers, func(n int) bool { return n > 1 })
    ```
 
 2. **Empty Slices**: Some functions may panic on empty slices
+
    ```go
    // ❌ Panics
    empty := []int{}
    coll.Pop(empty) // Runtime panic
-   
+
    // ✅ Check length first
    if len(slice) > 0 {
        popped := coll.Pop(slice)
@@ -552,12 +566,13 @@ fmt.Println(areEqual) // true
    ```
 
 3. **Performance**: Creating new slices has memory overhead
+
    ```go
    // ❌ Inefficient for large datasets
    for i := 0; i < 1000000; i++ {
        result = coll.Push(result, i) // Reallocates each time
    }
-   
+
    // ✅ Pre-allocate when possible
    result := make([]int, 0, 1000000)
    for i := 0; i < 1000000; i++ {
@@ -566,10 +581,11 @@ fmt.Println(areEqual) // true
    ```
 
 4. **Type Inference**: Sometimes you need explicit type parameters
+
    ```go
    // ❌ May fail to infer
    result := coll.Map(data, transform)
-   
+
    // ✅ Explicit types
    result := coll.Map[Input, Output](data, transform)
    ```
@@ -577,6 +593,7 @@ fmt.Println(areEqual) // true
 ### 💡 Recommendations
 
 ✅ **Chain operations** for readable pipelines
+
 ```go
 result := coll.Filter(data, isValid)
 result = coll.Map(result, transform)
@@ -584,6 +601,7 @@ result = coll.Sort(result, compare)
 ```
 
 ✅ **Use method chaining alternative**
+
 ```go
 // Consider creating a fluent API wrapper for your use case
 type Pipeline[T any] struct {
@@ -596,6 +614,7 @@ func (p Pipeline[T]) Filter(f func(T) bool) Pipeline[T] {
 ```
 
 ✅ **Leverage type safety** - let compiler catch errors
+
 ```go
 // Compile-time safety
 users := []User{}
@@ -604,6 +623,7 @@ names := coll.Map(users, func(u User) string { return u.Name })
 ```
 
 ✅ **Document complex transformations** with comments
+
 ```go
 // Transform users to active user emails
 emails := coll.Map(
@@ -613,11 +633,13 @@ emails := coll.Map(
 ```
 
 ✅ **Consider performance** for large datasets
+
 - Use native loops for simple iterations
 - Profile before optimizing
 - Consider streaming for huge datasets
 
 ✅ **Use appropriate data structures**
+
 - `Stack` for LIFO operations
 - `HashSet` for uniqueness checks
 - `HashMap` for key-value lookups
@@ -656,6 +678,7 @@ for i := 0; i < 10; i++ {
 ### ⚡ Performance Tips
 
 **Benchmark before optimizing:**
+
 ```go
 func BenchmarkCollMap(b *testing.B) {
     data := generateLargeSlice()
@@ -667,6 +690,7 @@ func BenchmarkCollMap(b *testing.B) {
 ```
 
 **Performance characteristics:**
+
 - `Map`, `Filter`: O(n)
 - `Contains`, `IndexOf`: O(n)
 - `Unique`: O(n) with map
@@ -675,6 +699,7 @@ func BenchmarkCollMap(b *testing.B) {
 - `Flatten`: O(n × depth)
 
 **Optimization strategies:**
+
 1. Pre-allocate slices when size is known
 2. Use `break` in `for` loops for early exit
 3. Avoid nested `Map`/`Filter` - combine logic
@@ -684,6 +709,7 @@ func BenchmarkCollMap(b *testing.B) {
 ### 🐛 Debugging Tips
 
 **Print intermediate results:**
+
 ```go
 filtered := coll.Filter(data, condition)
 fmt.Printf("After filter: %v\n", filtered)
@@ -693,6 +719,7 @@ fmt.Printf("After map: %v\n", mapped)
 ```
 
 **Use meaningful function names:**
+
 ```go
 // ❌ Unclear
 coll.Filter(users, func(u User) bool { return u.A > 18 && u.S == "active" })
@@ -705,6 +732,7 @@ coll.Filter(users, isEligible)
 ```
 
 **Test edge cases:**
+
 - Empty slices
 - Single element
 - All elements match/don't match
@@ -728,7 +756,7 @@ func TestFilter(t *testing.T) {
         {"none match", []int{1, 2, 3}, func(n int) bool { return n > 10 }, []int{}},
         {"some match", []int{1, 2, 3, 4}, func(n int) bool { return n%2 == 0 }, []int{2, 4}},
     }
-    
+
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
             got := coll.Filter(tt.input, tt.pred)
@@ -752,12 +780,14 @@ func TestFilter(t *testing.T) {
 ## Performance Considerations
 
 **When to use native loops:**
+
 - Simple iteration with no transformation
 - Performance-critical sections (after profiling)
 - When you need early termination with complex logic
 - Mutation of existing slices
 
 **When to use coll:**
+
 - Complex transformations with multiple steps
 - Readability is more important than micro-optimization
 - Working with functional patterns
@@ -766,21 +796,22 @@ func TestFilter(t *testing.T) {
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
+
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
 - Other sivaosorg utilities
 
 ---
 
-**Note:** The search results shown above may be incomplete due to GitHub's result limits. For a complete view of all functions, please visit the [coll package on GitHub](https://github.com/sivaosorg/replify/tree/master/pkg/coll).
+**Note:** The search results shown above may be incomplete due to GitHub's result limits. For a complete view of all functions, please visit the [coll package on GitHub](https://github.com/polarixa/replify/tree/master/pkg/coll).

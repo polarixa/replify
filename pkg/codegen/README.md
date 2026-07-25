@@ -17,7 +17,7 @@ A **zero-dependency** Go library for generating configurable-length random codes
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify/pkg/codegen
+go get github.com/polarixa/replify/pkg/codegen
 ```
 
 ## Quick Start
@@ -29,7 +29,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/sivaosorg/replify/pkg/codegen"
+    "github.com/polarixa/replify/pkg/codegen"
 )
 
 func main() {
@@ -148,7 +148,7 @@ code, err := codegen.Generate(
 ```go
 package order
 
-import "github.com/sivaosorg/replify/pkg/codegen"
+import "github.com/polarixa/replify/pkg/codegen"
 
 // Initialize once and reuse throughout the service.
 var orderCodeGen = codegen.MustNew(

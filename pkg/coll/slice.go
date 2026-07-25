@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/encoding"
 )
 
 // Contains checks if a specified item is present within a given slice.

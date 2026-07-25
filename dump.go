@@ -3,8 +3,8 @@ package replify
 import (
 	"os"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
-	"github.com/sivaosorg/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // Resource returns the underlying [sysx.Resource], which exposes the

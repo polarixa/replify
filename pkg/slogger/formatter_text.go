@@ -5,9 +5,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/fj"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // WithTimeFormat sets the time layout string used when formatting timestamps.

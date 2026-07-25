@@ -9,7 +9,7 @@ import (
 	"time"
 	"unsafe"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/encoding"
 )
 
 // ///////////////////////////////////////////////////////////////////////////

@@ -38,13 +38,13 @@ The `encoding` package simplifies JSON operations in Go by providing:
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/encoding"
+import "github.com/polarixa/replify/pkg/encoding"
 ```
 
 **Requirements:** Go 1.13 or higher
@@ -58,7 +58,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/encoding"
+    "github.com/polarixa/replify/pkg/encoding"
 )
 
 func main() {
@@ -102,7 +102,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/encoding"
 )
 
 func main() {
@@ -155,7 +155,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/encoding"
 )
 
 func main() {
@@ -864,20 +864,20 @@ Use `encoding/json` directly when you need:
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
 
-- [replify](https://github.com/sivaosorg/replify) - API response wrapping library
-- [conv](https://github.com/sivaosorg/replify/pkg/conv) - Type conversion utilities
-- [hashy](https://github.com/sivaosorg/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/sivaosorg/replify/pkg/match) - Wildcard pattern matching
-- [coll](https://github.com/sivaosorg/replify/pkg/coll) - Collection utilities
-- [strutil](https://github.com/sivaosorg/replify/pkg/strutil) - String utilities
-- [randn](https://github.com/sivaosorg/replify/pkg/randn) - Random data generation
+- [replify](https://github.com/polarixa/replify) - API response wrapping library
+- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
+- [coll](https://github.com/polarixa/replify/pkg/coll) - Collection utilities
+- [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities
+- [randn](https://github.com/polarixa/replify/pkg/randn) - Random data generation

@@ -7,6 +7,7 @@
 The `fj` package uses a dot-notation path syntax that supports wildcards, array indexing, conditional queries, multi-selectors, pipe operators, and a rich set of built-in transformers. Custom transformers can be registered at runtime without modifying the core library.
 
 **Key Features:**
+
 - ⚡ **Zero-allocation hot paths** — `Get` and `GetBytes` minimize heap pressure
 - 🔍 **Rich path syntax** — wildcards, array indexing, queries, multi-selectors, literals
 - 🔧 **Built-in transformers** — 28+ transformers including `@pretty`, `@minify`, `@reverse`, `@flatten`, `@join`, `@snakeCase`, `@camelCase`, and more
@@ -18,6 +19,7 @@ The `fj` package uses a dot-notation path syntax that supports wildcards, array 
 ## Use Cases
 
 ### When to Use
+
 - ✅ Extracting specific fields from large JSON documents without full unmarshalling
 - ✅ Building lightweight JSON pipelines with composable transformers
 - ✅ Quickly querying deeply nested or dynamic JSON structures
@@ -25,6 +27,7 @@ The `fj` package uses a dot-notation path syntax that supports wildcards, array 
 - ✅ Validating JSON at the edge before heavy processing
 
 ### When Not to Use
+
 - ❌ When you need full struct binding (use `encoding/json` or `json-iterator`)
 - ❌ When you need to _write_ or _modify_ JSON (use `encoding/json`)
 - ❌ When JSON schema validation is required (use a dedicated schema library)
@@ -38,13 +41,13 @@ Go version **1.19** or higher.
 ### Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the sub-package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/fj"
+import "github.com/polarixa/replify/pkg/fj"
 ```
 
 ## Usage
@@ -56,7 +59,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 func main() {
@@ -188,7 +191,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var data = []byte(`{"user":{"id":"12345","roles":[{"roleId":"1","roleName":"Admin"},{"roleId":"2","roleName":"Editor"}]}}`)
@@ -216,7 +219,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var data = []byte(`{"user":{"id":"12345","name":{"firstName":"John","lastName":"Doe"}}}`)
@@ -240,7 +243,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var data = []byte(`{"user":{"roles":[{"roleId":"1","roleName":"Admin"},{"roleId":"2","roleName":"Editor"}]}}`)
@@ -264,7 +267,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var data = []byte(`{"user":{"id":12345,"name":{"firstName":"John","lastName":"Doe"}}}`)
@@ -296,7 +299,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var data = []byte(`{"user":{"id":12345,"name":{"firstName":"John","lastName":"Doe"}}}`)
@@ -318,7 +321,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 var lines = []byte(`
@@ -346,25 +349,25 @@ func main() {
 
 A `fj` path is a sequence of elements separated by `.`. In addition to `.`, several characters carry special meaning: `|`, `#`, `@`, `\`, `*`, `!`, and `?`.
 
-| Syntax | Description | Example |
-|--------|-------------|---------|
-| `field` | Object field access | `user.name` |
-| `field.N` | Array index access (0-based) | `roles.0` |
-| `field.#` | Array length | `roles.#` → `3` |
-| `field.#.key` | Pluck field from all elements | `roles.#.name` → `["Admin","Editor"]` |
-| `field.*` | Wildcard — matches any characters | `us*.name` |
-| `field.?` | Wildcard — matches exactly one char | `us?.name` |
-| `field\.key` | Escape special character `.` | `a\.b` |
-| `field.#(k==v)` | Query: first match | `#(active==true).name` |
-| `field.#(k==v)#` | Query: all matches | `#(price>1)#.name` |
-| `k%"pat"` | Query: like (wildcard match) | `#(name%"A*")` |
-| `k!%"pat"` | Query: not like | `#(name!%"A*")` |
-| `~true` / `~false` / `~null` / `~*` | Tilde — boolean coercion in queries | `#(active==~true)` |
-| `a.b` / `a\|b` | Dot and pipe separators | `user.name` or `user\|name` |
-| `{f1,f2}` | Multi-selector → new object | `{id,name}` |
-| `[f1,f2]` | Multi-selector → new array | `[id,name]` |
-| `!"value"` | JSON literal in multi-selector | `{"active":!true}` |
-| `..field` | JSON Lines — query each line | `..user.name` |
+| Syntax                              | Description                         | Example                               |
+| ----------------------------------- | ----------------------------------- | ------------------------------------- |
+| `field`                             | Object field access                 | `user.name`                           |
+| `field.N`                           | Array index access (0-based)        | `roles.0`                             |
+| `field.#`                           | Array length                        | `roles.#` → `3`                       |
+| `field.#.key`                       | Pluck field from all elements       | `roles.#.name` → `["Admin","Editor"]` |
+| `field.*`                           | Wildcard — matches any characters   | `us*.name`                            |
+| `field.?`                           | Wildcard — matches exactly one char | `us?.name`                            |
+| `field\.key`                        | Escape special character `.`        | `a\.b`                                |
+| `field.#(k==v)`                     | Query: first match                  | `#(active==true).name`                |
+| `field.#(k==v)#`                    | Query: all matches                  | `#(price>1)#.name`                    |
+| `k%"pat"`                           | Query: like (wildcard match)        | `#(name%"A*")`                        |
+| `k!%"pat"`                          | Query: not like                     | `#(name!%"A*")`                       |
+| `~true` / `~false` / `~null` / `~*` | Tilde — boolean coercion in queries | `#(active==~true)`                    |
+| `a.b` / `a\|b`                      | Dot and pipe separators             | `user.name` or `user\|name`           |
+| `{f1,f2}`                           | Multi-selector → new object         | `{id,name}`                           |
+| `[f1,f2]`                           | Multi-selector → new array          | `[id,name]`                           |
+| `!"value"`                          | JSON literal in multi-selector      | `{"active":!true}`                    |
+| `..field`                           | JSON Lines — query each line        | `..user.name`                         |
 
 ### Object & Array Examples
 
@@ -468,67 +471,67 @@ path.@transformerName:{"key":"value"}
 
 ### Core transformers
 
-| Transformer | Alias(es) | Input | Description |
-|---|---|---|---|
-| `@pretty` | — | any | Pretty-print (indented) JSON. Accepts optional `{"sort_keys":true,"indent":"\t","prefix":"","width":80}`. |
-| `@minify` | `@ugly` | any | Compact single-line JSON (all whitespace removed). |
-| `@valid` | — | any | Returns `"true"` / `"false"` — whether the input is valid JSON. |
-| `@this` | — | any | Identity — returns the input unchanged. |
-| `@reverse` | — | array \| object | Reverses element order (array) or key order (object). |
-| `@flatten` | — | array | Shallow-flatten nested arrays. Pass `{"deep":true}` to recurse. |
-| `@join` | — | array of objects | Merge an array of objects into one object. Pass `{"preserve":true}` to keep duplicate keys. |
-| `@keys` | — | object | Return a JSON array of the object's keys. |
-| `@values` | — | object | Return a JSON array of the object's values. |
-| `@group` | — | object of arrays | Zip object-of-arrays into an array-of-objects. |
-| `@search` | — | any | `@search:path` — collect all values reachable at `path` anywhere in the tree. |
-| `@json` | — | string | Parse the string as JSON and return the value. |
-| `@string` | — | any | Encode the value as a JSON string literal. |
+| Transformer | Alias(es) | Input            | Description                                                                                               |
+| ----------- | --------- | ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `@pretty`   | —         | any              | Pretty-print (indented) JSON. Accepts optional `{"sort_keys":true,"indent":"\t","prefix":"","width":80}`. |
+| `@minify`   | `@ugly`   | any              | Compact single-line JSON (all whitespace removed).                                                        |
+| `@valid`    | —         | any              | Returns `"true"` / `"false"` — whether the input is valid JSON.                                           |
+| `@this`     | —         | any              | Identity — returns the input unchanged.                                                                   |
+| `@reverse`  | —         | array \| object  | Reverses element order (array) or key order (object).                                                     |
+| `@flatten`  | —         | array            | Shallow-flatten nested arrays. Pass `{"deep":true}` to recurse.                                           |
+| `@join`     | —         | array of objects | Merge an array of objects into one object. Pass `{"preserve":true}` to keep duplicate keys.               |
+| `@keys`     | —         | object           | Return a JSON array of the object's keys.                                                                 |
+| `@values`   | —         | object           | Return a JSON array of the object's values.                                                               |
+| `@group`    | —         | object of arrays | Zip object-of-arrays into an array-of-objects.                                                            |
+| `@search`   | —         | any              | `@search:path` — collect all values reachable at `path` anywhere in the tree.                             |
+| `@json`     | —         | string           | Parse the string as JSON and return the value.                                                            |
+| `@string`   | —         | any              | Encode the value as a JSON string literal.                                                                |
 
 ### String transformers
 
-| Transformer | Alias(es) | Description |
-|---|---|---|
-| `@uppercase` | `@upper` | Convert all characters to upper-case. |
-| `@lowercase` | `@lower` | Convert all characters to lower-case. |
-| `@flip` | — | Reverse the characters of the string. |
-| `@trim` | — | Strip leading/trailing whitespace. |
-| `@snakecase` | `@snake`, `@snakeCase` | Convert to `snake_case`. |
-| `@camelcase` | `@camel`, `@camelCase` | Convert to `camelCase`. |
-| `@kebabcase` | `@kebab`, `@kebabCase` | Convert to `kebab-case`. |
-| `@replace` | — | `@replace:{"target":"old","replacement":"new"}` — replace first occurrence. |
-| `@replaceAll` | — | `@replaceAll:{"target":"old","replacement":"new"}` — replace all occurrences. |
-| `@hex` | — | Hex-encode the value. |
-| `@bin` | — | Binary-encode the value. |
-| `@insertAt` | — | `@insertAt:{"index":5,"insert":"XYZ"}` — insert a substring at position. |
-| `@wc` | — | Return the word-count of a string as an integer. |
-| `@padLeft` | — | `@padLeft:{"padding":"*","length":10}` — left-pad to a fixed width. |
-| `@padRight` | — | `@padRight:{"padding":"*","length":10}` — right-pad to a fixed width. |
+| Transformer   | Alias(es)              | Description                                                                   |
+| ------------- | ---------------------- | ----------------------------------------------------------------------------- |
+| `@uppercase`  | `@upper`               | Convert all characters to upper-case.                                         |
+| `@lowercase`  | `@lower`               | Convert all characters to lower-case.                                         |
+| `@flip`       | —                      | Reverse the characters of the string.                                         |
+| `@trim`       | —                      | Strip leading/trailing whitespace.                                            |
+| `@snakecase`  | `@snake`, `@snakeCase` | Convert to `snake_case`.                                                      |
+| `@camelcase`  | `@camel`, `@camelCase` | Convert to `camelCase`.                                                       |
+| `@kebabcase`  | `@kebab`, `@kebabCase` | Convert to `kebab-case`.                                                      |
+| `@replace`    | —                      | `@replace:{"target":"old","replacement":"new"}` — replace first occurrence.   |
+| `@replaceAll` | —                      | `@replaceAll:{"target":"old","replacement":"new"}` — replace all occurrences. |
+| `@hex`        | —                      | Hex-encode the value.                                                         |
+| `@bin`        | —                      | Binary-encode the value.                                                      |
+| `@insertAt`   | —                      | `@insertAt:{"index":5,"insert":"XYZ"}` — insert a substring at position.      |
+| `@wc`         | —                      | Return the word-count of a string as an integer.                              |
+| `@padLeft`    | —                      | `@padLeft:{"padding":"*","length":10}` — left-pad to a fixed width.           |
+| `@padRight`   | —                      | `@padRight:{"padding":"*","length":10}` — right-pad to a fixed width.         |
 
 ### Object transformers
 
-| Transformer | Description |
-|---|---|
-| `@project` | Pick and/or rename fields from an object. Arg: `{"pick":["f1","f2"],"rename":{"f1":"newName"}}`. Omit `pick` to keep all fields; omit `rename` for no renaming. |
-| `@default` | Inject fallback values for fields that are absent or `null`. Arg: `{"field":"defaultValue",...}`. Existing non-null fields are never overwritten. |
+| Transformer | Description                                                                                                                                                     |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@project`  | Pick and/or rename fields from an object. Arg: `{"pick":["f1","f2"],"rename":{"f1":"newName"}}`. Omit `pick` to keep all fields; omit `rename` for no renaming. |
+| `@default`  | Inject fallback values for fields that are absent or `null`. Arg: `{"field":"defaultValue",...}`. Existing non-null fields are never overwritten.               |
 
 ### Array transformers
 
-| Transformer | Description |
-|---|---|
-| `@filter` | Keep only elements matching a condition. Arg: `{"key":"field","op":"eq","value":val}`. Operators: `eq` (default), `ne`, `gt`, `gte`, `lt`, `lte`, `contains`. |
-| `@pluck` | Extract a named field (supports dot-notation paths) from every element. Arg: field path string, e.g. `@pluck:name` or `@pluck:addr.city`. |
-| `@first` | Return the first element of the array, or `null` if empty. |
-| `@last` | Return the last element of the array, or `null` if empty. |
-| `@count` | Return the number of elements (array) or key-value pairs (object) as an integer. Scalars return `0`. |
-| `@sum` | Sum all numeric values in the array; non-numeric elements are skipped. Returns `0` for empty arrays. |
-| `@min` | Return the minimum numeric value in the array. Returns `null` when no numbers are present. |
-| `@max` | Return the maximum numeric value in the array. Returns `null` when no numbers are present. |
+| Transformer | Description                                                                                                                                                   |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@filter`   | Keep only elements matching a condition. Arg: `{"key":"field","op":"eq","value":val}`. Operators: `eq` (default), `ne`, `gt`, `gte`, `lt`, `lte`, `contains`. |
+| `@pluck`    | Extract a named field (supports dot-notation paths) from every element. Arg: field path string, e.g. `@pluck:name` or `@pluck:addr.city`.                     |
+| `@first`    | Return the first element of the array, or `null` if empty.                                                                                                    |
+| `@last`     | Return the last element of the array, or `null` if empty.                                                                                                     |
+| `@count`    | Return the number of elements (array) or key-value pairs (object) as an integer. Scalars return `0`.                                                          |
+| `@sum`      | Sum all numeric values in the array; non-numeric elements are skipped. Returns `0` for empty arrays.                                                          |
+| `@min`      | Return the minimum numeric value in the array. Returns `null` when no numbers are present.                                                                    |
+| `@max`      | Return the maximum numeric value in the array. Returns `null` when no numbers are present.                                                                    |
 
 ### Value normalization transformers
 
-| Transformer | Description |
-|---|---|
-| `@coerce` | Convert a scalar to a target type. Arg: `{"to":"string"}`, `{"to":"number"}`, or `{"to":"bool"}`. Objects and arrays are returned unchanged. |
+| Transformer | Description                                                                                                                                  |
+| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@coerce`   | Convert a scalar to a target type. Arg: `{"to":"string"}`, `{"to":"number"}`, or `{"to":"bool"}`. Objects and arrays are returned unchanged. |
 
 ### Transformer Examples
 
@@ -537,7 +540,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/sivaosorg/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/fj"
 )
 
 func main() {
@@ -626,7 +629,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/sivaosorg/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/fj"
 )
 
 func main() {
@@ -793,7 +796,7 @@ package main
 import (
     "fmt"
     "strings"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 func init() {
@@ -837,124 +840,124 @@ fmt.Println(ctx.WithStringColored(fj.DarkStyle))         // dark style
 
 Available named style variables:
 
-| Variable | Description |
-|----------|-------------|
-| `DarkStyle` | Dark tones — navy blue, dark green, amber, dark magenta |
-| `NeonStyle` | Vibrant neon — bright cyan, lime, yellow |
-| `PastelStyle` | Soft pastel tones |
-| `HighContrastStyle` | High-contrast for accessibility |
-| `VintageStyle` | Muted vintage palette |
-| `CyberpunkStyle` | Futuristic cyberpunk neons |
-| `OceanStyle` | Cool ocean blues and cyans |
-| `FieryStyle` | Warm reds and oranges |
-| `GalaxyStyle` | Deep-space purples and blues |
-| `SunsetStyle` | Warm oranges and pinks |
-| `JungleStyle` | Lush jungle greens |
-| `MonochromeStyle` | Grayscale only |
-| `ForestStyle` | Earthy forest greens and browns |
-| `IceStyle` | Cold icy blues and whites |
-| `RetroStyle` | Retro terminal amber/green |
-| `AutumnStyle` | Browns, oranges, and reds |
-| `GothicStyle` | Dark purples and blacks |
-| `VaporWaveStyle` | Aesthetic vaporwave pinks and purples |
-| `VampireStyle` | Deep blood reds and blacks |
-| `CarnivalStyle` | Bright carnival multicolor |
-| `SteampunkStyle` | Brass and copper tones |
-| `WoodlandStyle` | Natural woodland tans and greens |
-| `CandyStyle` | Bright candy pastels |
-| `TwilightStyle` | Dusk purples and navies |
-| `EarthStyle` | Warm earth tones |
-| `ElectricStyle` | Electric blues and greens |
-| `WitchingHourStyle` | Dark witching-hour palette |
-| `MidnightStyle` | Deep midnight navy and silver |
+| Variable            | Description                                             |
+| ------------------- | ------------------------------------------------------- |
+| `DarkStyle`         | Dark tones — navy blue, dark green, amber, dark magenta |
+| `NeonStyle`         | Vibrant neon — bright cyan, lime, yellow                |
+| `PastelStyle`       | Soft pastel tones                                       |
+| `HighContrastStyle` | High-contrast for accessibility                         |
+| `VintageStyle`      | Muted vintage palette                                   |
+| `CyberpunkStyle`    | Futuristic cyberpunk neons                              |
+| `OceanStyle`        | Cool ocean blues and cyans                              |
+| `FieryStyle`        | Warm reds and oranges                                   |
+| `GalaxyStyle`       | Deep-space purples and blues                            |
+| `SunsetStyle`       | Warm oranges and pinks                                  |
+| `JungleStyle`       | Lush jungle greens                                      |
+| `MonochromeStyle`   | Grayscale only                                          |
+| `ForestStyle`       | Earthy forest greens and browns                         |
+| `IceStyle`          | Cold icy blues and whites                               |
+| `RetroStyle`        | Retro terminal amber/green                              |
+| `AutumnStyle`       | Browns, oranges, and reds                               |
+| `GothicStyle`       | Dark purples and blacks                                 |
+| `VaporWaveStyle`    | Aesthetic vaporwave pinks and purples                   |
+| `VampireStyle`      | Deep blood reds and blacks                              |
+| `CarnivalStyle`     | Bright carnival multicolor                              |
+| `SteampunkStyle`    | Brass and copper tones                                  |
+| `WoodlandStyle`     | Natural woodland tans and greens                        |
+| `CandyStyle`        | Bright candy pastels                                    |
+| `TwilightStyle`     | Dusk purples and navies                                 |
+| `EarthStyle`        | Warm earth tones                                        |
+| `ElectricStyle`     | Electric blues and greens                               |
+| `WitchingHourStyle` | Dark witching-hour palette                              |
+| `MidnightStyle`     | Deep midnight navy and silver                           |
 
 ## API Reference
 
 ### Top-level Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `Get` | `Get(json, path string) Context` | Search JSON for a dot-notation path; return first match. |
-| `GetBytes` | `GetBytes(json []byte, path string) Context` | Same as `Get` but accepts a byte slice. |
-| `Parse` | `Parse(json string) Context` | Parse a JSON string into a `Context` without path querying. |
-| `ParseBytes` | `ParseBytes(json []byte) Context` | Same as `Parse` but accepts a byte slice. |
-| `ParseReader` | `ParseReader(in io.Reader) (string, error)` | Read all data from an `io.Reader` and return as a string. |
-| `ParseJSONFile` | `ParseJSONFile(filepath string) (string, error)` | Read a JSON file and return its contents as a string. |
-| `IsValidJSON` | `IsValidJSON(json string) bool` | Report whether a string is valid JSON. |
-| `IsValidJSONBytes` | `IsValidJSONBytes(json []byte) bool` | Report whether a byte slice is valid JSON. |
-| `AddTransformer` | `AddTransformer(name string, fn func(json, arg string) string)` | Register a named transformer. |
+| Function           | Signature                                                       | Description                                                 |
+| ------------------ | --------------------------------------------------------------- | ----------------------------------------------------------- |
+| `Get`              | `Get(json, path string) Context`                                | Search JSON for a dot-notation path; return first match.    |
+| `GetBytes`         | `GetBytes(json []byte, path string) Context`                    | Same as `Get` but accepts a byte slice.                     |
+| `Parse`            | `Parse(json string) Context`                                    | Parse a JSON string into a `Context` without path querying. |
+| `ParseBytes`       | `ParseBytes(json []byte) Context`                               | Same as `Parse` but accepts a byte slice.                   |
+| `ParseReader`      | `ParseReader(in io.Reader) (string, error)`                     | Read all data from an `io.Reader` and return as a string.   |
+| `ParseJSONFile`    | `ParseJSONFile(filepath string) (string, error)`                | Read a JSON file and return its contents as a string.       |
+| `IsValidJSON`      | `IsValidJSON(json string) bool`                                 | Report whether a string is valid JSON.                      |
+| `IsValidJSONBytes` | `IsValidJSONBytes(json []byte) bool`                            | Report whether a byte slice is valid JSON.                  |
+| `AddTransformer`   | `AddTransformer(name string, fn func(json, arg string) string)` | Register a named transformer.                               |
 
 ### Search Engine Functions
 
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `Search` | `Search(json, keyword string) []Context` | Full-tree scan — return all scalar leaves whose string value contains `keyword`. |
-| `SearchMatch` | `SearchMatch(json, pattern string) []Context` | Full-tree wildcard scan — return all scalar leaves whose string value matches `pattern` (`*`, `?`). Uses `match.Match`. |
-| `SearchByKey` | `SearchByKey(json string, keys ...string) []Context` | Return all values stored under the given key name(s) at any depth (exact names). |
-| `SearchByKeyPattern` | `SearchByKeyPattern(json, keyPattern string) []Context` | Return all values stored under object keys that match the wildcard `keyPattern`. Uses `match.Match`. |
-| `Contains` | `Contains(json, path, target string) bool` | Report whether the value at `path` contains the substring `target`. |
-| `ContainsMatch` | `ContainsMatch(json, path, pattern string) bool` | Report whether the value at `path` matches the wildcard `pattern`. Uses `match.Match`. |
-| `FindPath` | `FindPath(json, value string) string` | Return the first dot-notation path at which a scalar equals `value`. |
-| `FindPaths` | `FindPaths(json, value string) []string` | Return all dot-notation paths at which a scalar equals `value`. |
-| `FindPathMatch` | `FindPathMatch(json, valuePattern string) string` | Return the first dot-notation path at which a scalar matches the wildcard `valuePattern`. |
-| `FindPathsMatch` | `FindPathsMatch(json, valuePattern string) []string` | Return all paths at which a scalar matches the wildcard `valuePattern`. |
-| `Count` | `Count(json, path string) int` | Count elements at `path` (array length or 1 for scalars; 0 when missing). |
-| `Sum` | `Sum(json, path string) float64` | Sum of all numeric values at `path`. |
-| `Min` | `Min(json, path string) (float64, bool)` | Minimum numeric value at `path`. |
-| `Max` | `Max(json, path string) (float64, bool)` | Maximum numeric value at `path`. |
-| `Avg` | `Avg(json, path string) (float64, bool)` | Arithmetic mean of numeric values at `path`. |
-| `CollectFloat64` | `CollectFloat64(json, path string) []float64` | Collect numeric values at `path` using `conv.Float64` (handles string-encoded numbers). |
-| `Filter` | `Filter(json, path string, fn func(Context) bool) []Context` | Keep only elements at `path` for which `fn` returns true. |
-| `First` | `First(json, path string, fn func(Context) bool) Context` | First element at `path` for which `fn` returns true. |
-| `Distinct` | `Distinct(json, path string) []Context` | Unique values at `path` (first-occurrence order). |
-| `Pluck` | `Pluck(json, path string, fields ...string) []Context` | Extract named fields from each object in the array at `path`. |
-| `GroupBy` | `GroupBy(json, path, keyField string) map[string][]Context` | Group array elements by the string value of `keyField`, using `conv.String` for key normalization. |
-| `SortBy` | `SortBy(json, path, keyField string, ascending bool) []Context` | Sort array elements by a sub-field using `conv`-powered numeric and string comparison. |
-| `CoerceTo` | `CoerceTo(ctx Context, into any) error` | Coerce a Context's value into any Go typed variable via `conv.Infer`. |
+| Function             | Signature                                                       | Description                                                                                                             |
+| -------------------- | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| `Search`             | `Search(json, keyword string) []Context`                        | Full-tree scan — return all scalar leaves whose string value contains `keyword`.                                        |
+| `SearchMatch`        | `SearchMatch(json, pattern string) []Context`                   | Full-tree wildcard scan — return all scalar leaves whose string value matches `pattern` (`*`, `?`). Uses `match.Match`. |
+| `SearchByKey`        | `SearchByKey(json string, keys ...string) []Context`            | Return all values stored under the given key name(s) at any depth (exact names).                                        |
+| `SearchByKeyPattern` | `SearchByKeyPattern(json, keyPattern string) []Context`         | Return all values stored under object keys that match the wildcard `keyPattern`. Uses `match.Match`.                    |
+| `Contains`           | `Contains(json, path, target string) bool`                      | Report whether the value at `path` contains the substring `target`.                                                     |
+| `ContainsMatch`      | `ContainsMatch(json, path, pattern string) bool`                | Report whether the value at `path` matches the wildcard `pattern`. Uses `match.Match`.                                  |
+| `FindPath`           | `FindPath(json, value string) string`                           | Return the first dot-notation path at which a scalar equals `value`.                                                    |
+| `FindPaths`          | `FindPaths(json, value string) []string`                        | Return all dot-notation paths at which a scalar equals `value`.                                                         |
+| `FindPathMatch`      | `FindPathMatch(json, valuePattern string) string`               | Return the first dot-notation path at which a scalar matches the wildcard `valuePattern`.                               |
+| `FindPathsMatch`     | `FindPathsMatch(json, valuePattern string) []string`            | Return all paths at which a scalar matches the wildcard `valuePattern`.                                                 |
+| `Count`              | `Count(json, path string) int`                                  | Count elements at `path` (array length or 1 for scalars; 0 when missing).                                               |
+| `Sum`                | `Sum(json, path string) float64`                                | Sum of all numeric values at `path`.                                                                                    |
+| `Min`                | `Min(json, path string) (float64, bool)`                        | Minimum numeric value at `path`.                                                                                        |
+| `Max`                | `Max(json, path string) (float64, bool)`                        | Maximum numeric value at `path`.                                                                                        |
+| `Avg`                | `Avg(json, path string) (float64, bool)`                        | Arithmetic mean of numeric values at `path`.                                                                            |
+| `CollectFloat64`     | `CollectFloat64(json, path string) []float64`                   | Collect numeric values at `path` using `conv.Float64` (handles string-encoded numbers).                                 |
+| `Filter`             | `Filter(json, path string, fn func(Context) bool) []Context`    | Keep only elements at `path` for which `fn` returns true.                                                               |
+| `First`              | `First(json, path string, fn func(Context) bool) Context`       | First element at `path` for which `fn` returns true.                                                                    |
+| `Distinct`           | `Distinct(json, path string) []Context`                         | Unique values at `path` (first-occurrence order).                                                                       |
+| `Pluck`              | `Pluck(json, path string, fields ...string) []Context`          | Extract named fields from each object in the array at `path`.                                                           |
+| `GroupBy`            | `GroupBy(json, path, keyField string) map[string][]Context`     | Group array elements by the string value of `keyField`, using `conv.String` for key normalization.                      |
+| `SortBy`             | `SortBy(json, path, keyField string, ascending bool) []Context` | Sort array elements by a sub-field using `conv`-powered numeric and string comparison.                                  |
+| `CoerceTo`           | `CoerceTo(ctx Context, into any) error`                         | Coerce a Context's value into any Go typed variable via `conv.Infer`.                                                   |
 
 ### `Context` Methods
 
-| Method | Signature | Description |
-|--------|-----------|-------------|
-| `Kind` | `Kind() Type` | Return the JSON type (`Null`, `False`, `Number`, `String`, `True`, `JSON`). |
-| `Raw` | `Raw() string` | Return the raw unprocessed JSON fragment. |
-| `Number` | `Number() float64` | Return the numeric value (for `Number` type). |
-| `Index` | `Index() int` | Return the byte offset of this value in the original JSON. |
-| `Indexes` | `Indexes() []int` | Return positions of all `#`-matched elements. |
-| `String` | `String() string` | Return a string representation of the value. |
-| `StringColored` | `StringColored() string` | Return the string with default ANSI color styling. |
-| `WithStringColored` | `WithStringColored(style *unify4g.Style) string` | Return the string with a custom ANSI color style. |
-| `Bool` | `Bool() bool` | Return the boolean value. |
-| `Int64` | `Int64() int64` | Return the value as `int64`. |
-| `Uint64` | `Uint64() uint64` | Return the value as `uint64`. |
-| `Float64` | `Float64() float64` | Return the value as `float64`. |
-| `Float32` | `Float32() float32` | Return the value as `float32`. |
-| `Time` | `Time() time.Time` | Parse the value as `time.Time` using RFC 3339. |
-| `WithTime` | `WithTime(layout string) time.Time` | Parse the value as `time.Time` with a custom layout. |
-| `Array` | `Array() []Context` | Return all array elements as a `[]Context`. |
-| `IsObject` | `IsObject() bool` | Report whether the value is a JSON object. |
-| `IsArray` | `IsArray() bool` | Report whether the value is a JSON array. |
-| `IsBool` | `IsBool() bool` | Report whether the value is a JSON boolean. |
-| `Exists` | `Exists() bool` | Report whether the path was found in the JSON. |
-| `Value` | `Value() interface{}` | Return the value as a native Go type (`map`, `[]interface{}`, etc.). |
-| `Map` | `Map() map[string]Context` | Return the value as a `map[string]Context` (for JSON objects). |
-| `Foreach` | `Foreach(iterator func(key, value Context) bool)` | Iterate over array elements or object key-value pairs. |
-| `Get` | `Get(path string) Context` | Query a sub-path (enables chaining). |
-| `GetMulti` | `GetMulti(paths ...string) []Context` | Query multiple paths simultaneously. |
-| `Path` | `Path(json string) string` | Return the dot-notation path that produced this context. |
-| `Paths` | `Paths(json string) []string` | Return paths for each element in an array result. |
-| `Less` | `Less(token Context, caseSensitive bool) bool` | Report whether this value is less than `token`. |
+| Method              | Signature                                         | Description                                                                 |
+| ------------------- | ------------------------------------------------- | --------------------------------------------------------------------------- |
+| `Kind`              | `Kind() Type`                                     | Return the JSON type (`Null`, `False`, `Number`, `String`, `True`, `JSON`). |
+| `Raw`               | `Raw() string`                                    | Return the raw unprocessed JSON fragment.                                   |
+| `Number`            | `Number() float64`                                | Return the numeric value (for `Number` type).                               |
+| `Index`             | `Index() int`                                     | Return the byte offset of this value in the original JSON.                  |
+| `Indexes`           | `Indexes() []int`                                 | Return positions of all `#`-matched elements.                               |
+| `String`            | `String() string`                                 | Return a string representation of the value.                                |
+| `StringColored`     | `StringColored() string`                          | Return the string with default ANSI color styling.                          |
+| `WithStringColored` | `WithStringColored(style *unify4g.Style) string`  | Return the string with a custom ANSI color style.                           |
+| `Bool`              | `Bool() bool`                                     | Return the boolean value.                                                   |
+| `Int64`             | `Int64() int64`                                   | Return the value as `int64`.                                                |
+| `Uint64`            | `Uint64() uint64`                                 | Return the value as `uint64`.                                               |
+| `Float64`           | `Float64() float64`                               | Return the value as `float64`.                                              |
+| `Float32`           | `Float32() float32`                               | Return the value as `float32`.                                              |
+| `Time`              | `Time() time.Time`                                | Parse the value as `time.Time` using RFC 3339.                              |
+| `WithTime`          | `WithTime(layout string) time.Time`               | Parse the value as `time.Time` with a custom layout.                        |
+| `Array`             | `Array() []Context`                               | Return all array elements as a `[]Context`.                                 |
+| `IsObject`          | `IsObject() bool`                                 | Report whether the value is a JSON object.                                  |
+| `IsArray`           | `IsArray() bool`                                  | Report whether the value is a JSON array.                                   |
+| `IsBool`            | `IsBool() bool`                                   | Report whether the value is a JSON boolean.                                 |
+| `Exists`            | `Exists() bool`                                   | Report whether the path was found in the JSON.                              |
+| `Value`             | `Value() interface{}`                             | Return the value as a native Go type (`map`, `[]interface{}`, etc.).        |
+| `Map`               | `Map() map[string]Context`                        | Return the value as a `map[string]Context` (for JSON objects).              |
+| `Foreach`           | `Foreach(iterator func(key, value Context) bool)` | Iterate over array elements or object key-value pairs.                      |
+| `Get`               | `Get(path string) Context`                        | Query a sub-path (enables chaining).                                        |
+| `GetMulti`          | `GetMulti(paths ...string) []Context`             | Query multiple paths simultaneously.                                        |
+| `Path`              | `Path(json string) string`                        | Return the dot-notation path that produced this context.                    |
+| `Paths`             | `Paths(json string) []string`                     | Return paths for each element in an array result.                           |
+| `Less`              | `Less(token Context, caseSensitive bool) bool`    | Report whether this value is less than `token`.                             |
 
 ### JSON Type Constants
 
-| Constant | Description |
-|----------|-------------|
-| `Null` | JSON `null` |
-| `False` | JSON `false` |
-| `Number` | JSON number |
-| `String` | JSON string |
-| `True` | JSON `true` |
-| `JSON` | JSON object or array |
+| Constant | Description          |
+| -------- | -------------------- |
+| `Null`   | JSON `null`          |
+| `False`  | JSON `false`         |
+| `Number` | JSON number          |
+| `String` | JSON string          |
+| `True`   | JSON `true`          |
+| `JSON`   | JSON object or array |
 
 ## Examples
 
@@ -1020,7 +1023,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/fj"
+    "github.com/polarixa/replify/pkg/fj"
 )
 
 func main() {
@@ -1210,21 +1213,25 @@ All public API functions (`Get`, `GetBytes`, `Parse*`, `IsValid*`, `AddTransform
 To contribute to this project, follow these steps:
 
 1. Clone the repository:
+
    ```bash
-   git clone --depth 1 https://github.com/sivaosorg/replify.git
+   git clone --depth 1 https://github.com/polarixa/replify.git
    ```
 
 2. Navigate to the project directory:
+
    ```bash
    cd replify
    ```
 
 3. Prepare the project environment:
+
    ```bash
    go mod tidy
    ```
 
 4. Run the tests:
+
    ```bash
    go test ./pkg/fj/...
    ```

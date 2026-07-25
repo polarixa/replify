@@ -14,7 +14,7 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // NewHash creates a new hash.Hash instance for the given algorithm.

@@ -6,7 +6,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // FromJSON parses a JSON string and populates the provided variable with the resulting data structure.
