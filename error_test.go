@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/sivaosorg/replify"
+	"github.com/polarixa/replify"
 )
 
 func TestWithError(t *testing.T) {

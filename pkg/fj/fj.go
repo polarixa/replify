@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/common"
+	"github.com/polarixa/replify/pkg/common"
 )
 
 // Parse parses a JSON string and returns a Context representing the parsed value.

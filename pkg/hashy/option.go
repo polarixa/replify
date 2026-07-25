@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"hash"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // WithHasher sets the hash function to use.

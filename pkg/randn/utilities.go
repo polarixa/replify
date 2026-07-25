@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/sivaosorg/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // readMachineIDEnv attempts to read the machine ID from the 'XID_MACHINE_ID' environment variable.

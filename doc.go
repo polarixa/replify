@@ -11,7 +11,7 @@
 //
 // # Installation
 //
-//	go get github.com/sivaosorg/replify
+//	go get github.com/polarixa/replify
 //
 // # Getting Started
 //

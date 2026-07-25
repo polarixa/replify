@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // isDue is the internal implementation shared by the package-level IsDue and

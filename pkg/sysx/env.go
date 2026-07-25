@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Setenv sets the environment variable named by key to value.

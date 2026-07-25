@@ -11,17 +11,17 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/coll"
-	"github.com/sivaosorg/replify/pkg/common"
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/fj"
-	"github.com/sivaosorg/replify/pkg/hashy"
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/strchain"
-	"github.com/sivaosorg/replify/pkg/strutil"
-	"github.com/sivaosorg/replify/pkg/sysx"
-	"github.com/sivaosorg/replify/pkg/translit"
+	"github.com/polarixa/replify/pkg/coll"
+	"github.com/polarixa/replify/pkg/common"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/hashy"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
+	"github.com/polarixa/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/translit"
 )
 
 // Available checks whether the [wrapper] instance is non-nil.

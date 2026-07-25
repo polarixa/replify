@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
-	"github.com/sivaosorg/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // ///////////////////////////////////////////////////////////////////////////

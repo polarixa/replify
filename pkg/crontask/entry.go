@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Parse converts a cron expression string into a Schedule that can be used

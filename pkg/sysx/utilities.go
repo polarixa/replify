@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // setenv sets the environment variable named by key to value.

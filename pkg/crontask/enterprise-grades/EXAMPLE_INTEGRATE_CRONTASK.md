@@ -110,7 +110,7 @@ import (
     "log"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/crontask"
+    "github.com/polarixa/replify/pkg/crontask"
 )
 
 // Deps carries the external dependencies that jobs need. Each field is an
@@ -472,7 +472,7 @@ s, _ := crontask.New(
 ### 4.2 Per-job hook override with additional hooks
 
 Per-job hooks passed via `WithHooks` completely replace the scheduler-default hooks for
-that specific job. To keep the defaults *and* add more, chain them explicitly:
+that specific job. To keep the defaults _and_ add more, chain them explicitly:
 
 ```go
 m := crontask.MetricsHook()   // shared metrics instance
@@ -961,12 +961,12 @@ For jobs running every second (`WithSeconds()` + `@every 1s`):
 
 ### 9.3 Backoff strategies
 
-| Scenario | Recommended backoff |
-|---|---|
+| Scenario                | Recommended backoff                                        |
+| ----------------------- | ---------------------------------------------------------- |
 | Transient network error | `ExponentialBackoff(500ms)` — caps below schedule interval |
-| Database contention | `ConstantBackoff(5s)` — predictable, avoids amplification |
-| Third-party rate limit | `ExponentialBackoff(1s)` with a cap injected in the policy |
-| Idempotent HTTP POST | `ExponentialBackoff(200ms)` |
+| Database contention     | `ConstantBackoff(5s)` — predictable, avoids amplification  |
+| Third-party rate limit  | `ExponentialBackoff(1s)` with a cap injected in the policy |
+| Idempotent HTTP POST    | `ExponentialBackoff(200ms)`                                |
 
 ### 9.4 Avoid blocking the scheduler loop
 
@@ -1002,19 +1002,19 @@ func (s *Scheduler) heavyMLTrainingJob(ctx context.Context) error {
 
 ## 10. Modification Guide for Real Projects
 
-| Code location | What to change for production |
-|---|---|
-| `scheduler.New` `WithSchedulerHooks(...)` | Replace `LoggingHook()` with a structured logger adapter (zap, slog, logrus) |
-| `scheduler.New` `WithErrorHandler(...)` | Wire to your alerting pipeline (PagerDuty, OpsGenie, Sentry) |
-| `registerJobs` cron expressions | Read from env vars or a config file for ops-team control |
-| `registerJobs` `WithTimeout(...)` | Set per-job based on measured p99 execution time + safety margin |
-| `Deps` interface fields | Replace stubs with real service implementations backed by your DB/cache clients |
-| `healthCheckJob` | Replace stub with real `http.Get` using an injected `*http.Client` |
-| `cacheCleanupJob` | Pass Redis client and TTL policy via `CacheService` constructor |
-| `dailyReportJob` | Inject SMTP/SendGrid client and recipient config via `ReportService` |
-| `retryWebhooksJob` | Inject outbox table query and HTTP delivery client via `WebhookService` |
-| `leaderOnlyJob` | Inject a real distributed lock client (redsync, etcd lease) via `Deps.DistLock` |
-| `featureGatedJob` | Inject a feature-flag client (LaunchDarkly, Unleash, env-var-based) |
+| Code location                             | What to change for production                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------- |
+| `scheduler.New` `WithSchedulerHooks(...)` | Replace `LoggingHook()` with a structured logger adapter (zap, slog, logrus)    |
+| `scheduler.New` `WithErrorHandler(...)`   | Wire to your alerting pipeline (PagerDuty, OpsGenie, Sentry)                    |
+| `registerJobs` cron expressions           | Read from env vars or a config file for ops-team control                        |
+| `registerJobs` `WithTimeout(...)`         | Set per-job based on measured p99 execution time + safety margin                |
+| `Deps` interface fields                   | Replace stubs with real service implementations backed by your DB/cache clients |
+| `healthCheckJob`                          | Replace stub with real `http.Get` using an injected `*http.Client`              |
+| `cacheCleanupJob`                         | Pass Redis client and TTL policy via `CacheService` constructor                 |
+| `dailyReportJob`                          | Inject SMTP/SendGrid client and recipient config via `ReportService`            |
+| `retryWebhooksJob`                        | Inject outbox table query and HTTP delivery client via `WebhookService`         |
+| `leaderOnlyJob`                           | Inject a real distributed lock client (redsync, etcd lease) via `Deps.DistLock` |
+| `featureGatedJob`                         | Inject a feature-flag client (LaunchDarkly, Unleash, env-var-based)             |
 
 ### Environment variables pattern
 

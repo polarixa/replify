@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/sivaosorg/replify/pkg/common"
+	"github.com/polarixa/replify/pkg/common"
 )
 
 // ─── builtin.go ─────────────────────────────────────────────────────────────

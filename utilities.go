@@ -7,10 +7,10 @@ import (
 	"encoding/json"
 	"io"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/sysx"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // calculateSize calculates the size of the marshaled data.

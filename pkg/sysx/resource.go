@@ -5,7 +5,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // NewResource creates an empty Resource ready to be configured through the

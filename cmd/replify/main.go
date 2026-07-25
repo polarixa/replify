@@ -1,6 +1,6 @@
 package main
 
-import "github.com/sivaosorg/replify/pkg/slogger"
+import "github.com/polarixa/replify/pkg/slogger"
 
 func main() {
 

@@ -322,8 +322,8 @@ func TestCallerInfo_Function(t *testing.T) {
 
 	t.Run("returns function", func(t *testing.T) {
 		t.Parallel()
-		c := &CallerInfo{function: "github.com/sivaosorg/replify/pkg/slogger.TestCallerInfo"}
-		assertEqual(t, "github.com/sivaosorg/replify/pkg/slogger.TestCallerInfo", c.Function())
+		c := &CallerInfo{function: "github.com/polarixa/replify/pkg/slogger.TestCallerInfo"}
+		assertEqual(t, "github.com/polarixa/replify/pkg/slogger.TestCallerInfo", c.Function())
 	})
 
 	t.Run("nil receiver", func(t *testing.T) {

@@ -1,8 +1,8 @@
 package replify
 
 import (
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/strchain"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
 )
 
 // WithPage sets the page number for the [pagination] instance.

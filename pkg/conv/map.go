@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/sivaosorg/replify/pkg/common"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/common"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // ///////////////////////////

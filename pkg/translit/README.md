@@ -3,7 +3,7 @@
 Package `translit` transliterates Unicode text into plain 7-bit ASCII.
 
 ```go
-import "github.com/sivaosorg/replify/pkg/translit"
+import "github.com/polarixa/replify/pkg/translit"
 ```
 
 `translit` is a from-scratch, performance-oriented reimplementation of
@@ -35,7 +35,7 @@ across every script category.
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify/pkg/translit
+go get github.com/polarixa/replify/pkg/translit
 ```
 
 ---

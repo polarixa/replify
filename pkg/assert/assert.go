@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/sivaosorg/replify/pkg/ref"
+	"github.com/polarixa/replify/pkg/ref"
 )
 
 // AssertEqual compares two objects for equality and reports a test failure if they are not equal.

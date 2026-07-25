@@ -10,7 +10,7 @@ import (
 	"unicode/utf8"
 	"unsafe"
 
-	"github.com/sivaosorg/replify/pkg/truncate"
+	"github.com/polarixa/replify/pkg/truncate"
 )
 
 var (

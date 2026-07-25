@@ -4,10 +4,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/conv"
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/fj"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/fj"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // UnwrapJSON parses a raw JSON string and maps it into a [wrapper] struct.

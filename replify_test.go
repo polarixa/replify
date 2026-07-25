@@ -4,7 +4,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/sivaosorg/replify"
+	"github.com/polarixa/replify"
 )
 
 // TestRespond_ConcurrentSafety verifies that calling Respond from multiple

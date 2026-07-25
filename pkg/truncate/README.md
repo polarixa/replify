@@ -12,6 +12,7 @@ The `truncate` package solves the problem of shortening strings to a target leng
 - **Strategy pattern** — swap truncation behaviour through a common `Strategy` interface
 
 **Key Features:**
+
 - ✂️ **Multiple built-in strategies** — Cut, CutEllipsis, CutEllipsisLeading, EllipsisMiddle
 - 🔧 **Fluent builder API** — configure omission, position, and max length with chaining
 - 🌐 **Unicode-safe** — correctly handles CJK, emoji, and accented characters
@@ -22,6 +23,7 @@ The `truncate` package solves the problem of shortening strings to a target leng
 ## Use Cases
 
 ### When to Use
+
 - ✅ **UI text truncation** — shorten titles, descriptions, or labels for display
 - ✅ **Log messages** — cap long values in structured logging
 - ✅ **CLI output** — fit strings into fixed-width terminal columns
@@ -31,6 +33,7 @@ The `truncate` package solves the problem of shortening strings to a target leng
 - ✅ **File path display** — shorten long paths with middle truncation
 
 ### When Not to Use
+
 - ❌ **Word-boundary truncation** — this package operates on runes, not words
 - ❌ **HTML-aware truncation** — use a dedicated HTML-safe truncator instead
 - ❌ **Binary data** — use `bytes` package for byte-level operations
@@ -38,13 +41,13 @@ The `truncate` package solves the problem of shortening strings to a target leng
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/truncate"
+import "github.com/polarixa/replify/pkg/truncate"
 ```
 
 ## Usage
@@ -58,7 +61,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/truncate"
+    "github.com/polarixa/replify/pkg/truncate"
 )
 
 func main() {
@@ -91,7 +94,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/truncate"
+    "github.com/polarixa/replify/pkg/truncate"
 )
 
 func main() {
@@ -263,18 +266,18 @@ func main() {
 
 ### Package-Level Functions
 
-| Function | Description | Return Type |
-|----------|-------------|-------------|
-| `Apply(str, length, strategy)` | Truncate string using a strategy | `string` |
+| Function                       | Description                      | Return Type |
+| ------------------------------ | -------------------------------- | ----------- |
+| `Apply(str, length, strategy)` | Truncate string using a strategy | `string`    |
 
 ### Strategy Factories
 
-| Function | Description | Omission | Position |
-|----------|-------------|----------|----------|
-| `NewCutStrategy()` | Plain cut, no marker | `""` | End |
-| `NewCutEllipsisStrategy()` | Ellipsis at end | `"…"` | End |
-| `NewCutEllipsisLeadingStrategy()` | Ellipsis at start | `"…"` | Start |
-| `NewEllipsisMiddleStrategy()` | Ellipsis in middle | `"…"` | Middle |
+| Function                          | Description          | Omission | Position |
+| --------------------------------- | -------------------- | -------- | -------- |
+| `NewCutStrategy()`                | Plain cut, no marker | `""`     | End      |
+| `NewCutEllipsisStrategy()`        | Ellipsis at end      | `"…"`    | End      |
+| `NewCutEllipsisLeadingStrategy()` | Ellipsis at start    | `"…"`    | Start    |
+| `NewEllipsisMiddleStrategy()`     | Ellipsis in middle   | `"…"`    | Middle   |
 
 ### Truncator Builder
 
@@ -286,20 +289,20 @@ t := truncate.NewTruncator().
     Build()
 ```
 
-| Method | Description | Default |
-|--------|-------------|---------|
-| `NewTruncator()` | Create a new builder | — |
-| `WithOmission(string)` | Set omission marker | `"…"` |
-| `WithPosition(Position)` | Set truncation position | `PositionEnd` |
-| `WithMaxLength(int)` | Set max rune count | `0` |
-| `Build()` | Build immutable `Truncator` | — |
+| Method                   | Description                 | Default       |
+| ------------------------ | --------------------------- | ------------- |
+| `NewTruncator()`         | Create a new builder        | —             |
+| `WithOmission(string)`   | Set omission marker         | `"…"`         |
+| `WithPosition(Position)` | Set truncation position     | `PositionEnd` |
+| `WithMaxLength(int)`     | Set max rune count          | `0`           |
+| `Build()`                | Build immutable `Truncator` | —             |
 
 ### Truncator Methods
 
-| Method | Description |
-|--------|-------------|
-| `Truncate(str string) string` | Truncate using configured `maxLength` |
-| `TruncateWithLength(str string, length int) string` | Truncate using the given length |
+| Method                                              | Description                           |
+| --------------------------------------------------- | ------------------------------------- |
+| `Truncate(str string) string`                       | Truncate using configured `maxLength` |
+| `TruncateWithLength(str string, length int) string` | Truncate using the given length       |
 
 ### Strategy Interface
 
@@ -313,16 +316,16 @@ Implement this interface to create custom truncation strategies.
 
 ### Position Enum
 
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `PositionEnd` | `0` | Omission at the end (default) |
-| `PositionStart` | `1` | Omission at the start |
-| `PositionMiddle` | `2` | Omission in the middle |
+| Constant         | Value | Description                   |
+| ---------------- | ----- | ----------------------------- |
+| `PositionEnd`    | `0`   | Omission at the end (default) |
+| `PositionStart`  | `1`   | Omission at the start         |
+| `PositionMiddle` | `2`   | Omission in the middle        |
 
 ### Constants
 
-| Constant | Value | Description |
-|----------|-------|-------------|
+| Constant          | Value | Description               |
+| ----------------- | ----- | ------------------------- |
 | `DefaultOmission` | `"…"` | Unicode ellipsis (U+2026) |
 
 ## Best Practices & Notes
@@ -330,6 +333,7 @@ Implement this interface to create custom truncation strategies.
 ### ⚠️ Common Pitfalls
 
 1. **Byte Length vs Rune Count**
+
    ```go
    // ❌ Wrong: len() counts bytes, not characters
    text := "café"
@@ -341,6 +345,7 @@ Implement this interface to create custom truncation strategies.
    ```
 
 2. **Omission Counts Toward Length**
+
    ```go
    // The omission marker is included in the length budget
    truncate.Apply("Hello", 3, truncate.NewCutEllipsisStrategy())
@@ -348,6 +353,7 @@ Implement this interface to create custom truncation strategies.
    ```
 
 3. **Length Shorter Than Omission**
+
    ```go
    // When length ≤ omission length, falls back to plain cut
    truncate.Apply("Hello", 1, truncate.NewCutEllipsisStrategy())
@@ -419,18 +425,19 @@ wg.Wait()
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.
 
 ## Related
 
 Part of the **replify** ecosystem:
-- [replify](https://github.com/sivaosorg/replify) — API response wrapping library
-- [strutil](https://github.com/sivaosorg/replify/tree/master/pkg/strutil) — String utility functions
-- [hashy](https://github.com/sivaosorg/replify/tree/master/pkg/hashy) — Deterministic hashing
-- [conv](https://github.com/sivaosorg/replify/tree/master/pkg/conv) — Type conversion utilities
-- [match](https://github.com/sivaosorg/replify/tree/master/pkg/match) — Wildcard pattern matching
-- [coll](https://github.com/sivaosorg/replify/tree/master/pkg/coll) — Collection utilities
+
+- [replify](https://github.com/polarixa/replify) — API response wrapping library
+- [strutil](https://github.com/polarixa/replify/tree/master/pkg/strutil) — String utility functions
+- [hashy](https://github.com/polarixa/replify/tree/master/pkg/hashy) — Deterministic hashing
+- [conv](https://github.com/polarixa/replify/tree/master/pkg/conv) — Type conversion utilities
+- [match](https://github.com/polarixa/replify/tree/master/pkg/match) — Wildcard pattern matching
+- [coll](https://github.com/polarixa/replify/tree/master/pkg/coll) — Collection utilities

@@ -29,11 +29,11 @@ networking library such as `netx`.
 Before 1993, IPv4 addresses were divided into fixed classes based on the
 leading bits of the first octet.
 
-| Class | First Octet Range | Default Mask | Networks | Hosts/Net   |
-|-------|------------------|--------------|----------|-------------|
-| A     | 1–126            | /8           | 126      | 16,777,214  |
-| B     | 128–191          | /16          | 16,384   | 65,534      |
-| C     | 192–223          | /24          | 2,097,152| 254         |
+| Class | First Octet Range | Default Mask | Networks  | Hosts/Net  |
+| ----- | ----------------- | ------------ | --------- | ---------- |
+| A     | 1–126             | /8           | 126       | 16,777,214 |
+| B     | 128–191           | /16          | 16,384    | 65,534     |
+| C     | 192–223           | /24          | 2,097,152 | 254        |
 
 **The problem:** a company needing 300 hosts received a full Class B (65,534
 hosts), wasting over 65,000 addresses. There was no middle ground. The global
@@ -152,6 +152,7 @@ Usable hosts     = 2^(b - p) - 2
 ```
 
 The two reserved addresses are:
+
 - **Network address** (all host bits = 0) — identifies the subnet itself.
 - **Broadcast address** (all host bits = 1) — frames sent here are received
   by every device on the subnet.
@@ -159,7 +160,7 @@ The two reserved addresses are:
 **IPv4 Examples:**
 
 | Prefix | Host Bits | Total Addresses | Usable Hosts |
-|--------|-----------|-----------------|--------------|
+| ------ | --------- | --------------- | ------------ |
 | /24    | 8         | 256             | 254          |
 | /25    | 7         | 128             | 126          |
 | /26    | 6         | 64              | 62           |
@@ -223,6 +224,7 @@ must be divided into **4 equal subnets** for branches in London, Paris,
 Tokyo, and Sydney.
 
 **Input parameters:**
+
 - Base network: `192.168.10.0/24`
 - Number of subnets: 4
 - Strategy: FLSM (all subnets identical size)
@@ -250,12 +252,12 @@ Usable hosts per subnet = 64 - 2 = 62
 
 The subnets advance in increments of `2^host_bits = 64`:
 
-| Subnet | CIDR                  | Network Addr   | First Host     | Last Host      | Broadcast      | Usable Hosts |
-|--------|-----------------------|----------------|----------------|----------------|----------------|--------------|
-| 1 (London) | 192.168.10.0/26  | 192.168.10.0   | 192.168.10.1   | 192.168.10.62  | 192.168.10.63  | 62 |
-| 2 (Paris)  | 192.168.10.64/26 | 192.168.10.64  | 192.168.10.65  | 192.168.10.126 | 192.168.10.127 | 62 |
-| 3 (Tokyo)  | 192.168.10.128/26| 192.168.10.128 | 192.168.10.129 | 192.168.10.190 | 192.168.10.191 | 62 |
-| 4 (Sydney) | 192.168.10.192/26| 192.168.10.192 | 192.168.10.193 | 192.168.10.254 | 192.168.10.255 | 62 |
+| Subnet     | CIDR              | Network Addr   | First Host     | Last Host      | Broadcast      | Usable Hosts |
+| ---------- | ----------------- | -------------- | -------------- | -------------- | -------------- | ------------ |
+| 1 (London) | 192.168.10.0/26   | 192.168.10.0   | 192.168.10.1   | 192.168.10.62  | 192.168.10.63  | 62           |
+| 2 (Paris)  | 192.168.10.64/26  | 192.168.10.64  | 192.168.10.65  | 192.168.10.126 | 192.168.10.127 | 62           |
+| 3 (Tokyo)  | 192.168.10.128/26 | 192.168.10.128 | 192.168.10.129 | 192.168.10.190 | 192.168.10.191 | 62           |
+| 4 (Sydney) | 192.168.10.192/26 | 192.168.10.192 | 192.168.10.193 | 192.168.10.254 | 192.168.10.255 | 62           |
 
 ### Step 4: Binary Verification
 
@@ -291,13 +293,13 @@ wasted.
 A network engineer must allocate subnets from `10.0.0.0/24` for the
 following departments:
 
-| Department   | Hosts Required |
-|--------------|---------------|
-| Sales        | 100           |
-| IT           | 20            |
-| HR           | 5             |
-| P2P Link A   | 2             |
-| P2P Link B   | 2             |
+| Department | Hosts Required |
+| ---------- | -------------- |
+| Sales      | 100            |
+| IT         | 20             |
+| HR         | 5              |
+| P2P Link A | 2              |
+| P2P Link B | 2              |
 
 FLSM would require a /25 for each department (126 usable hosts). Five /25
 blocks would require a /22, but the available block is only /24 —
@@ -329,23 +331,23 @@ h = 2    →  2^2 - 2 =   2 >= 2    →  /30  (4 addresses)
 
 Starting at `10.0.0.0`, place each subnet immediately after the previous:
 
-| Dept       | CIDR            | Network Addr | First Host  | Last Host   | Broadcast   | Usable | Alloc |
-|------------|-----------------|--------------|-------------|-------------|-------------|--------|-------|
-| Sales /25  | 10.0.0.0/25     | 10.0.0.0     | 10.0.0.1    | 10.0.0.126  | 10.0.0.127  | 126    | 128   |
-| IT /27     | 10.0.0.128/27   | 10.0.0.128   | 10.0.0.129  | 10.0.0.158  | 10.0.0.159  | 30     | 32    |
-| HR /29     | 10.0.0.160/29   | 10.0.0.160   | 10.0.0.161  | 10.0.0.166  | 10.0.0.167  | 6      | 8     |
-| P2P A /30  | 10.0.0.168/30   | 10.0.0.168   | 10.0.0.169  | 10.0.0.170  | 10.0.0.171  | 2      | 4     |
-| P2P B /30  | 10.0.0.172/30   | 10.0.0.172   | 10.0.0.173  | 10.0.0.174  | 10.0.0.175  | 2      | 4     |
+| Dept      | CIDR          | Network Addr | First Host | Last Host  | Broadcast  | Usable | Alloc |
+| --------- | ------------- | ------------ | ---------- | ---------- | ---------- | ------ | ----- |
+| Sales /25 | 10.0.0.0/25   | 10.0.0.0     | 10.0.0.1   | 10.0.0.126 | 10.0.0.127 | 126    | 128   |
+| IT /27    | 10.0.0.128/27 | 10.0.0.128   | 10.0.0.129 | 10.0.0.158 | 10.0.0.159 | 30     | 32    |
+| HR /29    | 10.0.0.160/29 | 10.0.0.160   | 10.0.0.161 | 10.0.0.166 | 10.0.0.167 | 6      | 8     |
+| P2P A /30 | 10.0.0.168/30 | 10.0.0.168   | 10.0.0.169 | 10.0.0.170 | 10.0.0.171 | 2      | 4     |
+| P2P B /30 | 10.0.0.172/30 | 10.0.0.172   | 10.0.0.173 | 10.0.0.174 | 10.0.0.175 | 2      | 4     |
 
 Addresses consumed: 128 + 32 + 8 + 4 + 4 = **176**  
 Addresses remaining in /24: 256 − 176 = **80** (unallocated, available for future growth)
 
 ### Step 4: Efficiency Comparison
 
-| Strategy | Addresses Needed | Addresses Required | Waste   |
-|----------|------------------|--------------------|---------|
+| Strategy | Addresses Needed | Addresses Required | Waste     |
+| -------- | ---------------- | ------------------ | --------- |
 | FLSM /25 | 129              | 5 × 128 = 640      | 511 (79%) |
-| VLSM     | 129              | 176                | 47 (27%) |
+| VLSM     | 129              | 176                | 47 (27%)  |
 
 **VLSM uses 176 addresses vs. FLSM's 640 — a 73% reduction in allocation.**
 The remaining 80 addresses in the /24 can support future subnets without
@@ -393,16 +395,16 @@ Binary layout:
 
 ### Typical Address Assignments
 
-| Address       | Role                               |
-|---------------|------------------------------------|
-| 203.0.113.8   | Network address (reserved)         |
-| 203.0.113.9   | Upstream router (ISP gateway)      |
-| 203.0.113.10  | Edge firewall WAN interface        |
-| 203.0.113.11  | Load balancer VIP                  |
-| 203.0.113.12  | Spare / secondary public interface |
-| 203.0.113.13  | Spare / secondary public interface |
-| 203.0.113.14  | Spare / monitoring or secondary LB |
-| 203.0.113.15  | Broadcast address (reserved)       |
+| Address      | Role                               |
+| ------------ | ---------------------------------- |
+| 203.0.113.8  | Network address (reserved)         |
+| 203.0.113.9  | Upstream router (ISP gateway)      |
+| 203.0.113.10 | Edge firewall WAN interface        |
+| 203.0.113.11 | Load balancer VIP                  |
+| 203.0.113.12 | Spare / secondary public interface |
+| 203.0.113.13 | Spare / secondary public interface |
+| 203.0.113.14 | Spare / monitoring or secondary LB |
+| 203.0.113.15 | Broadcast address (reserved)       |
 
 ### Conservation Strategies
 
@@ -412,6 +414,7 @@ public IP, multiplying the usable capacity from 6 public IPs to thousands of
 private hosts.
 
 **IP Reservation Planning:**
+
 - Reserve one address for the upstream ISP gateway (required for BGP/routing
   sessions).
 - Reserve one or two addresses for failover or secondary interfaces.
@@ -483,12 +486,12 @@ Covers:    192.168.4.0/24, 192.168.5.0/24, 192.168.6.0/24, 192.168.7.0/24 ✓
 
 ### Benefits of Route Summarization
 
-| Benefit                  | Explanation                                                       |
-|--------------------------|-------------------------------------------------------------------|
-| Smaller routing tables   | One entry replaces four; scales from 4 routes to any power of 2 |
+| Benefit                  | Explanation                                                      |
+| ------------------------ | ---------------------------------------------------------------- |
+| Smaller routing tables   | One entry replaces four; scales from 4 routes to any power of 2  |
 | Faster routing decisions | Fewer lookups; hardware TCAM entries are preserved               |
 | Stability isolation      | Flapping of an internal /24 does not propagate to the backbone   |
-| Scalability              | ISPs aggregate thousands of customer routes into a single prefix  |
+| Scalability              | ISPs aggregate thousands of customer routes into a single prefix |
 
 **Prerequisite for summarisation:** the subnets to be aggregated must be
 **contiguous** and **start on a boundary** aligned to the summary prefix.
@@ -504,12 +507,12 @@ because 3 is not a power of 2.
 An enterprise network receives the block `10.20.0.0/22` (1024 addresses).
 The network is segmented into four VLANs:
 
-| VLAN  | Name     | Max Hosts |
-|-------|----------|-----------|
-| VLAN10 | Sales    | 200       |
-| VLAN20 | IT       | 100       |
-| VLAN30 | HR       | 50        |
-| VLAN40 | Guest    | 30        |
+| VLAN   | Name  | Max Hosts |
+| ------ | ----- | --------- |
+| VLAN10 | Sales | 200       |
+| VLAN20 | IT    | 100       |
+| VLAN30 | HR    | 50        |
+| VLAN40 | Guest | 30        |
 
 ### Design Principles
 
@@ -539,12 +542,12 @@ Sort by host requirement (largest first), find minimum prefix:
 
 Sequential allocation starting at `10.20.0.0`:
 
-| VLAN  | Name    | CIDR           | Gateway      | Usable Range (first–last) | Broadcast    | Usable |
-|-------|---------|----------------|--------------|---------------------------|--------------|--------|
-| VLAN10 | Sales  | 10.20.0.0/24   | 10.20.0.1    | 10.20.0.1 – 10.20.0.254   | 10.20.0.255  | 254    |
-| VLAN20 | IT     | 10.20.1.0/25   | 10.20.1.1    | 10.20.1.1 – 10.20.1.126   | 10.20.1.127  | 126    |
-| VLAN30 | HR     | 10.20.1.128/26 | 10.20.1.129  | 10.20.1.129 – 10.20.1.190 | 10.20.1.191  | 62     |
-| VLAN40 | Guest  | 10.20.1.192/27 | 10.20.1.193  | 10.20.1.193 – 10.20.1.222 | 10.20.1.223  | 30     |
+| VLAN   | Name  | CIDR           | Gateway     | Usable Range (first–last) | Broadcast   | Usable |
+| ------ | ----- | -------------- | ----------- | ------------------------- | ----------- | ------ |
+| VLAN10 | Sales | 10.20.0.0/24   | 10.20.0.1   | 10.20.0.1 – 10.20.0.254   | 10.20.0.255 | 254    |
+| VLAN20 | IT    | 10.20.1.0/25   | 10.20.1.1   | 10.20.1.1 – 10.20.1.126   | 10.20.1.127 | 126    |
+| VLAN30 | HR    | 10.20.1.128/26 | 10.20.1.129 | 10.20.1.129 – 10.20.1.190 | 10.20.1.191 | 62     |
+| VLAN40 | Guest | 10.20.1.192/27 | 10.20.1.193 | 10.20.1.193 – 10.20.1.222 | 10.20.1.223 | 30     |
 
 > **Note:** The "Usable Range" column shows all addresses that can be
 > assigned to devices, including the gateway interface itself. The gateway
@@ -747,44 +750,44 @@ below maps each subnetting concept to its corresponding Go function.
 
 ### Parsing and Subnet Introspection
 
-| Concept                   | `netx` API                           | Returns                    |
-|---------------------------|--------------------------------------|----------------------------|
-| Parse CIDR notation       | `netx.ParseCIDR(cidr string)`        | `(Subnet, error)`          |
-| Parse (panic on error)    | `netx.MustParseCIDR(cidr string)`    | `Subnet`                   |
-| Network address           | `sub.NetworkAddress()`               | `net.IP`                   |
-| Broadcast address         | `sub.BroadcastAddress()`             | `net.IP`                   |
-| First usable host         | `sub.FirstHost()`                    | `net.IP`                   |
-| Last usable host          | `sub.LastHost()`                     | `net.IP`                   |
-| Usable host count         | `sub.TotalHosts()`                   | `*big.Int`                 |
-| Prefix length             | `sub.Prefix()`                       | `int`                      |
-| CIDR string               | `sub.String()`                       | `string`                   |
-| Underlying *net.IPNet     | `sub.IPNet()`                        | `*net.IPNet`               |
+| Concept                | `netx` API                        | Returns           |
+| ---------------------- | --------------------------------- | ----------------- |
+| Parse CIDR notation    | `netx.ParseCIDR(cidr string)`     | `(Subnet, error)` |
+| Parse (panic on error) | `netx.MustParseCIDR(cidr string)` | `Subnet`          |
+| Network address        | `sub.NetworkAddress()`            | `net.IP`          |
+| Broadcast address      | `sub.BroadcastAddress()`          | `net.IP`          |
+| First usable host      | `sub.FirstHost()`                 | `net.IP`          |
+| Last usable host       | `sub.LastHost()`                  | `net.IP`          |
+| Usable host count      | `sub.TotalHosts()`                | `*big.Int`        |
+| Prefix length          | `sub.Prefix()`                    | `int`             |
+| CIDR string            | `sub.String()`                    | `string`          |
+| Underlying \*net.IPNet | `sub.IPNet()`                     | `*net.IPNet`      |
 
 ### FLSM Operations
 
-| Concept                   | `netx` API                                     | Returns                     |
-|---------------------------|------------------------------------------------|-----------------------------|
-| Split into equal subnets  | `netx.Split(network *net.IPNet, newPrefix int)` | `([]*net.IPNet, error)`     |
-| Split into exactly N      | `netx.SplitIntoN(network *net.IPNet, n int)`   | `([]*net.IPNet, error)`     |
-| Next contiguous subnet    | `netx.NextSubnet(ipnet *net.IPNet, newPrefix int)` | `(*net.IPNet, error)`   |
+| Concept                  | `netx` API                                         | Returns                 |
+| ------------------------ | -------------------------------------------------- | ----------------------- |
+| Split into equal subnets | `netx.Split(network *net.IPNet, newPrefix int)`    | `([]*net.IPNet, error)` |
+| Split into exactly N     | `netx.SplitIntoN(network *net.IPNet, n int)`       | `([]*net.IPNet, error)` |
+| Next contiguous subnet   | `netx.NextSubnet(ipnet *net.IPNet, newPrefix int)` | `(*net.IPNet, error)`   |
 
 ### VLSM Operations
 
-| Concept                          | `netx` API                                                  | Returns             |
-|----------------------------------|-------------------------------------------------------------|---------------------|
-| Variable-length host allocation  | `netx.DivideByHosts(base *net.IPNet, hostReqs []int)`       | `([]Subnet, error)` |
-| Min prefix for N hosts           | `netx.PrefixForHosts(hosts, bits int)`                      | `int`               |
-| Usable host count for prefix     | `netx.HostCount(prefix, bits int)`                          | `*big.Int`          |
+| Concept                         | `netx` API                                            | Returns             |
+| ------------------------------- | ----------------------------------------------------- | ------------------- |
+| Variable-length host allocation | `netx.DivideByHosts(base *net.IPNet, hostReqs []int)` | `([]Subnet, error)` |
+| Min prefix for N hosts          | `netx.PrefixForHosts(hosts, bits int)`                | `int`               |
+| Usable host count for prefix    | `netx.HostCount(prefix, bits int)`                    | `*big.Int`          |
 
 ### Subnet Utilities
 
-| Concept                     | `netx` API                                            | Returns        |
-|-----------------------------|-------------------------------------------------------|----------------|
-| Containment check           | `netx.Contains(network *net.IPNet, ip net.IP)`        | `bool`         |
-| Overlap detection           | `netx.Overlaps(netA, netB *net.IPNet)`                | `bool`         |
-| Total address count         | `netx.NetworkSize(ipnet *net.IPNet)`                  | `*big.Int`     |
-| Slice of CIDRs to strings   | `netx.SubnetsToStrings(nets []*net.IPNet)`            | `[]string`     |
-| Allocated subnets to strings| `netx.AllocatedSubnetsToStrings(subnets []Subnet)`    | `[]string`     |
+| Concept                      | `netx` API                                         | Returns    |
+| ---------------------------- | -------------------------------------------------- | ---------- |
+| Containment check            | `netx.Contains(network *net.IPNet, ip net.IP)`     | `bool`     |
+| Overlap detection            | `netx.Overlaps(netA, netB *net.IPNet)`             | `bool`     |
+| Total address count          | `netx.NetworkSize(ipnet *net.IPNet)`               | `*big.Int` |
+| Slice of CIDRs to strings    | `netx.SubnetsToStrings(nets []*net.IPNet)`         | `[]string` |
+| Allocated subnets to strings | `netx.AllocatedSubnetsToStrings(subnets []Subnet)` | `[]string` |
 
 ### Complete Example: VLSM Allocation from `10.0.0.0/24`
 
@@ -795,7 +798,7 @@ import (
     "fmt"
     "net"
 
-    "github.com/sivaosorg/replify/pkg/netx"
+    "github.com/polarixa/replify/pkg/netx"
 )
 
 func main() {
@@ -839,7 +842,7 @@ import (
     "fmt"
     "net"
 
-    "github.com/sivaosorg/replify/pkg/netx"
+    "github.com/polarixa/replify/pkg/netx"
 )
 
 func main() {
@@ -871,7 +874,7 @@ Sydney    192.168.10.192/26       hosts=62
 
 ---
 
-*This guide is part of the `netx` package documentation. For the Go API
+_This guide is part of the `netx` package documentation. For the Go API
 reference, see [README.md](../README.md). For the cross-package architecture
 and deduplication rationale, see the Cross-Package Architecture section in
-the README.*
+the README._

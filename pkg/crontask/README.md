@@ -3,7 +3,7 @@
 > **A production-grade cron and task scheduling engine for Go.**
 
 `crontask` is the canonical scheduling sub-package of the
-[replify](https://github.com/sivaosorg/replify) ecosystem. It provides
+[replify](https://github.com/polarixa/replify) ecosystem. It provides
 reliable, expressive, and observable periodic job execution built on a
 clean four-layer architecture.
 
@@ -40,7 +40,7 @@ financial settlements all depend on a reliable scheduler.
 
 Go's goroutine model makes building a scheduler straightforward—the
 standard library supplies `time.Sleep`, `time.Ticker`, and `time.After`.
-For *structured, observable, retryable* scheduling however, raw
+For _structured, observable, retryable_ scheduling however, raw
 primitives are insufficient. A production scheduler must handle:
 
 - **Expression parsing** — translating a human-authored schedule string
@@ -78,12 +78,12 @@ A standard cron expression contains five space-separated fields:
 
 ### 2.2 Field Operators
 
-| Operator | Meaning | Example |
-|----------|---------|---------|
-| `*`      | Every value | `*` in hour = every hour |
-| `,`      | List of values | `1,15` in DOM = 1st and 15th |
-| `-`      | Inclusive range | `1-5` in DOW = Mon–Fri |
-| `/`      | Step | `*/5` in minute = every 5 min |
+| Operator       | Meaning         | Example                       |
+| -------------- | --------------- | ----------------------------- |
+| `*`            | Every value     | `*` in hour = every hour      |
+| `,`            | List of values  | `1,15` in DOM = 1st and 15th  |
+| `-`            | Inclusive range | `1-5` in DOW = Mon–Fri        |
+| `/`            | Step            | `*/5` in minute = every 5 min |
 | `/` with range | Step over range | `0-30/5` = 0,5,10,15,20,25,30 |
 
 ### 2.3 The Optional Seconds Field
@@ -101,14 +101,14 @@ The seconds field follows the same grammar as the minutes field (0–59).
 
 Frequently used schedules are available as `@` aliases:
 
-| Alias | Equivalent |
-|-------|-----------|
+| Alias                   | Equivalent  |
+| ----------------------- | ----------- |
 | `@yearly` / `@annually` | `0 0 1 1 *` |
-| `@monthly` | `0 0 1 * *` |
-| `@weekly` | `0 0 * * 0` |
-| `@daily` / `@midnight` | `0 0 * * *` |
-| `@hourly` | `0 * * * *` |
-| `@minutely` | `* * * * *` |
+| `@monthly`              | `0 0 1 * *` |
+| `@weekly`               | `0 0 * * 0` |
+| `@daily` / `@midnight`  | `0 0 * * *` |
+| `@hourly`               | `0 * * * *` |
+| `@minutely`             | `* * * * *` |
 
 ### 2.5 Interval Expressions
 
@@ -152,10 +152,10 @@ s, err := crontask.New(crontask.WithLocation(loc))
 
 Daylight Saving Time creates two anomalies:
 
-| Event | Effect |
-|-------|--------|
+| Event                           | Effect                                                 |
+| ------------------------------- | ------------------------------------------------------ |
 | Spring-forward (clock skips 1h) | Jobs scheduled in the skipped hour are silently missed |
-| Fall-back (clock repeats 1h) | Jobs in the repeated hour fire **twice** |
+| Fall-back (clock repeats 1h)    | Jobs in the repeated hour fire **twice**               |
 
 `crontask` uses Go's `time.Time` representation, which stores wall
 clock and monotonic readings. When the system timezone transitions,
@@ -209,13 +209,13 @@ fmt.Println(sched.Next(t)) // 2024-03-11 02:30:00 EDT
 
 **Layer responsibilities:**
 
-| Layer | Files | Responsibility |
-|-------|-------|---------------|
-| Public API | `entry.go` | All exported top-level functions |
-| Expression | `expression.go` | Parse, validate, explain |
-| Job | `job.go` | Registry, metadata, statistics |
-| Execution | `executor.go` | Goroutine dispatch, retry, backoff |
-| Scheduler | `scheduler.go` | Main loop, tick, graceful shutdown |
+| Layer      | Files           | Responsibility                     |
+| ---------- | --------------- | ---------------------------------- |
+| Public API | `entry.go`      | All exported top-level functions   |
+| Expression | `expression.go` | Parse, validate, explain           |
+| Job        | `job.go`        | Registry, metadata, statistics     |
+| Execution  | `executor.go`   | Goroutine dispatch, retry, backoff |
+| Scheduler  | `scheduler.go`  | Main loop, tick, graceful shutdown |
 
 ---
 
@@ -232,7 +232,7 @@ import (
     "log"
     "time"
 
-    "github.com/sivaosorg/replify/pkg/crontask"
+    "github.com/polarixa/replify/pkg/crontask"
 )
 
 func main() {
@@ -381,17 +381,17 @@ desc, _ = crontask.Explain("TZ=America/New_York 0 0 * * 1-5")
 `crontask` ships with aliases tailored for common business scheduling
 patterns:
 
-| Alias | Expression | Description |
-|-------|-----------|-------------|
-| `@weekdays` | `0 0 * * 1-5` | Midnight, Monday–Friday |
-| `@weekends` | `0 0 * * 0,6` | Midnight, Saturday and Sunday |
-| `@businessDaily` | `0 9 * * 1-5` | 09:00 every weekday |
-| `@businessHourly` | `0 9-17 * * 1-5` | Every hour 09:00–17:00, Mon–Fri |
-| `@quarterly` | `0 0 1 1,4,7,10 *` | 1st of each quarter |
-| `@semiMonthly` | `0 0 1,15 * *` | 1st and 15th of each month |
-| `@workhours` | `* 9-17 * * 1-5` | Every minute during business hours |
-| `@marketOpen` | `30 9 * * 1-5` | 09:30, Mon–Fri (US market open) |
-| `@marketClose` | `0 16 * * 1-5` | 16:00, Mon–Fri (US market close) |
+| Alias             | Expression         | Description                        |
+| ----------------- | ------------------ | ---------------------------------- |
+| `@weekdays`       | `0 0 * * 1-5`      | Midnight, Monday–Friday            |
+| `@weekends`       | `0 0 * * 0,6`      | Midnight, Saturday and Sunday      |
+| `@businessDaily`  | `0 9 * * 1-5`      | 09:00 every weekday                |
+| `@businessHourly` | `0 9-17 * * 1-5`   | Every hour 09:00–17:00, Mon–Fri    |
+| `@quarterly`      | `0 0 1 1,4,7,10 *` | 1st of each quarter                |
+| `@semiMonthly`    | `0 0 1,15 * *`     | 1st and 15th of each month         |
+| `@workhours`      | `* 9-17 * * 1-5`   | Every minute during business hours |
+| `@marketOpen`     | `30 9 * * 1-5`     | 09:30, Mon–Fri (US market open)    |
+| `@marketClose`    | `0 16 * * 1-5`     | 16:00, Mon–Fri (US market close)   |
 
 ### 7.2 Custom Alias Registration
 
@@ -410,6 +410,7 @@ err = crontask.DeleteAlias("@nightly")
 ```
 
 **Rules:**
+
 - Names must begin with `@`.
 - The right-hand expression must be a valid five-field or six-field
   standard cron expression (no nested aliases, no `@every`).
@@ -526,15 +527,15 @@ type PanicHook interface {
 `crontask` ships a set of ready-to-use hooks that cover the most common
 production needs. Enable them individually or in any combination.
 
-| Hook | Constructor | Description |
-|------|-------------|-------------|
-| Logging | `LoggingHook()` | Logs lifecycle events via `log.Printf` |
-| Metrics | `MetricsHook()` | Atomic success/failure/duration counters |
-| Panic recovery | `RecoverPanicHook()` | Recovers panics; custom handler via `RecoverPanicHookWithHandler` |
-| Retry logger | `RetryLoggerHook()` | Logs each retry attempt (`RetryHook`) |
-| Timeout logger | `TimeoutLoggerHook()` | Warns on `context.DeadlineExceeded` failures |
-| Concurrency limiter | `ConcurrencyLimiterHook(n)` | Caps simultaneous executions to `n` |
-| Chaining | `ChainHooks(hooks...)` | Composes any number of hooks into one |
+| Hook                | Constructor                 | Description                                                       |
+| ------------------- | --------------------------- | ----------------------------------------------------------------- |
+| Logging             | `LoggingHook()`             | Logs lifecycle events via `log.Printf`                            |
+| Metrics             | `MetricsHook()`             | Atomic success/failure/duration counters                          |
+| Panic recovery      | `RecoverPanicHook()`        | Recovers panics; custom handler via `RecoverPanicHookWithHandler` |
+| Retry logger        | `RetryLoggerHook()`         | Logs each retry attempt (`RetryHook`)                             |
+| Timeout logger      | `TimeoutLoggerHook()`       | Warns on `context.DeadlineExceeded` failures                      |
+| Concurrency limiter | `ConcurrencyLimiterHook(n)` | Caps simultaneous executions to `n`                               |
+| Chaining            | `ChainHooks(hooks...)`      | Composes any number of hooks into one                             |
 
 **Scheduler-level defaults** — applied to every job that does not supply its own hooks:
 
@@ -630,13 +631,13 @@ s.Register("0 * * * *", withDistributedLock(rdb, "hourly-report", myFunc))
 
 ## 10. Performance Considerations
 
-| Concern | Recommendation |
-|---------|---------------|
-| Many jobs (1 000+) | `nextDue` scans the registry linearly; consider partitioning into multiple schedulers by domain |
+| Concern                       | Recommendation                                                                                                |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Many jobs (1 000+)            | `nextDue` scans the registry linearly; consider partitioning into multiple schedulers by domain               |
 | High-frequency jobs (< 100ms) | Use `WithSeconds()` and `@every` intervals; avoid five-field expressions where sub-minute precision is needed |
-| Large job payloads | Pass data via the job closure or a queue; never store large objects in `JobInfo` |
-| Memory leaks | Always call `s.Remove(id)` for dynamically registered one-shot jobs |
-| Goroutine accumulation | Set `WithTimeout` on every I/O-bound job |
+| Large job payloads            | Pass data via the job closure or a queue; never store large objects in `JobInfo`                              |
+| Memory leaks                  | Always call `s.Remove(id)` for dynamically registered one-shot jobs                                           |
+| Goroutine accumulation        | Set `WithTimeout` on every I/O-bound job                                                                      |
 
 ---
 
@@ -668,6 +669,7 @@ simultaneously due jobs (or a job that never finishes) creates
 unbounded goroutines.
 
 **Mitigation:**
+
 - Always set `WithTimeout` for any job that performs I/O.
 - Use a semaphore (see [§8.2](#82-limiting-concurrency)) to cap
   parallelism.
@@ -707,18 +709,18 @@ See [§3.3](#33-dst-behaviour) for full details. Key points:
 
 ## 12. Edge Cases in Production Environments
 
-| Scenario | Behaviour | Recommendation |
-|----------|-----------|---------------|
-| **DST spring-forward** | Job in skipped hour is missed | Accept the miss or implement CatchUp |
-| **DST fall-back** | Job in repeated hour fires twice | Use idempotent jobs + distributed locks |
-| **Scheduler restart** | All state reset; missed jobs not replayed | Implement PersistenceHook + CatchUp |
-| **High-frequency jobs** | Goroutine-per-invocation overhead at < 10ms | Use `@every` intervals; set `WithTimeout` |
-| **Long-running tasks** | Job may still run when next tick fires | Always set `WithTimeout`; use a semaphore to cap concurrency |
-| **Concurrent job modification** | `Register`/`Remove` during `Start()` is safe | Allowed; registry uses `sync.RWMutex` |
-| **Alias conflicts** | `RegisterAlias` silently overwrites existing names | Use unique, namespaced alias prefixes |
-| **Invalid expression** | `Parse`/`Register` return `ErrInvalidExpression` | Validate at startup with `ValidateCronExpr` |
-| **Timezone drift** | Long-running processes may accumulate drift | Use `time.Now().In(loc)` and keep IANA tz data up to date |
-| **Leap year** | `0 0 29 2 *` fires once every four years | Safe; `Next()` searches up to four years ahead |
+| Scenario                        | Behaviour                                          | Recommendation                                               |
+| ------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
+| **DST spring-forward**          | Job in skipped hour is missed                      | Accept the miss or implement CatchUp                         |
+| **DST fall-back**               | Job in repeated hour fires twice                   | Use idempotent jobs + distributed locks                      |
+| **Scheduler restart**           | All state reset; missed jobs not replayed          | Implement PersistenceHook + CatchUp                          |
+| **High-frequency jobs**         | Goroutine-per-invocation overhead at < 10ms        | Use `@every` intervals; set `WithTimeout`                    |
+| **Long-running tasks**          | Job may still run when next tick fires             | Always set `WithTimeout`; use a semaphore to cap concurrency |
+| **Concurrent job modification** | `Register`/`Remove` during `Start()` is safe       | Allowed; registry uses `sync.RWMutex`                        |
+| **Alias conflicts**             | `RegisterAlias` silently overwrites existing names | Use unique, namespaced alias prefixes                        |
+| **Invalid expression**          | `Parse`/`Register` return `ErrInvalidExpression`   | Validate at startup with `ValidateCronExpr`                  |
+| **Timezone drift**              | Long-running processes may accumulate drift        | Use `time.Now().In(loc)` and keep IANA tz data up to date    |
+| **Leap year**                   | `0 0 29 2 *` fires once every four years           | Safe; `Next()` searches up to four years ahead               |
 
 ---
 
@@ -812,22 +814,22 @@ for _, expr := range exprs {
 
 ## 14. Comparison with robfig/cron and gronx
 
-| Feature | robfig/cron | gronx | crontask |
-|---------|------------|-------|---------|
-| Five-field cron | ✓ | ✓ | ✓ |
-| Six-field (seconds) | ✓ (opt-in) | ✓ | ✓ (opt-in) |
-| @aliases | ✓ | ✓ | ✓ + business aliases |
-| @every intervals | ✓ | — | ✓ |
-| Custom alias registration | — | — | ✓ (`RegisterAlias`) |
-| Human-readable Explain | — | — | ✓ |
-| Per-job timeout | — | — | ✓ |
-| Retry with backoff | — | — | ✓ |
-| Jitter | — | — | ✓ |
-| Lifecycle hooks | — | — | ✓ |
-| Job metadata & introspection | — | — | ✓ |
-| Graceful shutdown | ✓ | — | ✓ |
-| Distributed lock example | — | — | documented |
-| Persistence hook pattern | — | — | documented |
+| Feature                      | robfig/cron | gronx | crontask             |
+| ---------------------------- | ----------- | ----- | -------------------- |
+| Five-field cron              | ✓           | ✓     | ✓                    |
+| Six-field (seconds)          | ✓ (opt-in)  | ✓     | ✓ (opt-in)           |
+| @aliases                     | ✓           | ✓     | ✓ + business aliases |
+| @every intervals             | ✓           | —     | ✓                    |
+| Custom alias registration    | —           | —     | ✓ (`RegisterAlias`)  |
+| Human-readable Explain       | —           | —     | ✓                    |
+| Per-job timeout              | —           | —     | ✓                    |
+| Retry with backoff           | —           | —     | ✓                    |
+| Jitter                       | —           | —     | ✓                    |
+| Lifecycle hooks              | —           | —     | ✓                    |
+| Job metadata & introspection | —           | —     | ✓                    |
+| Graceful shutdown            | ✓           | —     | ✓                    |
+| Distributed lock example     | —           | —     | documented           |
+| Persistence hook pattern     | —           | —     | documented           |
 
 **When to choose `crontask`:** You need a complete scheduling engine —
 not just a parser — with built-in retry, observability hooks, a rich
@@ -843,5 +845,5 @@ next-run computation without any scheduler runtime.
 
 ## License
 
-Part of the [replify](https://github.com/sivaosorg/replify) project.
+Part of the [replify](https://github.com/polarixa/replify) project.
 See the root `LICENSE` file for terms.

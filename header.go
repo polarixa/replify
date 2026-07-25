@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"slices"
 
-	"github.com/sivaosorg/replify/pkg/slogger"
-	"github.com/sivaosorg/replify/pkg/strchain"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // WithCode sets the `code` field of the [header] instance.

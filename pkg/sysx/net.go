@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // localCIDRs holds the parsed private and unique-local IP ranges used by

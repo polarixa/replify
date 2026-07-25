@@ -3,7 +3,7 @@ package truncate_test
 import (
 	"testing"
 
-	"github.com/sivaosorg/replify/pkg/truncate"
+	"github.com/polarixa/replify/pkg/truncate"
 )
 
 // ============================================================================

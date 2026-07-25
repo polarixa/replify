@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // IsTTY reports whether w is connected to a terminal (character device).

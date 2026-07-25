@@ -48,13 +48,13 @@ The `sysx` package eliminates the boilerplate of writing low-level system querie
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/sysx"
+import "github.com/polarixa/replify/pkg/sysx"
 ```
 
 **Requirements:** Go 1.24.0 or higher
@@ -509,7 +509,7 @@ import (
      "strings"
      "time"
 
-     "github.com/sivaosorg/replify/pkg/sysx"
+     "github.com/polarixa/replify/pkg/sysx"
  )
 ```
 

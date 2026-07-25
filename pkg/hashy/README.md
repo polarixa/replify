@@ -7,6 +7,7 @@
 The `hashy` package provides a comprehensive solution for generating deterministic hash values from Go data structures. Unlike built-in hash functions that work only on basic types, `hashy` can hash entire structs, nested data, and collections while respecting field ordering and custom hashing logic.
 
 **Key Features:**
+
 - 🔐 **Deterministic hashing** - identical values always produce identical hashes
 - 🎯 **Deep hashing** - works with nested structs, slices, maps, and pointers
 - 🏷️ **Struct tag support** - control hashing behavior via `hash:"..."` tags
@@ -22,6 +23,7 @@ The `hashy` package provides a comprehensive solution for generating determinist
 ## Use Cases
 
 ### When to Use
+
 - ✅ **Caching keys** - generate stable cache keys from complex objects
 - ✅ **Data deduplication** - detect duplicate records in databases
 - ✅ **Change detection** - track whether data has been modified
@@ -32,6 +34,7 @@ The `hashy` package provides a comprehensive solution for generating determinist
 - ✅ **Comparison** - fast equality checks for large data structures
 
 ### When Not to Use
+
 - ❌ **Cryptographic security** - use `crypto/*` packages instead (hashy is not cryptographically secure)
 - ❌ **Password hashing** - use bcrypt, argon2, or similar
 - ❌ **Message authentication** - use HMAC instead
@@ -41,13 +44,13 @@ The `hashy` package provides a comprehensive solution for generating determinist
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/hashy"
+import "github.com/polarixa/replify/pkg/hashy"
 ```
 
 ## Usage
@@ -61,7 +64,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/hashy"
+    "github.com/polarixa/replify/pkg/hashy"
 )
 
 func main() {
@@ -147,6 +150,7 @@ hash, _ := hashy.Hash(user)
 ```
 
 **Available Tags:**
+
 - `hash:"ignore"` or `hash:"-"` - Skip this field
 - `hash:"set"` - Treat slice as order-independent set
 - `hash:"string"` - Use `fmt.Stringer` if type implements it
@@ -398,17 +402,17 @@ func main() {
 
 ### Core Functions
 
-| Function | Description | Return Type |
-|----------|-------------|-------------|
-| `Hash(data ...any)` | Generate 64-bit hash | `uint64, error` |
+| Function                     | Description                    | Return Type     |
+| ---------------------------- | ------------------------------ | --------------- |
+| `Hash(data ...any)`          | Generate 64-bit hash           | `uint64, error` |
 | `HashValue(value any, opts)` | Hash single value with options | `uint64, error` |
-| `Hash256(data ...any)` | Generate SHA-256 hash string | `string, error` |
-| `Hash16Padded(data ...any)` | 16-char hex hash (zero-padded) | `string, error` |
-| `HashHex16(data ...any)` | Hex hash (no padding) | `string, error` |
-| `Hash10(data ...any)` | Decimal string hash | `string, error` |
-| `Hash16(data ...any)` | Hexadecimal string | `string, error` |
-| `Hash32(data ...any)` | Base32 string | `string, error` |
-| `Hash64(data ...any)` | Base64 encoded hash | `string, error` |
+| `Hash256(data ...any)`       | Generate SHA-256 hash string   | `string, error` |
+| `Hash16Padded(data ...any)`  | 16-char hex hash (zero-padded) | `string, error` |
+| `HashHex16(data ...any)`     | Hex hash (no padding)          | `string, error` |
+| `Hash10(data ...any)`        | Decimal string hash            | `string, error` |
+| `Hash16(data ...any)`        | Hexadecimal string             | `string, error` |
+| `Hash32(data ...any)`        | Base32 string                  | `string, error` |
+| `Hash64(data ...any)`        | Base64 encoded hash            | `string, error` |
 
 ### Options Builder
 
@@ -427,6 +431,7 @@ opts := hashy.NewOptions().
 ### Interfaces
 
 **Hashable** - Custom hash implementation:
+
 ```go
 type Hashable interface {
     Hash() (uint64, error)
@@ -434,6 +439,7 @@ type Hashable interface {
 ```
 
 **FieldSelector** - Control field inclusion:
+
 ```go
 type FieldSelector interface {
     SelectField() SelectField
@@ -443,6 +449,7 @@ type SelectField func(field string, value any) (bool, error)
 ```
 
 **MapSelector** - Control map entry inclusion:
+
 ```go
 type MapSelector interface {
     SelectMapEntry() SelectMapEntry
@@ -453,12 +460,12 @@ type SelectMapEntry func(field string, k, v any) (bool, error)
 
 ### Struct Tags
 
-| Tag | Description | Example |
-|-----|-------------|---------|
-| `hash:"ignore"` | Exclude field from hash | `ID int \`hash:"ignore"\`` |
-| `hash:"-"` | Same as "ignore" | `Password string \`hash:"-"\`` |
-| `hash:"set"` | Order-independent slice | `Tags []string \`hash:"set"\`` |
-| `hash:"string"` | Use fmt.Stringer | `Status Status \`hash:"string"\`` |
+| Tag             | Description             | Example                           |
+| --------------- | ----------------------- | --------------------------------- |
+| `hash:"ignore"` | Exclude field from hash | `ID int \`hash:"ignore"\``        |
+| `hash:"-"`      | Same as "ignore"        | `Password string \`hash:"-"\``    |
+| `hash:"set"`    | Order-independent slice | `Tags []string \`hash:"set"\``    |
+| `hash:"string"` | Use fmt.Stringer        | `Status Status \`hash:"string"\`` |
 
 ## Best Practices & Notes
 
@@ -472,11 +479,13 @@ type SelectMapEntry func(field string, k, v any) (bool, error)
    - Random values (exclude or use fixed seeds)
 
 3. **Float Precision**: Floating-point values are hashed as-is. Small differences will produce different hashes:
+
    ```go
    hashy.Hash(0.1 + 0.2) != hashy.Hash(0.3) // May differ due to float precision
    ```
 
 4. **Time Values**: `time.Time` includes location and monotonic clock. Strip unnecessary precision:
+
    ```go
    timestamp := time.Now().UTC().Truncate(time.Second)
    ```
@@ -627,8 +636,8 @@ if err != nil {
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.

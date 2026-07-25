@@ -7,6 +7,7 @@
 The `conv` package provides a comprehensive set of functions to convert between Go types in a safe and predictable way. It handles edge cases like `nil` values, empty strings, overflow protection, and supports both strict and lenient conversion modes.
 
 **Key Features:**
+
 - 🔄 **Type-safe conversions** using Go generics (`To[T]`, `Slice[T]`)
 - ⚡ **Fast-path optimizations** for common types
 - 🛡️ **Overflow protection** for numeric conversions
@@ -20,6 +21,7 @@ The `conv` package provides a comprehensive set of functions to convert between 
 ## Use Cases
 
 ### When to Use
+
 - ✅ Converting user input (strings) to typed values (int, bool, float)
 - ✅ Parsing configuration files or environment variables
 - ✅ Working with heterogeneous data from JSON/YAML
@@ -28,6 +30,7 @@ The `conv` package provides a comprehensive set of functions to convert between 
 - ✅ Normalizing data from external sources
 
 ### When Not to Use
+
 - ❌ When you need complex validation logic (use a validation library instead)
 - ❌ When source types are already known at compile time (use type assertions)
 - ❌ For performance-critical hot paths with known types (use native conversions)
@@ -36,13 +39,13 @@ The `conv` package provides a comprehensive set of functions to convert between 
 ## Installation
 
 ```bash
-go get github.com/sivaosorg/replify
+go get github.com/polarixa/replify
 ```
 
 Import the package in your Go code:
 
 ```go
-import "github.com/sivaosorg/replify/pkg/conv"
+import "github.com/polarixa/replify/pkg/conv"
 ```
 
 ## Usage
@@ -56,7 +59,7 @@ package main
 
 import (
     "fmt"
-    "github.com/sivaosorg/replify/pkg/conv"
+    "github.com/polarixa/replify/pkg/conv"
 )
 
 func main() {
@@ -289,12 +292,12 @@ c2 := c.Clone().WithStrictMode(false)
 
 ### Core Conversion Functions
 
-| Function | Description | Example |
-|----------|-------------|---------|
-| `To[T](from any)` | Generic type conversion | `conv.To[int]("42")` |
-| `MustTo[T](from any)` | Panics on error | `conv.MustTo[bool]("true")` |
+| Function                        | Description              | Example                         |
+| ------------------------------- | ------------------------ | ------------------------------- |
+| `To[T](from any)`               | Generic type conversion  | `conv.To[int]("42")`            |
+| `MustTo[T](from any)`           | Panics on error          | `conv.MustTo[bool]("true")`     |
 | `ToOrDefault[T](from, default)` | Returns default on error | `conv.ToOrDefault[int]("x", 0)` |
-| `Infer(&into, from)` | Infers target type | `conv.Infer(&age, "25")` |
+| `Infer(&into, from)`            | Infers target type       | `conv.Infer(&age, "25")`        |
 
 ### Primitive Types
 
@@ -311,11 +314,13 @@ c2 := c.Clone().WithStrictMode(false)
 ### Collections
 
 **Slices:**
+
 - `Slice[T](from)` - Generic slice conversion
 - `IntSlice`, `Int64Slice`, `Float64Slice`, `StringSlice`, `BoolSlice`
 - `SliceOrDefault[T](from, default)`
 
 **Maps:**
+
 - `MapTo(from)` - Convert to `map[string]any`
 - `StringMap`, `IntMap`, `Float64Map`, `BoolMap`
 
@@ -338,16 +343,19 @@ c2 := c.Clone().WithStrictMode(false)
 ### ⚠️ Common Pitfalls
 
 1. **Overflow Behavior**: Numeric conversions clamp to the target type's range instead of erroring:
+
    ```go
    val, _ := conv.Int8("200")  // Returns 127 (max int8), not error
    ```
 
 2. **String Trimming**: By default, strings are trimmed before conversion:
+
    ```go
    conv.Int("  42  ") // Works and returns 42
    ```
 
 3. **Nil Handling**: By default, `nil` returns zero value:
+
    ```go
    conv.Int(nil) // Returns 0, not error
    ```
@@ -422,7 +430,7 @@ if err != nil {
     if conv.IsConvError(err) {
         // Handle conversion-specific error
         if convErr, ok := conv.AsConvError(err); ok {
-            fmt.Printf("Failed to convert %v to %s\n", 
+            fmt.Printf("Failed to convert %v to %s\n",
                 convErr.From, convErr.To)
         }
     }
@@ -431,8 +439,8 @@ if err != nil {
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/sivaosorg/replify) for contribution guidelines.
+Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
 
 ## License
 
-This library is part of the [replify](https://github.com/sivaosorg/replify) project.
+This library is part of the [replify](https://github.com/polarixa/replify) project.

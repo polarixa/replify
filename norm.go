@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // NormAll performs a comprehensive normalization of the wrapper instance.

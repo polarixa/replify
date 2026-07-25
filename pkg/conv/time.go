@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // ///////////////////////////

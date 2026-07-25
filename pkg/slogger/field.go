@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sivaosorg/replify/pkg/encoding"
-	"github.com/sivaosorg/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/encoding"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // ///////////////////////////////////////////////////////////////////////////
