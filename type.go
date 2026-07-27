@@ -21,6 +21,33 @@ type R struct {
 	*wrapper
 }
 
+// H represents a wrapper around the [header] struct. It is used to encapsulate
+// the header information of an API response, providing a structured way to access
+// and manipulate the status code, message, type, and description of the response.
+// The "H" type allows for easier handling of response headers while maintaining
+// the flexibility of the underlying [header] structure.
+type H struct {
+	*header
+}
+
+// P represents a wrapper around the [pagination] struct. It is used to encapsulate
+// pagination details for paginated API responses, providing a structured way to access
+// and manipulate the current page, items per page, total pages, total items, and whether
+// the current page is the last one. The "P" type allows for easier handling of pagination
+// information while maintaining the flexibility of the underlying [pagination] structure.
+type P struct {
+	*pagination
+}
+
+// M represents a wrapper around the [meta] struct. It is used to encapsulate
+// metadata information for API responses, providing a structured way to access
+// and manipulate the API version, request ID, locale, requested time, custom fields,
+// delta value, and delta count. The "M" type allows for easier handling of metadata
+// while maintaining the flexibility of the underlying [meta] structure.
+type M struct {
+	*meta
+}
+
 // ROption is a functional option for configuring a [wrapper] instance.
 // Functions of this type are passed to [Wrap] to apply settings in a
 // declarative, composable way.

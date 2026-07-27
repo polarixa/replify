@@ -434,6 +434,29 @@ func (h *header) Slogging(logger ...*slogger.Logger) *header {
 	return h
 }
 
+// Reply returns a new [H] instance that wraps the current [header] instance.
+//
+// This function creates a new [H] instance, which is a wrapper around the [header] struct.
+// It allows for easier handling of response headers while maintaining the flexibility of the underlying [header] structure.
+//
+// Returns:
+//   - A new [H] instance that wraps the current [header] instance.
+func (h *header) Reply() H {
+	return H{header: h}
+}
+
+// ReplyPtr returns a pointer to a new [H] instance that wraps the current [header] instance.
+//
+// This function creates a new [H] instance, which is a wrapper around the [header] struct,
+// and returns a pointer to it. It allows for easier handling of response headers while maintaining
+// the flexibility of the underlying [header] structure.
+//
+// Returns:
+//   - A pointer to a new [H] instance that wraps the current [header] instance.
+func (h *header) ReplyPtr() *H {
+	return &H{header: h}
+}
+
 // String returns the string representation of the [HeaderType].
 func (h HeaderType) String() string {
 	return string(h)
