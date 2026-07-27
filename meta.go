@@ -1496,6 +1496,28 @@ func (m *meta) Slogging(logger ...*slogger.Logger) *meta {
 	return m
 }
 
+// Reply creates a new [M] instance that wraps the current [meta] instance.
+//
+// This function constructs a new [M] instance, which is a wrapper around the current [meta] instance.
+// The returned [M] instance can be used to facilitate structured responses or further processing.
+//
+// Returns:
+//   - A new [M] instance containing the current [meta] instance.
+func (m *meta) Reply() M {
+	return M{meta: m}
+}
+
+// ReplyPtr creates a new [M] instance that wraps the current [meta] instance and returns a pointer to it.
+//
+// This function constructs a new [M] instance, which is a wrapper around the current [meta] instance.
+// The returned pointer to the [M] instance can be used to facilitate structured responses or further processing.
+//
+// Returns:
+//   - A pointer to a new [M] instance containing the current [meta] instance.
+func (m *meta) ReplyPtr() *M {
+	return &M{meta: m}
+}
+
 // autoRequestID generates and sets a random request ID for the [meta] instance if it is not already present.
 //
 // This function checks if the `requestID` field of the [meta] instance is already set. If it is not present,

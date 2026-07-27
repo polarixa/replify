@@ -438,6 +438,32 @@ func (p *pagination) Slogging(logger ...*slogger.Logger) *pagination {
 	return p
 }
 
+// Reply returns a [P] instance that wraps the current [pagination] instance.
+//
+// This method is a convenience function that allows the current [pagination] instance
+// to be wrapped in a [P] type, which may provide additional functionality or context
+// for handling pagination in responses. It enables seamless integration of pagination
+// data into response structures.
+//
+// Returns:
+//   - A [P] instance containing the current [pagination] instance.
+func (p *pagination) Reply() P {
+	return P{pagination: p}
+}
+
+// ReplyPtr returns a pointer to a [P] instance that wraps the current [pagination] instance.
+//
+// This method is a convenience function that allows the current [pagination] instance
+// to be wrapped in a pointer to a [P] type, which may provide additional functionality
+// or context for handling pagination in responses. It enables seamless integration of
+// pagination data into response structures while allowing for pointer semantics.
+//
+// Returns:
+//   - A pointer to a [P] instance containing the current [pagination] instance.
+func (p *pagination) ReplyPtr() *P {
+	return &P{pagination: p}
+}
+
 // calculate computes the total pages and determines if the current page is the last one.
 //
 // This method performs calculations based on the `totalItems` and `perPage` fields
