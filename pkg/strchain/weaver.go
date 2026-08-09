@@ -350,4 +350,11 @@ type Weaver interface {
 	//
 	//	sw.IndentOnlyLine(1) // adds '  \n'
 	IndentOnlyLine(level int) Weaver
+
+	// CarriageReturn adds a carriage return character and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.CarriageReturn() // adds '\r'
+	CarriageReturn() Weaver
 }
