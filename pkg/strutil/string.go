@@ -31,6 +31,20 @@ var (
 	// MaxRuneBytes represents the maximum valid UTF-8 encoding of a Unicode code point.
 	// It is a byte slice containing the specific byte values [244, 143, 191, 191].
 	MaxRuneBytes = [...]byte{244, 143, 191, 191}
+
+	// lineBreakReplacer replaces every line-breaking sequence with a single space.
+	// \r\n is listed first so it is consumed as one unit before \r or \n are tried.
+	lineBreakReplacer = strings.NewReplacer(
+		"\r\n", " ",
+		"\r", " ",
+		"\n", " ",
+		"\t", " ",
+		"\v", " ",
+		"\f", " ",
+		"\u0085", " ", // NEL - Next Line
+		"\u2028", " ", // LS  - Line Separator
+		"\u2029", " ", // PS  - Paragraph Separator
+	)
 )
 
 // IsEmpty checks if the provided string is empty or consists solely of whitespace characters.
@@ -4440,4 +4454,43 @@ func padRepeat(pad string, n int) string {
 		}
 	}
 	return sb.String()
+}
+
+// Oneline returns str with every line-breaking sequence replaced by a single
+// space, guaranteeing the result can be rendered on a single line.
+//
+// The following sequences are treated as line breaks:
+//
+//   - \r\n  (CRLF)
+//   - \r    (CR)
+//   - \n    (LF)
+//   - \t    (horizontal tab)
+//   - \v    (vertical tab)
+//   - \f    (form feed)
+//   - U+0085 (NEL - Next Line)
+//   - U+2028 (LS  - Line Separator)
+//   - U+2029 (PS  - Paragraph Separator)
+//
+// \r\n is matched as a single unit so it produces exactly one space rather
+// than two. Word boundaries at line breaks are preserved by the inserted space.
+// An empty string is returned unchanged.
+//
+// Parameters:
+//   - str: The input string to sanitize.
+//
+// Returns:
+//   - A new string guaranteed to contain no line-breaking characters.
+//
+// Example:
+//
+//	Oneline("hello\nworld")      // "hello world"
+//	Oneline("foo\r\nbar")        // "foo bar"
+//	Oneline("a\tb")              // "a b"
+//	Oneline("")                  // ""
+//	Oneline("no breaks here")    // "no breaks here"
+func Oneline(str string) string {
+	if str == "" {
+		return ""
+	}
+	return lineBreakReplacer.Replace(str)
 }
