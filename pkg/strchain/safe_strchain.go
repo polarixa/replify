@@ -1539,3 +1539,15 @@ func (sw *SafeStringWeaver) Bytes() []byte {
 	buf.WriteString(sw.builder.String())
 	return buf.Bytes()
 }
+
+// CarriageReturn adds a carriage return character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Line 1").CarriageReturn().Append("Line 2")
+func (sw *SafeStringWeaver) CarriageReturn() Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteByte('\r')
+	return sw
+}

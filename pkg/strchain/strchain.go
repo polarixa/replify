@@ -1338,3 +1338,13 @@ func (sw *StringWeaver) Bytes() []byte {
 	buf.WriteString(sw.builder.String())
 	return buf.Bytes()
 }
+
+// CarriageReturn adds a carriage return character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Line 1").CarriageReturn().Append("Line 2")
+func (sw *StringWeaver) CarriageReturn() Weaver {
+	sw.builder.WriteByte('\r')
+	return sw
+}
