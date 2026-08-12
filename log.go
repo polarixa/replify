@@ -116,6 +116,7 @@ func (w *wrapper) Checkpoint(name string, fields ...slogger.Field) *wrapper {
 	if !w.Available() {
 		return w
 	}
+	w.autoAdjust()
 	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip all allocations when the resolved level is below the active minimum.
@@ -189,6 +190,7 @@ func (w *wrapper) Step(current, total int, name string, fields ...slogger.Field)
 	if !w.Available() {
 		return w
 	}
+	w.autoAdjust()
 	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip all allocations when the resolved level is below the active minimum.
@@ -259,6 +261,7 @@ func (w *wrapper) Flow(layers ...string) *wrapper {
 	if len(layers) == 0 {
 		return w
 	}
+	w.autoAdjust()
 	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip string joining and allocation when the resolved level is below the active minimum.
