@@ -27,9 +27,9 @@ import (
 //	dispatch → dispatchContext → getCaller → runtime.Callers(4+3)
 //
 // This matches the callerSkip used by [wrapper.Logging] and [wrapper.Slogging]
-// which both route through a one-deep internal helper (logAtLevel / slogAtLevel).
-func (w *wrapper) log(lvl slogger.Level, msg string, fields ...slogger.Field) {
-	l := slogger.S()
+// All five exported logging methods (Checkpoint, Step, Flow, Logging, Slogging)
+// route through this helper.
+func (w *wrapper) log(l *slogger.Logger, lvl slogger.Level, msg string, fields ...slogger.Field) {
 	child := l.With()
 	child.WithCaller(true).WithCallerSkip(3)
 	switch lvl {
@@ -96,15 +96,16 @@ func (w *wrapper) Checkpoint(name string, fields ...slogger.Field) *wrapper {
 	if !w.Available() {
 		return w
 	}
+	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip all allocations when the resolved level is below the active minimum.
-	if !slogger.S().IsLevelEnabled(lvl) {
+	if !l.IsLevelEnabled(lvl) {
 		return w
 	}
 	fs := make([]slogger.Field, 0, 1+len(fields))
 	fs = append(fs, slogger.String("checkpoint", name))
 	fs = append(fs, fields...)
-	w.log(lvl, "checkpoint", fs...)
+	w.log(l, lvl, "checkpoint", fs...)
 	return w
 }
 
@@ -168,16 +169,17 @@ func (w *wrapper) Step(current, total int, name string, fields ...slogger.Field)
 	if !w.Available() {
 		return w
 	}
+	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip all allocations when the resolved level is below the active minimum.
-	if !slogger.S().IsLevelEnabled(lvl) {
+	if !l.IsLevelEnabled(lvl) {
 		return w
 	}
 	fs := make([]slogger.Field, 0, 2+len(fields))
 	fs = append(fs, slogger.Stringf("step", "%d/%d", current, total))
 	fs = append(fs, slogger.String("name", name))
 	fs = append(fs, fields...)
-	w.log(lvl, "step", fs...)
+	w.log(l, lvl, "step", fs...)
 	return w
 }
 
@@ -237,12 +239,13 @@ func (w *wrapper) Flow(layers ...string) *wrapper {
 	if len(layers) == 0 {
 		return w
 	}
+	l := slogger.S()
 	lvl := httpStatusLevel(w.StatusCode())
 	// Fast path: skip string joining and allocation when the resolved level is below the active minimum.
-	if !slogger.S().IsLevelEnabled(lvl) {
+	if !l.IsLevelEnabled(lvl) {
 		return w
 	}
-	w.log(lvl, "flow", slogger.String("flow", strings.Join(layers, " >> ")))
+	w.log(l, lvl, "flow", slogger.String("flow", strings.Join(layers, " -> ")))
 	return w
 }
 
@@ -301,17 +304,9 @@ func (w *wrapper) Logging(logger ...*slogger.Logger) *wrapper {
 		l = logger[0]
 	}
 
-	code := w.StatusCode()
+	lvl := httpStatusLevel(w.StatusCode())
 	msg := strutil.DefaultIfEmpty(w.message, "replify::logging")
-
-	// Derive a goroutine-local child logger with caller info enabled and skip
-	// set to 3 to skip Logging, the slogger trampoline, and the caller of Logging.
-	// This ensures that concurrent calls to Logging with the same *[slogger.Logger]
-	// do not race on caller info settings and that the reported caller resolves to the actual call site of Logging.
-	child := l.With()
-	child.WithCaller(true).WithCallerSkip(3)
-
-	logAtLevel(child, httpStatusLevel(code), msg, slogger.JSON("REPLY", w.Respond()))
+	w.log(l, lvl, msg, slogger.JSON("REPLY", w.Respond()))
 	return w
 }
 
@@ -366,15 +361,7 @@ func (w *wrapper) Slogging(logger ...*slogger.Logger) *wrapper {
 		l = logger[0]
 	}
 
-	code := w.StatusCode()
-
-	// Derive a goroutine-local child logger with caller info enabled and skip
-	// set to 3 to skip Slogging, the slogger trampoline, and the caller of Slogging.
-	// This ensures that concurrent calls to Slogging with the same *[slogger.Logger]
-	// do not race on caller info settings and that the reported caller resolves to the actual call site of Slogging.
-	child := l.With()
-	child.WithCaller(true).WithCallerSkip(3)
-
-	slogAtLevel(child, httpStatusLevel(code), w.String())
+	lvl := httpStatusLevel(w.StatusCode())
+	w.log(l, lvl, w.String())
 	return w
 }
