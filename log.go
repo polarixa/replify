@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // log is the shared low-level dispatch used by Checkpoint, Step, and Flow.
@@ -45,7 +46,7 @@ func (w *wrapper) log(lvl slogger.Level, msg string, fields ...slogger.Field) {
 	}
 }
 
-// Checkpoint emits a TRACE-level log entry that marks a named execution point.
+// Checkpoint emits a slogger level log entry that marks a named execution point.
 //
 // Use Checkpoint to answer: "Did execution reach this point?"
 //
@@ -107,7 +108,7 @@ func (w *wrapper) Checkpoint(name string, fields ...slogger.Field) *wrapper {
 	return w
 }
 
-// Step emits a TRACE-level log entry for one stage of a multi-step operation.
+// Step emits a slogger level log entry for one stage of a multi-step operation.
 //
 // Use Step to answer: "Which stage of the operation is executing?"
 //
@@ -180,7 +181,7 @@ func (w *wrapper) Step(current, total int, name string, fields ...slogger.Field)
 	return w
 }
 
-// Flow emits a TRACE-level log entry that visualises the execution path as a
+// Flow emits a slogger level log entry that visualises the execution path as a
 // left-to-right sequence of named layers joined by " -> ".
 //
 // Use Flow to answer: "What path did execution take through the system?"
@@ -242,5 +243,138 @@ func (w *wrapper) Flow(layers ...string) *wrapper {
 		return w
 	}
 	w.log(lvl, "flow", slogger.String("flow", strings.Join(layers, " >> ")))
+	return w
+}
+
+// Logging dispatches a structured log entry for this response using [slogger].
+// The log level is automatically selected based on the HTTP status code range:
+//
+//   - 1xx → Debug  (informational)
+//   - 2xx → Info   (success)
+//   - 3xx → Warn   (redirection)
+//   - 4xx → Error  (client error)
+//   - 5xx → Error  (server error; [slogger.Logger.Fatal] is intentionally avoided because it calls os.Exit(1))
+//   - other → Trace (no status code set)
+//
+// The log field key is "REPLY" and its value is the structured map returned
+// by [wrapper.Respond], serialized as JSON by the active formatter.
+//
+// # Thread-safety
+//
+// Logging is safe for concurrent use. The supplied logger is never mutated: a
+// goroutine-local child is derived via [slogger.Logger.With] on every call so
+// that the caller-skip adjustment and caller-enable flag stay local to the
+// current goroutine. Concurrent callers sharing the same *[slogger.Logger]
+// will not race. The wrapper fields (statusCode, message) are read exactly
+// once per call to give a consistent snapshot; wrapper fields are expected to
+// be immutable after construction via [Wrap] / [With*] options.
+//
+// # Caller reporting
+//
+// Caller information is always enabled for this call. callerSkip is set to 2
+// to skip both the Logging frame and the slogger level trampoline
+// (Trace/Debug/Info/Warn/Error), so the reported file and line resolve to the
+// actual call site of Logging.
+//
+// Parameters:
+//   - `logger`: optional *[slogger.Logger] to use. When omitted or nil, the
+//     package-level global logger ([slogger.GlobalLogger]) is used.
+//
+// Returns:
+//
+// the receiver *wrapper unchanged, enabling method chaining.
+//
+// Example:
+//
+//	replify.Wrap(
+//		replify.WithStatusCode(replify.OK),
+//		replify.WithMessage("User retrieved successfully"),
+//		replify.WithBody(user),
+//	).Logging()
+func (w *wrapper) Logging(logger ...*slogger.Logger) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.autoAdjust()
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	code := w.StatusCode()
+	msg := strutil.DefaultIfEmpty(w.message, "replify::logging")
+
+	// Derive a goroutine-local child logger with caller info enabled and skip
+	// set to 3 to skip Logging, the slogger trampoline, and the caller of Logging.
+	// This ensures that concurrent calls to Logging with the same *[slogger.Logger]
+	// do not race on caller info settings and that the reported caller resolves to the actual call site of Logging.
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, httpStatusLevel(code), msg, slogger.JSON("REPLY", w.Respond()))
+	return w
+}
+
+// Slogging dispatches a structured log entry for this response using [slogger], with the log message set to the wrapper's string representation.
+// The log level is automatically selected based on the HTTP status code range:
+//
+//   - 1xx → Debug  (informational)
+//   - 2xx → Info   (success)
+//   - 3xx → Warn   (redirection)
+//   - 4xx → Error  (client error)
+//   - 5xx → Error  (server error; [slogger.Logger.Fatal] is intentionally avoided because it calls os.Exit(1))
+//   - other → Trace (no status code set)
+//
+// The log field key is "REPLY" and its value is the structured map returned
+// by [wrapper.Respond], serialized as Text by the active formatter.
+//
+// # Thread-safety
+//
+// Slogging is safe for concurrent use. The supplied logger is never mutated: a
+// goroutine-local child is derived via [slogger.Logger.With] on every call so
+// that the caller-skip adjustment and caller-enable flag stay local to the
+// current goroutine. Concurrent callers sharing the same *[slogger.Logger]
+// will not race. The wrapper fields (statusCode, message) are read exactly once per call to give a consistent snapshot; wrapper fields are expected to be immutable after construction via [Wrap] / [With*] options.
+//
+// # Caller reporting
+//
+// Caller information is always enabled for this call. callerSkip is set to 3
+// to skip Slogging, the slogger trampoline (Trace/Debug/Info/Warn/Error), and the caller of Slogging, so the reported file and line resolve to the actual call site of Slogging.
+//
+// Parameters:
+//   - `logger`: optional *[slogger.Logger] to use. When omitted or nil, the
+//     package-level global logger ([slogger.GlobalLogger]) is used.
+//
+// Returns:
+//
+// the receiver *wrapper unchanged, enabling method chaining.
+//
+// Example:
+//
+//	replify.Wrap(
+//		replify.WithStatusCode(replify.OK),
+//		replify.WithMessage("User retrieved successfully"),
+//		replify.WithBody(user),
+//	).Slogging()
+func (w *wrapper) Slogging(logger ...*slogger.Logger) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.autoAdjust()
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	code := w.StatusCode()
+
+	// Derive a goroutine-local child logger with caller info enabled and skip
+	// set to 3 to skip Slogging, the slogger trampoline, and the caller of Slogging.
+	// This ensures that concurrent calls to Slogging with the same *[slogger.Logger]
+	// do not race on caller info settings and that the reported caller resolves to the actual call site of Slogging.
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, httpStatusLevel(code), w.String())
 	return w
 }
