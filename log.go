@@ -7,6 +7,26 @@ import (
 	"github.com/polarixa/replify/pkg/strutil"
 )
 
+const (
+	// keyCheckpoint is the structured log field key used by [wrapper.Checkpoint].
+	// The value is the checkpoint name, e.g. "user.loaded", "auth.completed".
+	// This field is always present in Checkpoint entries, making them easy to grep
+	// in text output (grep "checkpoint=auth.completed") and filter in JSON pipelines.
+	keyCheckpoint = "[checkpoint]"
+
+	// keyStep is the structured log field key used by [wrapper.Step].
+	// The value is the progress formatted as "current/total", e.g. "2/5".
+	// This field is always present in Step entries, enabling log-level filtering
+	// and easy grepping.
+	keyStep = "[step]"
+
+	// keyFlow is the structured log field key used by [wrapper.Flow].
+	// The value is the joined execution path, e.g. "HTTP >> Handler >> Service >> Repository".
+	// This field is always present in Flow entries, making them easy to grep
+	// in text output (grep 'flow=') and filter in JSON pipelines.
+	keyFlow = "[flow]"
+)
+
 // log is the shared low-level dispatch used by Checkpoint, Step, and Flow.
 //
 // It derives a goroutine-local child from the global logger via
@@ -105,7 +125,7 @@ func (w *wrapper) Checkpoint(name string, fields ...slogger.Field) *wrapper {
 	fs := make([]slogger.Field, 0, 1+len(fields))
 	fs = append(fs, slogger.String("checkpoint", name))
 	fs = append(fs, fields...)
-	w.log(l, lvl, "checkpoint", fs...)
+	w.log(l, lvl, keyCheckpoint, fs...)
 	return w
 }
 
@@ -179,7 +199,7 @@ func (w *wrapper) Step(current, total int, name string, fields ...slogger.Field)
 	fs = append(fs, slogger.Stringf("step", "%d/%d", current, total))
 	fs = append(fs, slogger.String("name", name))
 	fs = append(fs, fields...)
-	w.log(l, lvl, "step", fs...)
+	w.log(l, lvl, keyStep, fs...)
 	return w
 }
 
@@ -245,7 +265,7 @@ func (w *wrapper) Flow(layers ...string) *wrapper {
 	if !l.IsLevelEnabled(lvl) {
 		return w
 	}
-	w.log(l, lvl, "flow", slogger.String("flow", strings.Join(layers, " -> ")))
+	w.log(l, lvl, keyFlow, slogger.String("flow", strings.Join(layers, " -> ")))
 	return w
 }
 
