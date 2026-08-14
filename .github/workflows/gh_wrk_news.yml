@@ -23,6 +23,9 @@ jobs:
   notify:
     runs-on: ubuntu-latest
     needs: build
+    permissions:
+      contents: write
+      issues: write
     steps:
       - name: Check Secrets
         id: check
@@ -55,6 +58,7 @@ jobs:
     needs: build
     permissions:
       contents: write
+      issues: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
