@@ -2,6 +2,7 @@ package replify
 
 import (
 	"strings"
+	"time"
 
 	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strutil"
@@ -32,6 +33,22 @@ const (
 	// This field is always present in Logging and Slogging entries, making them
 	// easy to grep in text output (grep 'REPLY=') and filter in JSON pipelines.
 	keyReply = "REPLY"
+
+	// keySpanStart is the log message used by [wrapper.Span] at operation start.
+	// grep 'span.start' to find all operation beginnings in text output.
+	keySpanStart = "[span.start]"
+
+	// keySpanEnd is the log message used by [wrapper.Span] at operation completion.
+	// The entry also carries an elapsed_ms field with the measured duration.
+	keySpanEnd = "[span.end]"
+
+	// keyScopeEnter is the log message used by [wrapper.Scope] at block entry.
+	// grep 'scope.enter' to trace execution boundaries in text output.
+	keyScopeEnter = "[scope.enter]"
+
+	// keyScopeExit is the log message used by [wrapper.Scope] at block exit.
+	// The entry also carries an elapsed_ms field with time spent inside the block.
+	keyScopeExit = "[scope.exit]"
 )
 
 // log is the shared low-level dispatch used by Checkpoint, Step, and Flow.
@@ -54,8 +71,6 @@ const (
 //	dispatch → dispatchContext → getCaller → runtime.Callers(4+3)
 //
 // This matches the callerSkip used by [wrapper.Logging] and [wrapper.Slogging]
-// All five exported logging methods (Checkpoint, Step, Flow, Logging, Slogging)
-// route through this helper.
 func (w *wrapper) log(l *slogger.Logger, lvl slogger.Level, message string, fields ...slogger.Field) {
 	child := l.With()
 	child.WithCaller(true).WithCallerSkip(3)
@@ -403,4 +418,224 @@ func (w *wrapper) Slogging(logger ...*slogger.Logger) *wrapper {
 	lvl := httpStatusLevel(w.StatusCode())
 	w.log(l, lvl, w.String())
 	return w
+}
+
+// Span measures the execution duration of a named operation and emits two
+// structured log entries: one at the start of the operation and one at its
+// completion, including the elapsed time in milliseconds.
+//
+// Use Span to answer: "How long did this operation take?"
+//
+// Span is designed for discrete, measurable units of work — such as a
+// database query, a cache lookup, an external API call, or a validation step.
+// The start entry records that the operation has begun; the end entry confirms
+// it has finished and reports how long it ran.
+//
+// # Conceptual distinction from Scope
+//
+// Span focuses on timing a unit of work. Scope focuses on visualising
+// execution structure (entry/exit of a logical block). Use Span for operations
+// whose duration is the primary question; use Scope for request lifecycles,
+// transactions, or layered boundaries where visibility into nesting matters.
+//
+// # Log level
+//
+// Derived from the wrapper's HTTP status code via [httpStatusLevel]:
+// 1xx→Debug, 2xx→Info, 3xx→Warn, 4xx/5xx→Error, no status→Trace.
+// Both the start and end entries are emitted at the same level. When the
+// resolved level is below the active logger's minimum, Span returns a no-op
+// function — zero allocations in that path.
+//
+// # Thread safety
+//
+// Safe for concurrent use. The logger, level, name, and start time are
+// captured once in Span and shared read-only with the returned closure.
+// A goroutine-local child logger is derived via [slogger.Logger.With] inside
+// [wrapper.log] on every dispatch; the global logger is never mutated.
+//
+// # Caller reporting
+//
+// The start entry resolves to the application call site of Span. The end
+// entry resolves to the call site of the returned function (i.e. where done()
+// or defer done() appears), using the same callerSkip=3 path through
+// [wrapper.log] that all other exported logging methods use.
+//
+// Parameters:
+//   - name:   the operation identifier, e.g. "database.query", "cache.lookup".
+//   - fields: optional structured [slogger.Field] values appended to both the
+//     start and end entries.
+//
+// Returns:
+//
+// a completion func() that, when called, emits the end log entry with the
+// elapsed duration. Callers should invoke this via defer immediately after
+// calling Span to ensure it fires even on early returns or panics.
+//
+// Example:
+//
+//	done := w.Span("load-user")
+//	defer done()
+//
+//	user, err := repo.LoadUser(ctx, id)
+//
+// Expected output (text formatter, 200 OK wrapper):
+//
+//	INFO  [span.start] span=load-user state=start caller=handler.go:42
+//	INFO  [span.end]   span=load-user state=end elapsed_ms=42 caller=handler.go:43
+//
+// Structured fields (JSON formatter):
+//
+//	{"level":"INFO","msg":"[span.start]","span":"load-user","state":"start"}
+//	{"level":"INFO","msg":"[span.end]",  "span":"load-user","state":"end","elapsed_ms":42}
+func (w *wrapper) Span(name string, fields ...slogger.Field) func() {
+	if !w.Available() {
+		return func() {}
+	}
+	w.autoAdjust()
+	l := slogger.S()
+	lvl := httpStatusLevel(w.StatusCode())
+	// Fast path: skip all allocations when the resolved level is below the active minimum.
+	if !l.IsLevelEnabled(lvl) {
+		return func() {}
+	}
+
+	start := time.Now()
+	fs := make([]slogger.Field, 0, 2+len(fields))
+	fs = append(fs, slogger.String("span", name))
+	fs = append(fs, slogger.String("state", "start"))
+	fs = append(fs, fields...)
+	w.log(l, lvl, keySpanStart, fs...)
+
+	return func() {
+		elapsed := time.Since(start)
+		lvl := httpStatusLevel(w.StatusCode())
+		fe := make([]slogger.Field, 0, 3+len(fields))
+		fe = append(fe, slogger.String("span", name))
+		fe = append(fe, slogger.String("state", "end"))
+		fe = append(fe, slogger.Int64("elapsed_ms", elapsed.Milliseconds()))
+		fe = append(fe, fields...)
+		w.log(l, lvl, keySpanEnd, fe...)
+	}
+}
+
+// Scope tracks the entry and exit of a logical execution block, emitting two
+// structured log entries: one when execution enters the block and one when it
+// leaves, including the elapsed duration in milliseconds.
+//
+// Use Scope to answer: "When did execution enter and leave this block?"
+//
+// Scope is designed for logical execution boundaries — HTTP request handlers,
+// service methods, transactions, authorization gates, or any named region of
+// code whose entry and exit are meaningful for debugging. The entry entry
+// records that execution has entered the block; the exit entry confirms it has
+// left and reports how long the block ran.
+//
+// # Conceptual distinction from Span
+//
+// Scope focuses on visualising execution structure. Span focuses on timing a
+// unit of work. Use Scope for request lifecycles, transactions, or layered
+// boundaries where nested visibility matters; use Span for discrete operations
+// like database queries or external calls whose duration is the primary signal.
+//
+// # Nesting
+//
+// Scope calls may be freely nested. Each call captures its own start time
+// independently, so inner scopes report only their own duration. The log
+// output naturally reflects the nesting order: enter entries appear in
+// call order and exit entries appear in reverse (LIFO), matching how defer
+// unwinds.
+//
+// # Log level
+//
+// Derived from the wrapper's HTTP status code via [httpStatusLevel]:
+// 1xx→Debug, 2xx→Info, 3xx→Warn, 4xx/5xx→Error, no status→Trace.
+// Both the enter and exit entries are emitted at the same level. When the
+// resolved level is below the active logger's minimum, Scope returns a no-op
+// function — zero allocations in that path.
+//
+// # Thread safety
+//
+// Safe for concurrent use. The logger, level, name, and start time are
+// captured once in Scope and shared read-only with the returned closure.
+// A goroutine-local child logger is derived via [slogger.Logger.With] inside
+// [wrapper.log] on every dispatch; the global logger is never mutated.
+//
+// # Caller reporting
+//
+// The enter entry resolves to the application call site of Scope. The exit
+// entry resolves to the call site of the returned function (i.e. where the
+// deferred call fires), using the same callerSkip=3 path through [wrapper.log]
+// that all other exported logging methods use.
+//
+// Parameters:
+//   - name:   the scope identifier, e.g. "CreateUser", "HTTP Request", "Transaction".
+//   - fields: optional structured [slogger.Field] values appended to both the
+//     enter and exit entries.
+//
+// Returns:
+//
+// a completion func() that, when called, emits the exit log entry with the
+// elapsed duration. The idiomatic usage is defer w.Scope("name")() — the
+// outer call emits the enter log immediately; the deferred inner call emits
+// the exit log when the enclosing function returns.
+//
+// Example:
+//
+//	defer w.Scope("CreateUser")()
+//
+//	user, err := svc.CreateUser(ctx, req)
+//
+// Nested example:
+//
+//	defer w.Scope("HTTP Request")()
+//
+//	{
+//	    defer w.Scope("Authorization")()
+//	}
+//	{
+//	    defer w.Scope("Repository")()
+//	}
+//
+// Expected output (text formatter, 200 OK wrapper):
+//
+//	INFO  [scope.enter] scope="HTTP Request"   state=enter caller=handler.go:10
+//	INFO  [scope.enter] scope=Authorization    state=enter caller=handler.go:13
+//	INFO  [scope.exit]  scope=Authorization    state=exit  elapsed_ms=3  caller=handler.go:13
+//	INFO  [scope.enter] scope=Repository       state=enter caller=handler.go:17
+//	INFO  [scope.exit]  scope=Repository       state=exit  elapsed_ms=11 caller=handler.go:17
+//	INFO  [scope.exit]  scope="HTTP Request"   state=exit  elapsed_ms=23 caller=handler.go:10
+//
+// Structured fields (JSON formatter):
+//
+//	{"level":"INFO","msg":"[scope.enter]","scope":"CreateUser","state":"enter"}
+//	{"level":"INFO","msg":"[scope.exit]", "scope":"CreateUser","state":"exit","elapsed_ms":84}
+func (w *wrapper) Scope(name string, fields ...slogger.Field) func() {
+	if !w.Available() {
+		return func() {}
+	}
+	w.autoAdjust()
+	l := slogger.S()
+	lvl := httpStatusLevel(w.StatusCode())
+	// Fast path: skip all allocations when the resolved level is below the active minimum.
+	if !l.IsLevelEnabled(lvl) {
+		return func() {}
+	}
+
+	start := time.Now()
+	fs := make([]slogger.Field, 0, 2+len(fields))
+	fs = append(fs, slogger.String("scope", name))
+	fs = append(fs, slogger.String("state", "enter"))
+	fs = append(fs, fields...)
+	w.log(l, lvl, keyScopeEnter, fs...)
+
+	return func() {
+		elapsed := time.Since(start)
+		lvl := httpStatusLevel(w.StatusCode())
+		fe := make([]slogger.Field, 0, 3+len(fields))
+		fe = append(fe, slogger.String("scope", name))
+		fe = append(fe, slogger.String("state", "exit"))
+		fe = append(fe, slogger.Int64("elapsed_ms", elapsed.Milliseconds()))
+		fe = append(fe, fields...)
+		w.log(l, lvl, keyScopeExit, fe...)
+	}
 }
