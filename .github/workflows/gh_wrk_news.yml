@@ -165,6 +165,7 @@ jobs:
 
       - name: Send Telegram Notification
         if: steps.check.outputs.skip == 'false'
+        continue-on-error: true
         uses: appleboy/telegram-action@master
         with:
           to: ${{ secrets.TELEGRAM_CHAT_ID }}
