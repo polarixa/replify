@@ -49,6 +49,10 @@ const (
 	// keyScopeExit is the log message used by [wrapper.Scope] at block exit.
 	// The entry also carries an elapsed_ms field with time spent inside the block.
 	keyScopeExit = "[scope.exit]"
+
+	// keyAwait is the log message used by [wrapper.Await].
+	// grep '[await]' to find all intentional wait points in text output.
+	keyAwait = "[await]"
 )
 
 // log is the shared low-level dispatch used by Checkpoint, Step, and Flow.
@@ -638,4 +642,105 @@ func (w *wrapper) Scope(name string, fields ...slogger.Field) func() {
 		fe = append(fe, fields...)
 		w.log(l, lvl, keyScopeExit, fe...)
 	}
+}
+
+// Await records an intentional waiting period in the current execution flow,
+// emits a structured log entry describing the upcoming pause, then sleeps for
+// the specified duration before returning.
+//
+// Use Await to answer: "Why is execution paused, and for how long?"
+//
+// Await is designed for deliberate idle time: retry backoff, polling loops,
+// rate limiting, throttling, synchronisation waits, circuit-breaker recovery,
+// workflow scheduling, or eventual-consistency delays. The log entry makes the
+// wait visible in both text and JSON output before it begins, so operators
+// reading a log stream can distinguish intentional pauses from stalls.
+//
+// # Conceptual distinction from Span and Scope
+//
+// Span measures active work ("how long did this operation take?").
+// Scope measures the lifetime of a logical block ("when did execution enter
+// and leave this region?"). Await records intentional idle time ("execution
+// is paused — for how long and why?"). The three primitives are complementary:
+//
+//	database query          → Span()
+//	HTTP request lifecycle  → Scope()
+//	retry backoff           → Await()
+//
+// # Behavior
+//
+// Await emits the log entry before sleeping, so the entry is always visible
+// even if the process is interrupted during the wait. After logging, it calls
+// [time.Sleep] with the given duration and returns the receiver unchanged.
+//
+// # Duration rules
+//
+// A duration of zero or below zero does not panic. Behavior follows
+// [time.Sleep]: the log entry is still emitted and the call returns
+// immediately without blocking.
+//
+// # Log level
+//
+// Derived from the wrapper's HTTP status code via [httpStatusLevel]:
+// 1xx→Debug, 2xx→Info, 3xx→Warn, 4xx/5xx→Error, no status→Trace.
+// Await is a no-op when the resolved level is below the active logger's
+// minimum — zero allocations in that path, and no sleep is performed.
+//
+// # Thread safety
+//
+// Safe for concurrent use. A goroutine-local child logger is derived via
+// [slogger.Logger.With] inside [wrapper.log] on every dispatch; the global
+// logger is never mutated.
+//
+// # Caller reporting
+//
+// The reported source location resolves to the application call site of
+// Await, using the same callerSkip=3 path through [wrapper.log] that all
+// other exported logging methods use.
+//
+// Parameters:
+//   - d:      the duration to wait, e.g. 500*time.Millisecond, 2*time.Second.
+//     Zero or negative values are logged and return immediately.
+//   - fields: optional structured [slogger.Field] values appended after the
+//     built-in await and duration_ms fields.
+//
+// Returns:
+//
+// the receiver *wrapper unchanged, enabling method chaining.
+//
+// Example:
+//
+//	w.
+//		Checkpoint("retry.started").
+//		Await(2*time.Second, slogger.String("reason", "backoff"), slogger.Int("attempt", 3)).
+//		Checkpoint("retry.completed")
+//
+// Expected output (text formatter, 200 OK wrapper):
+//
+//	INFO  [checkpoint] checkpoint=retry.started  caller=handler.go:42
+//	INFO  [await]      await=2s duration_ms=2000 reason=backoff attempt=3 caller=handler.go:44
+//	--- 2 second pause ---
+//	INFO  [checkpoint] checkpoint=retry.completed caller=handler.go:45
+//
+// Structured fields (JSON formatter):
+//
+//	{"level":"INFO","msg":"[await]","await":"2s","duration_ms":2000,"reason":"backoff","attempt":3}
+func (w *wrapper) Await(d time.Duration, fields ...slogger.Field) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.autoAdjust()
+	l := slogger.S()
+	lvl := httpStatusLevel(w.StatusCode())
+	// Fast path: skip all allocations and the sleep when the resolved level is below the active minimum.
+	if !l.IsLevelEnabled(lvl) {
+		return w
+	}
+	fs := make([]slogger.Field, 0, 2+len(fields))
+	fs = append(fs, slogger.String("await", d.String()))
+	fs = append(fs, slogger.Int64("duration_ms", d.Milliseconds()))
+	fs = append(fs, fields...)
+	w.log(l, lvl, keyAwait, fs...)
+	time.Sleep(d)
+	return w
 }
