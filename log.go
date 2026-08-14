@@ -25,6 +25,13 @@ const (
 	// This field is always present in Flow entries, making them easy to grep
 	// in text output (grep 'flow=') and filter in JSON pipelines.
 	keyFlow = "[flow]"
+
+	// The structured log field key used by [wrapper.Logging] and [wrapper.Slogging].
+	// The value is the structured map returned by [wrapper.Respond], serialized
+	// as JSON (Logging) or Text (Slogging) by the active formatter.
+	// This field is always present in Logging and Slogging entries, making them
+	// easy to grep in text output (grep 'REPLY=') and filter in JSON pipelines.
+	keyReply = "REPLY"
 )
 
 // log is the shared low-level dispatch used by Checkpoint, Step, and Flow.
@@ -49,21 +56,30 @@ const (
 // This matches the callerSkip used by [wrapper.Logging] and [wrapper.Slogging]
 // All five exported logging methods (Checkpoint, Step, Flow, Logging, Slogging)
 // route through this helper.
-func (w *wrapper) log(l *slogger.Logger, lvl slogger.Level, msg string, fields ...slogger.Field) {
+func (w *wrapper) log(l *slogger.Logger, lvl slogger.Level, message string, fields ...slogger.Field) {
 	child := l.With()
 	child.WithCaller(true).WithCallerSkip(3)
 	switch lvl {
 	case slogger.ErrorLevel:
-		child.Error(msg, fields...)
+		child.Error(message, fields...)
 	case slogger.WarnLevel:
-		child.Warn(msg, fields...)
+		child.Warn(message, fields...)
 	case slogger.InfoLevel:
-		child.Info(msg, fields...)
+		child.Info(message, fields...)
 	case slogger.DebugLevel:
-		child.Debug(msg, fields...)
+		child.Debug(message, fields...)
 	default:
-		child.Trace(msg, fields...)
+		child.Trace(message, fields...)
 	}
+}
+
+// S returns the package-level global logger ([slogger.GlobalLogger]) for convenience.
+//
+// Use S() when you need to access the global logger directly, e.g. to set
+// the minimum log level or change the formatter. For per-call logging, use
+// [wrapper.Logging] or [wrapper.Slogging] instead of calling S() directly.
+func (w *wrapper) S() *slogger.Logger {
+	return slogger.S()
 }
 
 // Checkpoint emits a slogger level log entry that marks a named execution point.
@@ -329,7 +345,7 @@ func (w *wrapper) Logging(logger ...*slogger.Logger) *wrapper {
 
 	lvl := httpStatusLevel(w.StatusCode())
 	msg := strutil.DefaultIfEmpty(w.message, "replify::logging")
-	w.log(l, lvl, msg, slogger.JSON("REPLY", w.Respond()))
+	w.log(l, lvl, msg, slogger.JSON(keyReply, w.Respond()))
 	return w
 }
 
