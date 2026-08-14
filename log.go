@@ -39,7 +39,7 @@ const (
 	keySpanStart = "[span.start]"
 
 	// keySpanEnd is the log message used by [wrapper.Span] at operation completion.
-	// The entry also carries an elapsed_ms field with the measured duration.
+	// The entry also carries an elapsed field with the measured duration.
 	keySpanEnd = "[span.end]"
 
 	// keyScopeEnter is the log message used by [wrapper.Scope] at block entry.
@@ -47,7 +47,7 @@ const (
 	keyScopeEnter = "[scope.enter]"
 
 	// keyScopeExit is the log message used by [wrapper.Scope] at block exit.
-	// The entry also carries an elapsed_ms field with time spent inside the block.
+	// The entry also carries an elapsed field with time spent inside the block.
 	keyScopeExit = "[scope.exit]"
 
 	// keyAwait is the log message used by [wrapper.Await].
@@ -485,12 +485,12 @@ func (w *wrapper) Slogging(logger ...*slogger.Logger) *wrapper {
 // Expected output (text formatter, 200 OK wrapper):
 //
 //	INFO  [span.start] span=load-user state=start caller=handler.go:42
-//	INFO  [span.end]   span=load-user state=end elapsed_ms=42 caller=handler.go:43
+//	INFO  [span.end]   span=load-user state=end elapsed=42 caller=handler.go:43
 //
 // Structured fields (JSON formatter):
 //
 //	{"level":"INFO","msg":"[span.start]","span":"load-user","state":"start"}
-//	{"level":"INFO","msg":"[span.end]",  "span":"load-user","state":"end","elapsed_ms":42}
+//	{"level":"INFO","msg":"[span.end]",  "span":"load-user","state":"end","elapsed":42}
 func (w *wrapper) Span(name string, fields ...slogger.Field) func() {
 	if !w.Available() {
 		return func() {}
@@ -604,15 +604,15 @@ func (w *wrapper) Span(name string, fields ...slogger.Field) func() {
 //
 //	INFO  [scope.enter] scope="HTTP Request"   state=enter caller=handler.go:10
 //	INFO  [scope.enter] scope=Authorization    state=enter caller=handler.go:13
-//	INFO  [scope.exit]  scope=Authorization    state=exit  elapsed_ms=3  caller=handler.go:13
+//	INFO  [scope.exit]  scope=Authorization    state=exit  elapsed=3  caller=handler.go:13
 //	INFO  [scope.enter] scope=Repository       state=enter caller=handler.go:17
-//	INFO  [scope.exit]  scope=Repository       state=exit  elapsed_ms=11 caller=handler.go:17
-//	INFO  [scope.exit]  scope="HTTP Request"   state=exit  elapsed_ms=23 caller=handler.go:10
+//	INFO  [scope.exit]  scope=Repository       state=exit  elapsed=11 caller=handler.go:17
+//	INFO  [scope.exit]  scope="HTTP Request"   state=exit  elapsed=23 caller=handler.go:10
 //
 // Structured fields (JSON formatter):
 //
 //	{"level":"INFO","msg":"[scope.enter]","scope":"CreateUser","state":"enter"}
-//	{"level":"INFO","msg":"[scope.exit]", "scope":"CreateUser","state":"exit","elapsed_ms":84}
+//	{"level":"INFO","msg":"[scope.exit]", "scope":"CreateUser","state":"exit","elapsed":84}
 func (w *wrapper) Scope(name string, fields ...slogger.Field) func() {
 	if !w.Available() {
 		return func() {}
