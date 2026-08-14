@@ -516,7 +516,7 @@ func (w *wrapper) Span(name string, fields ...slogger.Field) func() {
 		fe := make([]slogger.Field, 0, 3+len(fields))
 		fe = append(fe, slogger.String("span", name))
 		fe = append(fe, slogger.String("state", "end"))
-		fe = append(fe, slogger.Int64("elapsed_ms", elapsed.Milliseconds()))
+		fe = append(fe, slogger.String("elapsed", elapsed.String()))
 		fe = append(fe, fields...)
 		w.log(l, lvl, keySpanEnd, fe...)
 	}
@@ -638,7 +638,7 @@ func (w *wrapper) Scope(name string, fields ...slogger.Field) func() {
 		fe := make([]slogger.Field, 0, 3+len(fields))
 		fe = append(fe, slogger.String("scope", name))
 		fe = append(fe, slogger.String("state", "exit"))
-		fe = append(fe, slogger.Int64("elapsed_ms", elapsed.Milliseconds()))
+		fe = append(fe, slogger.String("elapsed", elapsed.String()))
 		fe = append(fe, fields...)
 		w.log(l, lvl, keyScopeExit, fe...)
 	}
