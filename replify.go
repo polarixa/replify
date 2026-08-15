@@ -1066,6 +1066,19 @@ func (w *wrapper) Pagination() *pagination {
 	return w.pagination
 }
 
+// Cursor retrieves the [cursor] instance associated with the [wrapper].
+//
+// This function returns the [cursor] field of the [wrapper], which may contain information
+// related to cursor-based pagination or navigation. If no cursor information is available,
+// it returns `nil`.
+//
+// Returns:
+//   - A pointer to the [cursor] instance if available.
+//   - `nil` if the [cursor] field is not set.
+func (w *wrapper) Cursor() *cursor {
+	return w.cursor
+}
+
 // Meta retrieves the [meta] information from the [wrapper] instance.
 //
 // This function returns the [meta] field, which contains metadata related to the response or data
@@ -1188,6 +1201,18 @@ func (w *wrapper) IsMetaPresent() bool {
 //   - `false` if [pagination] is nil.
 func (w *wrapper) IsPagingPresent() bool {
 	return w.Available() && w.pagination != nil
+}
+
+// IsCursorPresent checks whether a cursor is present in the [wrapper] instance.
+//
+// This function checks if the `cursor` field of the [wrapper] is not nil, indicating that a cursor is available for pagination or data retrieval.
+//
+// Returns:
+//   - A boolean value indicating whether a cursor is present:
+//   - `true` if [cursor] is not nil.
+//   - `false` if [cursor] is nil.
+func (w *wrapper) IsCursorPresent() bool {
+	return w.Available() && w.cursor != nil
 }
 
 // IsErrorPresent checks whether an error is present in the [wrapper] instance.
@@ -1750,6 +1775,21 @@ func (w *wrapper) WithMeta(v *meta) *wrapper {
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
 func (w *wrapper) WithPagination(v *pagination) *wrapper {
 	w.pagination = v
+	return w
+}
+
+// WithCursor sets the cursor information for the [wrapper] instance.
+//
+// This function updates the [cursor] field of the [wrapper] with the provided [cursor]
+// instance and returns the modified [wrapper] instance to allow method chaining.
+//
+// Parameters:
+//   - `v`: A pointer to a [cursor] struct that will be set in the [wrapper].
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithCursor(v *cursor) *wrapper {
+	w.cursor = v
 	return w
 }
 
@@ -2861,6 +2901,9 @@ func (w *wrapper) String() string {
 	if w.IsDebuggingPresent() {
 		sw.AppendF("debug=%q", conv.StringOrEmpty(w.debug)).Space()
 	}
+	if w.IsCursorPresent() {
+		sw.AppendF("cursor=%q", w.cursor.String()).Space()
+	}
 	return sw.String()
 }
 
@@ -2968,6 +3011,9 @@ func (w *wrapper) build() map[string]any {
 	}
 	if w.IsDebuggingPresent() {
 		m["debug"] = w.debug
+	}
+	if w.IsCursorPresent() {
+		m["cursor"] = w.cursor.Respond()
 	}
 	return m
 }

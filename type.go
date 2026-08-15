@@ -48,6 +48,15 @@ type M struct {
 	*meta
 }
 
+// C represents a wrapper around the [cursor] struct. It is used to encapsulate
+// pagination cursor details for navigating through paginated API responses, providing
+// a structured way to access and manipulate the next cursor, previous cursor, hasNext flag,
+// hasPrevious flag, and limit. The "C" type allows for easier handling of pagination cursors
+// while maintaining the flexibility of the underlying [cursor] structure.
+type C struct {
+	*cursor
+}
+
 // ROption is a functional option for configuring a [wrapper] instance.
 // Functions of this type are passed to [Wrap] to apply settings in a
 // declarative, composable way.
@@ -391,6 +400,15 @@ type header struct {
 	description string // Detailed description of the status.
 }
 
+// cursor represents pagination cursors for navigating through paginated API responses.
+type cursor struct {
+	next        string // Cursor for the next page of results.
+	previous    string // Cursor for the previous page of results.
+	hasNext     bool   // Indicates if there is a next page.
+	hasPrevious bool   // Indicates if there is a previous page.
+	limit       int    // Limit on the number of items per page.
+}
+
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
 	statusCode int            // HTTP status code for the response.
@@ -401,6 +419,7 @@ type wrapper struct {
 	header     *header        // Structured header details for the response.
 	meta       *meta          // Metadata about the API response.
 	pagination *pagination    // Pagination details, if applicable.
+	cursor     *cursor        // Pagination cursors for navigating through results.
 	debug      map[string]any // Debugging information (useful for development).
 	errors     error          // Internal errors (not exposed in JSON responses).
 	skipBody   bool           // When true, the body payload is omitted from String(), build(), and Slogging() output.

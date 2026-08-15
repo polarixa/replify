@@ -75,6 +75,17 @@ func Header() *header {
 	return h
 }
 
+// Cursors creates a new instance of the [cursor] struct.
+//
+// This function initializes a [cursor] struct with its default values.
+//
+// Returns:
+//   - A pointer to a newly created [cursor] instance.
+func Cursors() *cursor {
+	c := &cursor{}
+	return c
+}
+
 // NewBufferPool creates new buffer pool
 //
 // This function initializes a `BufferPool` struct with a specified buffer size
