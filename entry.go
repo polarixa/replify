@@ -172,6 +172,25 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		}
 		w.pagination = pagination
 	}
+	if values, exists := data["cursor"].(map[string]any); exists {
+		cursor := &cursor{}
+		if value, exists := values["next"].(string); exists {
+			cursor.next = value
+		}
+		if value, exists := values["previous"].(string); exists {
+			cursor.previous = value
+		}
+		if value, exists := values["has_next"].(bool); exists {
+			cursor.hasNext = value
+		}
+		if value, exists := values["has_previous"].(bool); exists {
+			cursor.hasPrevious = value
+		}
+		if value, exists := values["limit"].(float64); exists {
+			cursor.limit = int(value)
+		}
+		w.cursor = cursor
+	}
 	// if the data is a string, check if it is a valid JSON string and convert it to a json.RawMessage
 	// otherwise, keep it as a string.
 	// if the data is a []byte, check if it is a valid JSON byte slice and convert it to a json.RawMessage
@@ -227,7 +246,7 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 //	}
 func WrapFrom(data map[string]any) (w *wrapper, err error) {
 	if len(data) == 0 {
-		return nil, NewError("data is required")
+		return nil, NewError("data map must not be nil or empty")
 	}
 	json := jsonpass(data)
 	return UnwrapJSON(json)

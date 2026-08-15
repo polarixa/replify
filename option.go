@@ -111,6 +111,13 @@ func WithPagination(v *pagination) ROption {
 	}
 }
 
+// WithCursor returns an [ROption] that attaches a pagination cursor.
+func WithCursor(v *cursor) ROption {
+	return func(w *wrapper) {
+		w.WithCursor(v)
+	}
+}
+
 // WithDebugging returns an [ROption] that replaces the debug map wholesale.
 func WithDebugging(v map[string]any) ROption {
 	return func(w *wrapper) {
