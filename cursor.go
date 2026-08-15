@@ -17,6 +17,19 @@ func (c *cursor) WithNext(next string) *cursor {
 	return c
 }
 
+// WithNextF sets the next cursor value for pagination using a formatted string.
+//
+// Parameters:
+//   - format: A format string.
+//   - args: Arguments to be formatted according to the format string.
+//
+// Returns:
+//   - A pointer to the [cursor] instance with the updated next cursor value.
+func (c *cursor) WithNextF(format string, args ...any) *cursor {
+	c.next = strchain.New().AppendF(format, args...).String()
+	return c
+}
+
 // WithPrevious sets the previous cursor value for pagination.
 //
 // Parameters:
@@ -26,6 +39,19 @@ func (c *cursor) WithNext(next string) *cursor {
 //   - A pointer to the [cursor] instance with the updated previous cursor value.
 func (c *cursor) WithPrevious(previous string) *cursor {
 	c.previous = previous
+	return c
+}
+
+// WithPreviousF sets the previous cursor value for pagination using a formatted string.
+//
+// Parameters:
+//   - format: A format string.
+//   - args: Arguments to be formatted according to the format string.
+//
+// Returns:
+//   - A pointer to the [cursor] instance with the updated previous cursor value.
+func (c *cursor) WithPreviousF(format string, args ...any) *cursor {
+	c.previous = strchain.New().AppendF(format, args...).String()
 	return c
 }
 
