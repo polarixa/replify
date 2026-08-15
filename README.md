@@ -158,6 +158,13 @@ The library produces responses in this standardized format:
     "total_pages": 60,
     "is_last": false
   },
+  "cursor": {
+    "next": "eyJsYXN0X2lkIjoiMTAwMSJ9",
+    "previous": "eyJsYabc...",
+    "has_next": true,
+    "has_previous": false,
+    "limit": 20
+  },
   "meta": {
     "request_id": "req_80eafc6a1655ec5a06595d155f1e6951",
     "api_version": "v1.0.4",
