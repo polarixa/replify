@@ -345,3 +345,52 @@ func WithInjectStackTrace() ROption {
 		w.InjectStackTrace()
 	}
 }
+
+// WithCursorNext returns an [ROption] that sets the next cursor value for pagination.
+func WithCursorNext(next string) ROption {
+	return func(w *wrapper) {
+		w.WithCursorNext(next)
+	}
+}
+
+// WithCursorPrevious returns an [ROption] that sets the previous cursor value for pagination.
+func WithCursorPrevious(previous string) ROption {
+	return func(w *wrapper) {
+		w.WithCursorPrev(previous)
+	}
+}
+
+// WithCursorHasNext returns an [ROption] that sets whether there is a next cursor available for pagination.
+func WithCursorHasNext(hasNext bool) ROption {
+	return func(w *wrapper) {
+		w.WithCursorHasNext(hasNext)
+	}
+}
+
+// WithCursorHasPrevious returns an [ROption] that sets whether there is a previous cursor available for pagination.
+func WithCursorHasPrevious(hasPrevious bool) ROption {
+	return func(w *wrapper) {
+		w.WithCursorHasPrev(hasPrevious)
+	}
+}
+
+// WithCursorNextF returns an [ROption] that sets the next cursor value for pagination using a formatted string.
+func WithCursorNextF(format string, args ...any) ROption {
+	return func(w *wrapper) {
+		w.WithCursorNextF(format, args...)
+	}
+}
+
+// WithCursorPreviousF returns an [ROption] that sets the previous cursor value for pagination using a formatted string.
+func WithCursorPreviousF(format string, args ...any) ROption {
+	return func(w *wrapper) {
+		w.WithCursorPrevF(format, args...)
+	}
+}
+
+// WithCursorLimit returns an [ROption] that sets the limit for the number of items in the cursor.
+func WithCursorLimit(limit int) ROption {
+	return func(w *wrapper) {
+		w.WithCursorLimit(limit)
+	}
+}

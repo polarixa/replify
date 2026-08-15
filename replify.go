@@ -2488,6 +2488,141 @@ func (w *wrapper) WithIsLast(v bool) *wrapper {
 	return w
 }
 
+// WithCursorNext sets the next cursor value in the [wrapper]'s [cursor].
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified next cursor value is then
+// applied to the cursor instance.
+//
+// Parameters:
+//   - v: The next cursor value to set.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorNext(v string) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithNext(v)
+	return w
+}
+
+// WithCursorPrev sets the previous cursor value in the [wrapper]'s [cursor].
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified previous cursor value is then
+// applied to the cursor instance.
+//
+// Parameters:
+//   - v: The previous cursor value to set.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorPrev(v string) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithPrevious(v)
+	return w
+}
+
+// WithCursorNextF sets the next cursor value in the [wrapper]'s [cursor] using a formatted string.
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified next cursor value is then
+// applied to the cursor instance using a formatted string.
+//
+// Parameters:
+//   - format: A format string for constructing the next cursor value.
+//   - args: A variadic list of arguments to be interpolated into the format string.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorNextF(format string, args ...any) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithNextF(format, args...)
+	return w
+}
+
+// WithCursorPrevF sets the previous cursor value in the [wrapper]'s [cursor] using a formatted string.
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified previous cursor value is then
+// applied to the cursor instance using a formatted string.
+//
+// Parameters:
+//   - format: A format string for constructing the previous cursor value.
+//   - args: A variadic list of arguments to be interpolated into the format string.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorPrevF(format string, args ...any) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithPreviousF(format, args...)
+	return w
+}
+
+// WithCursorHasNext sets whether there is a next cursor available in the [wrapper]'s [cursor].
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified boolean value is then
+// applied to indicate whether there is a next cursor available.
+//
+// Parameters:
+//   - v: A boolean indicating whether there is a next cursor.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorHasNext(v bool) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithHasNext(v)
+	return w
+}
+
+// WithCursorHasPrev sets whether there is a previous cursor available in the [wrapper]'s [cursor].
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified boolean value is then
+// applied to indicate whether there is a previous cursor available.
+//
+// Parameters:
+//   - v: A boolean indicating whether there is a previous cursor.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorHasPrev(v bool) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithHasPrevious(v)
+	return w
+}
+
+// WithCursorLimit sets the limit for the number of items in the [wrapper]'s [cursor].
+//
+// If the cursor object is not already initialized, it creates a new one
+// using the `[Cursors]` function. The specified limit value is then
+// applied to the cursor instance.
+//
+// Parameters:
+//   - v: An integer representing the limit for the number of items.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithCursorLimit(v int) *wrapper {
+	if !w.IsCursorPresent() {
+		w.cursor = Cursors()
+	}
+	w.cursor.WithLimit(v)
+	return w
+}
+
 // MustHash256 generates a hash string for the [wrapper] instance.
 //
 // This method concatenates the values of the `statusCode`, `message`, `data`, and [meta] fields
