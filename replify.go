@@ -2988,9 +2988,6 @@ func (w *wrapper) JSONPretty() string {
 //   - A byte slice containing the JSON representation of the [wrapper] instance.
 //   - An empty byte slice if the [wrapper] is not available or the body data is not a valid JSON string.
 func (w *wrapper) JSONBytes() []byte {
-	if !w.IsJSONBody() {
-		return nil
-	}
 	return []byte(w.JSON())
 }
 
