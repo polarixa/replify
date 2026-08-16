@@ -8,8 +8,8 @@ import (
 	"github.com/polarixa/replify/pkg/sysx"
 )
 
-// Dump serializes the full [wrapper] response as pretty-printed JSON and
-// writes it into a self-cleaning temporary file. The returned [Dump] owns the
+// DumpJSON serializes the full [wrapper] response as pretty-printed JSON and
+// writes it into a self-cleaning temporary file. The returned [DumpJSON] owns the
 // file — call Close (or defer it) to prevent disk leaks. Close is thread-safe
 // and idempotent.
 //
@@ -20,13 +20,13 @@ import (
 // envelope (status, headers, body, meta, pagination, debug).
 //
 // Both return values are always non-nil:
-//   - (*Dump, *wrapper) — Dump holds the file; wrapper carries the outcome so
+//   - (*DumpJSON, *wrapper) — DumpJSON holds the file; wrapper carries the outcome so
 //     the caller can continue a fluent chain.
-//   - On error: Dump is nil, wrapper has InternalServerError + error detail.
+//   - On error: DumpJSON is nil, wrapper has InternalServerError + error detail.
 //
 // Example:
 //
-//	dump, w := w.Dump()
+//	dump, w := w.DumpJSON()
 //	if w.IsError() {
 //	    log.Fatal(w.Error())
 //	}
@@ -34,7 +34,7 @@ import (
 //
 //	// pipe the JSON into an HTTP response writer:
 //	io.Copy(rw, dump.Resource().Content())
-func (w *wrapper) Dump() (*Dump, *wrapper) {
+func (w *wrapper) DumpJSON() (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
@@ -52,7 +52,7 @@ func (w *wrapper) Dump() (*Dump, *wrapper) {
 		WithMessagef("Dump: succeeded and written to temp file %s", d.Name())
 }
 
-// DumpTo writes the full [wrapper] response as pretty-printed JSON to dst and
+// DumpJSONTo writes the full [wrapper] response as pretty-printed JSON to dst and
 // simultaneously returns a [Dump] holding an in-process seekable copy for
 // streaming or re-reading.
 //
@@ -61,7 +61,7 @@ func (w *wrapper) Dump() (*Dump, *wrapper) {
 //     temp-file-and-rename pattern so readers never observe a partial write.
 //   - If dst already exists and contains data, the new JSON entry is appended
 //     separated by a single newline, producing a JSON-Lines / NDJSON file that
-//     grows with each call. This makes DumpTo safe to call repeatedly for the
+//     grows with each call. This makes DumpJSONTo safe to call repeatedly for the
 //     same destination (e.g. one file per day that accumulates all responses).
 //
 // Parent directories are created automatically.
@@ -84,7 +84,7 @@ func (w *wrapper) Dump() (*Dump, *wrapper) {
 // Example:
 //
 //	// Each call appends a new JSON entry to the same daily log file:
-//	dump, w := w.DumpTo("/var/log/app/responses-20260613.jsonl")
+//	dump, w := w.DumpJSONTo("/var/log/app/responses-20260613.jsonl")
 //	if w.IsError() {
 //	    log.Fatal(w.Error())
 //	}
@@ -92,7 +92,7 @@ func (w *wrapper) Dump() (*Dump, *wrapper) {
 //
 //	// re-read from the in-process temp copy:
 //	io.Copy(os.Stdout, dump.Resource().Content())
-func (w *wrapper) DumpTo(dst string) (*Dump, *wrapper) {
+func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
