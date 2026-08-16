@@ -502,6 +502,56 @@ func (r *Resource) ActualPath() string {
 	return ""
 }
 
+// ReadAll rewinds Content to offset 0, reads every byte into memory, and
+// returns the payload as a string. The operation is serialized by an
+// internal mutex so it is safe to call from multiple goroutines sharing
+// the same Resource, though callers should still avoid interleaving reads
+// with concurrent From* calls or Close.
+//
+// Returns:
+//
+// The full payload as a string and any I/O error encountered.
+func (r *Resource) ReadAll() (string, error) {
+	if r == nil || r.content == nil {
+		return "", ErrNilResource
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, err := r.content.Seek(0, io.SeekStart); err != nil {
+		return "", err
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r.content); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// ReadAllBytes rewinds Content to offset 0, reads every byte into memory, and
+// returns the payload as a byte slice. The operation is serialized by an
+// internal mutex so it is safe to call from multiple goroutines sharing
+// the same Resource, though callers should still avoid interleaving reads
+// with concurrent From* calls or Close.
+//
+// Returns:
+//
+// A byte slice containing the full payload and any I/O error encountered.
+func (r *Resource) ReadAllBytes() ([]byte, error) {
+	if r == nil || r.content == nil {
+		return nil, ErrNilResource
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, err := r.content.Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(r.content); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 // fillMime populates ContentType from Name when ContentType is empty. It
 // is invoked by every From* loader after Name and Content are settled.
 func (r *Resource) fillMime() {
