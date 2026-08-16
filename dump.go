@@ -111,7 +111,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
-			WithMessagef("DumpTo: write to %q failed", dst)
+			WithMessagef("DumpTo: write to %s failed", dst)
 	}
 	// 2. Create an in-process seekable temp copy for streaming / re-reading.
 	d, err := dumpJSON(payload)
@@ -126,7 +126,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
-			WithMessagef("DumpTo: succeeded, written to %q", dst)
+			WithMessagef("DumpTo: succeeded, written to %s", dst)
 }
 
 // DumpBody serializes the [wrapper]'s body payload as JSON and writes it
@@ -284,7 +284,7 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
-			WithMessagef("DumpBodyTo: write to %q failed", dst)
+			WithMessagef("DumpBodyTo: write to %s failed", dst)
 	}
 	// Rewind the in-process copy so the caller can read from offset 0.
 	if err := d.Rewind(); err != nil {
@@ -298,7 +298,7 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
-			WithMessagef("DumpBodyTo: succeeded, written to %q", dst)
+			WithMessagef("DumpBodyTo: succeeded, written to %s", dst)
 }
 
 // Resource returns the underlying [sysx.Resource], which exposes the
