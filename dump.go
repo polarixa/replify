@@ -311,6 +311,102 @@ func (d *Dump) Resource() *sysx.Resource {
 	return d.syr
 }
 
+// Content returns the underlying [sysx.ReadSeekCloser] for the serialized
+// payload. Valid until Close is called; returns nil when the Dump itself is nil.
+//
+// The returned stream is always seekable and closeable, but may be backed by
+// either an in-memory buffer or a temporary file depending on the size of the
+// payload and the spill threshold. Callers should not assume that the stream
+// is always backed by a file.
+func (d *Dump) Content() sysx.ReadSeekCloser {
+	if d == nil || d.syr == nil {
+		return nil
+	}
+	return d.syr.Content()
+}
+
+// ReadAll reads the entire serialized payload into a string.
+// Returns an empty string when the Dump is nil or the underlying Resource is nil.
+// Errors are ignored; callers should use [Dump.Content] to read the stream directly if
+// they need to handle I/O errors.
+func (d *Dump) ReadAll() string {
+	r := d.Resource()
+	if r == nil {
+		return ""
+	}
+	c, err := r.ReadAll()
+	if err != nil {
+		return ""
+	}
+	return c
+}
+
+// ReadAllBytes reads the entire serialized payload into a byte slice.
+// Returns nil when the Dump is nil or the underlying Resource is nil.
+// Errors are ignored; callers should use [Dump.Content] to read the stream directly if
+// they need to handle I/O errors.
+func (d *Dump) ReadAllBytes() []byte {
+	r := d.Resource()
+	if r == nil {
+		return nil
+	}
+	c, err := r.ReadAllBytes()
+	if err != nil {
+		return nil
+	}
+	return c
+}
+
+// MustReadAll reads the entire serialized payload into a string and returns
+// a [wrapper] carrying the outcome. Returns an empty string and a wrapper with
+// InternalServerError when the Dump is nil or the underlying Resource is nil.
+// Errors are surfaced in the wrapper; callers should use [Dump.Content] to read
+// the stream directly if they need to handle I/O errors.
+func (d *Dump) MustReadAll() (c string, w *wrapper) {
+	r := d.Resource()
+	if r == nil {
+		return "", New().
+			WithHeader(InternalServerError).
+			WithMessage("Dump: resource is nil")
+	}
+	c, err := r.ReadAll()
+	if err != nil {
+		return "", New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("Dump: failed to read all content")
+	}
+	return c, New().
+		WithHeader(OK).
+		WithMessagef("Dump: read %d bytes successfully", strutil.Len(c)).
+		WithBody(c)
+}
+
+// MustReadAllBytes reads the entire serialized payload into a byte slice and
+// returns a [wrapper] carrying the outcome. Returns nil and a wrapper with
+// InternalServerError when the Dump is nil or the underlying Resource is nil.
+// Errors are surfaced in the wrapper; callers should use [Dump.Content] to read
+// the stream directly if they need to handle I/O errors.
+func (d *Dump) MustReadAllBytes() (c []byte, w *wrapper) {
+	r := d.Resource()
+	if r == nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithMessage("Dump: resource is nil")
+	}
+	c, err := r.ReadAllBytes()
+	if err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("Dump: failed to read all content")
+	}
+	return c, New().
+		WithHeader(OK).
+		WithMessagef("Dump: read %d bytes successfully", len(c)).
+		WithBody(c)
+}
+
 // Filepath returns the destination path of the permanent on-disk file when
 // the Dump was produced by [wrapper.DumpTo]. Returns an empty string for
 // Dumps produced by [wrapper.Dump].

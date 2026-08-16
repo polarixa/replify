@@ -78,6 +78,7 @@ type ReadSeekCloser interface {
 // Close exactly once to release file handles, delete temporary files, or
 // free buffers as appropriate to the backing implementation.
 type Resource struct {
+	mu          sync.Mutex
 	name        string
 	size        int64
 	contentType string
