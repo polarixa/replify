@@ -1551,3 +1551,55 @@ func (sw *SafeStringWeaver) CarriageReturn() Weaver {
 	sw.builder.WriteByte('\r')
 	return sw
 }
+
+// Pipe adds a pipe character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Column 1").Pipe().Append("Column 2")
+func (sw *SafeStringWeaver) Pipe() Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteByte('|')
+	return sw
+}
+
+// Pipes adds n pipe characters and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Column 1").Pipes(3).Append("Column 2")
+func (sw *SafeStringWeaver) Pipes(n int) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	if n > 0 {
+		sw.builder.WriteString(strings.Repeat("|", n))
+	}
+	return sw
+}
+
+// Dash adds a dash character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Item 1").Dash().Append("Item 2")
+func (sw *SafeStringWeaver) Dash() Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteByte('-')
+	return sw
+}
+
+// Dashes adds n dash characters and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Item 1").Dashes(5).Append("Item 2")
+func (sw *SafeStringWeaver) Dashes(n int) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	if n > 0 {
+		sw.builder.WriteString(strings.Repeat("-", n))
+	}
+	return sw
+}

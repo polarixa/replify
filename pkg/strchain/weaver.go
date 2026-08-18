@@ -357,4 +357,32 @@ type Weaver interface {
 	//
 	//	sw.CarriageReturn() // adds '\r'
 	CarriageReturn() Weaver
+
+	// Pipe adds a pipe character and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Pipe() // adds '|'
+	Pipe() Weaver
+
+	// Pipes adds n pipe characters and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Pipes(3) // adds '|||'
+	Pipes(n int) Weaver
+
+	// Dash adds a '-' character and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Dash() // adds '-'
+	Dash() Weaver
+
+	// Dashes adds n '-' characters and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Dashes(3) // adds '---'
+	Dashes(n int) Weaver
 }

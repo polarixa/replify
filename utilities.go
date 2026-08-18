@@ -259,6 +259,18 @@ func dumpJSON(payload []byte) (*sysx.Resource, error) {
 		})
 }
 
+// dumpMarkdown creates a seekable in-process [sysx.Resource] backed by a
+// temporary file from an already-serialized Markdown payload.
+func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
+	return sysx.NewResource().
+		WithName("replify-dump-*.md").
+		WithContentType(sysx.MimeText).
+		FromTempFile(func(w io.Writer) error {
+			_, err := w.Write(payload)
+			return err
+		})
+}
+
 // dumpBodyStream serializes body into a seekable [sysx.Resource] backed by a
 // spill buffer and writes output to a plain-text (.txt) file because the body
 // can carry any Go value — not only valid JSON.
