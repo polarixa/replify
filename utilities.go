@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"strings"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/encoding"
@@ -347,4 +348,15 @@ func dumpBodyStream(body any) (*sysx.Resource, error) {
 		return nil, gErr
 	}
 	return res, nil
+}
+
+// escapeMarkdownPipe escapes characters that would break Markdown
+// table rendering (pipe characters and newlines).
+func escapeMarkdownPipe(s string) string {
+	if s == "" {
+		return s
+	}
+	s = strings.ReplaceAll(s, "|", `\|`)
+	s = strings.ReplaceAll(s, "\n", " ")
+	return s
 }
