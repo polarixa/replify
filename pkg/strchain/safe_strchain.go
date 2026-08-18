@@ -1646,3 +1646,29 @@ func (sw *SafeStringWeaver) CodeBlock(language string, s Weaver) Weaver {
 	sw.builder.WriteString("```")
 	return sw
 }
+
+// IsEmpty checks if the builder is empty.
+//
+// Example:
+//
+//	if sw.IsEmpty() {
+//	    // Handle empty case
+//	}
+func (sw *SafeStringWeaver) IsEmpty() bool {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.builder.Len() == 0
+}
+
+// IsNotEmpty checks if the builder is not empty.
+//
+// Example:
+//
+//	if sw.IsNotEmpty() {
+//	    // Handle non-empty case
+//	}
+func (sw *SafeStringWeaver) IsNotEmpty() bool {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	return sw.builder.Len() > 0
+}
