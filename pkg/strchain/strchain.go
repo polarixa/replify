@@ -1348,3 +1348,47 @@ func (sw *StringWeaver) CarriageReturn() Weaver {
 	sw.builder.WriteByte('\r')
 	return sw
 }
+
+// Pipe adds a pipe character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Column1").Pipe().Append("Column2")
+func (sw *StringWeaver) Pipe() Weaver {
+	sw.builder.WriteByte('|')
+	return sw
+}
+
+// Pipes adds n pipe characters and returns the builder.
+//
+// Example:
+//
+//	sw.Pipes(3) // adds "|||"
+func (sw *StringWeaver) Pipes(n int) Weaver {
+	if n > 0 {
+		sw.builder.WriteString(strings.Repeat("|", n))
+	}
+	return sw
+}
+
+// Dash adds a dash character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("Item1").Dash().Append("Item2")
+func (sw *StringWeaver) Dash() Weaver {
+	sw.builder.WriteByte('-')
+	return sw
+}
+
+// Dashes adds n dash characters and returns the builder.
+//
+// Example:
+//
+//	sw.Dashes(5) // adds "-----"
+func (sw *StringWeaver) Dashes(n int) Weaver {
+	if n > 0 {
+		sw.builder.WriteString(strings.Repeat("-", n))
+	}
+	return sw
+}
