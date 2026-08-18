@@ -1429,3 +1429,25 @@ func (sw *StringWeaver) CodeBlock(language string, s Weaver) Weaver {
 	sw.builder.WriteString("```")
 	return sw
 }
+
+// IsEmpty checks if the builder is empty.
+//
+// Example:
+//
+//	if sw.IsEmpty() {
+//	    fmt.Println("Builder is empty")
+//	}
+func (sw *StringWeaver) IsEmpty() bool {
+	return sw.builder.Len() == 0
+}
+
+// IsNotEmpty checks if the builder is not empty.
+//
+// Example:
+//
+//	if sw.IsNotEmpty() {
+//	    fmt.Println("Builder has content")
+//	}
+func (sw *StringWeaver) IsNotEmpty() bool {
+	return sw.builder.Len() > 0
+}

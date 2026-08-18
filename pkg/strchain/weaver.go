@@ -406,4 +406,22 @@ type Weaver interface {
 	//
 	// 	sw.CodeBlock("go", "fmt.Println(\"Hello, World!\")") // adds '```go\nfmt.Println("Hello, World!")\n```'
 	CodeBlock(language string, s Weaver) Weaver
+
+	// IsEmpty checks if the builder is empty (length is zero).
+	//
+	// Example:
+	//
+	// 	if sw.IsEmpty() {
+	// 		fmt.Println("The builder is empty.")
+	// 	}
+	IsEmpty() bool
+
+	// IsNotEmpty checks if the builder is not empty (length is greater than zero).
+	//
+	// Example:
+	//
+	// 	if sw.IsNotEmpty() {
+	// 		fmt.Println("The builder has content.")
+	// 	}
+	IsNotEmpty() bool
 }
