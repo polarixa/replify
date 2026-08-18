@@ -1392,3 +1392,40 @@ func (sw *StringWeaver) Dashes(n int) Weaver {
 	}
 	return sw
 }
+
+// Underscore adds a single underscore character and returns the builder.
+//
+// Example:
+//
+//	sw.Append("variable").Underscore().Append("name")
+func (sw *StringWeaver) Underscore() Weaver {
+	sw.builder.WriteByte('_')
+	return sw
+}
+
+// Underscores adds n underscore characters and returns the builder.
+//
+// Example:
+//
+//	sw.Underscores(4) // adds "____"
+func (sw *StringWeaver) Underscores(n int) Weaver {
+	if n > 0 {
+		sw.builder.WriteString(strings.Repeat("_", n))
+	}
+	return sw
+}
+
+// CodeBlock adds a code block with the specified language and content.
+//
+// Example:
+//
+//	sw.CodeBlock("go", New().Append("fmt.Println(\"Hello, World!\")"))
+func (sw *StringWeaver) CodeBlock(language string, s Weaver) Weaver {
+	sw.builder.WriteString("```")
+	sw.builder.WriteString(language)
+	sw.builder.WriteByte('\n')
+	sw.builder.WriteString(s.String())
+	sw.builder.WriteByte('\n')
+	sw.builder.WriteString("```")
+	return sw
+}

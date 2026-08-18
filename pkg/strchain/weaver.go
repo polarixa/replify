@@ -385,4 +385,25 @@ type Weaver interface {
 	//
 	//	sw.Dashes(3) // adds '---'
 	Dashes(n int) Weaver
+
+	// Underscore adds a '_' character and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Underscore() // adds '_'
+	Underscore() Weaver
+
+	// Underscores adds n '_' characters and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Underscores(3) // adds '___'
+	Underscores(n int) Weaver
+
+	// CodeBlock adds a code block with optional language specifier.
+	//
+	// Example:
+	//
+	// 	sw.CodeBlock("go", "fmt.Println(\"Hello, World!\")") // adds '```go\nfmt.Println("Hello, World!")\n```'
+	CodeBlock(language string, s Weaver) Weaver
 }
