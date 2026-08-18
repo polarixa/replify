@@ -50,11 +50,57 @@ func (w *wrapper) DebugDoc() *strchain.StringWeaver {
 
 	if w.IsDebuggingPresent() {
 		for k, v := range w.Debugging() {
-			if k == "error_stack_trace" {
+			if k == "error_stack_trace" { // Skip the error stack trace in the debug document
 				continue
 			}
 			sw.Pipe().Space().Append(escapeMarkdownPipe(k)).Space().Pipe().Space().Append(escapeMarkdownPipe(conv.StringOrEmpty(v))).Space().Pipe().NewLine()
 		}
 	}
+	return sw
+}
+
+// ErrorStackTraceDoc generates a document for the error stack trace present in the wrapper instance, providing a detailed view of the error context. It returns a StringWeaver instance that can be used to build and format the error stack trace content.
+//
+// The error stack trace document includes the following information:
+// - A header indicating that it is an error stack trace.
+// - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
+//
+// The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
+func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsError() {
+		return sw
+	}
+	w.InjectStackTrace() // Ensure the stack trace is injected before generating the document
+
+	sw.Append("##").Space()
+	sw.Append("Error Stack Trace").NewLines(2)
+
+	if w.IsDebuggingPresent() {
+		if trace, ok := w.Debugging()["error_stack_trace"]; ok {
+			codeblock := strchain.New()
+			lines, _ := conv.StringSlice(trace)
+
+			for i, line := range lines {
+				codeblock.AppendF("%d. %s", i+1, escapeMarkdownPipe(line)).NewLine()
+			}
+			sw.CodeBlock("go", codeblock).NewLines(1)
+		}
+	}
+	return sw
+}
+
+// SafeErrorStackTraceDoc generates a document for the error stack trace present in the wrapper instance, providing a detailed view of the error context. It returns a StringWeaver instance that can be used to build and format the error stack trace content.
+//
+// The SafeErrorStackTraceDoc method ensures that the stack trace injection is disabled after generating the document to avoid any side effects on the wrapper's state. This allows for safe retrieval of the error stack trace without modifying the wrapper's internal state.
+//
+// The error stack trace document includes the following information:
+// - A header indicating that it is an error stack trace.
+// - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
+//
+// The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
+func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
+	sw := w.ErrorStackTraceDoc()
+	w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
 	return sw
 }
