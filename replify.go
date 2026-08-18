@@ -2115,6 +2115,24 @@ func (w *wrapper) InjectStackTrace() *wrapper {
 	return w.WithDebuggingKV("error_stack_trace", frames)
 }
 
+// DisableInjectStackTrace removes the "error_stack_trace" entry from the debug map of the [wrapper] instance.
+//
+// This function checks if debugging information is present in the [wrapper]. If it is,
+// it deletes the "error_stack_trace" key from the `debug` map. The modified [wrapper]
+// instance is then returned to allow method chaining.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) DisableInjectStackTrace() *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsDebuggingPresent() {
+		delete(w.debug, "error_stack_trace")
+	}
+	return w
+}
+
 // WithDebuggingKV adds a key-value pair to the debugging information in the [wrapper] instance.
 //
 // This function checks if debugging information is already present. If it is not, it initializes
