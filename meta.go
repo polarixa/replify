@@ -1164,6 +1164,55 @@ func (m *meta) RequestedTime() time.Time {
 	return m.requestedTime
 }
 
+// RequestedTimeUTC retrieves the requested time in UTC from the [meta] instance.
+//
+// This function checks if the [meta] instance is available (non-nil) before retrieving
+// the `requestedTime`. If the [meta] instance is unavailable, it returns the zero value
+// of `time.Time` (January 1, year 1, 00:00:00 UTC). If available, it converts the requested time
+// to UTC before returning.
+//
+// Returns:
+//   - The requested time in UTC as a `time.Time` object if available.
+//   - The zero value of `time.Time` if the [meta] instance is unavailable.
+func (m *meta) RequestedTimeUTC() time.Time {
+	if !m.Available() {
+		return time.Time{}
+	}
+	return m.requestedTime.UTC()
+}
+
+// RequestedTimeFormat formats the requested time from the [meta] instance into a string representation.
+//
+// This function checks if the [meta] instance is available (non-nil) before formatting
+// the `requestedTime`. If the [meta] instance is unavailable, it returns an empty string.
+// If available, it formats the requested time using the layout "2006-01-02 15:04:05.999999".
+//
+// Returns:
+//   - A formatted string representation of the requested time if available.
+//   - An empty string if the [meta] instance is unavailable.
+func (m *meta) RequestedTimeFormat() string {
+	if !m.Available() {
+		return ""
+	}
+	return m.requestedTime.Format("2006-01-02 15:04:05.999999")
+}
+
+// RequestedTimeUTCFormat formats the requested time in UTC from the [meta] instance into a string representation.
+//
+// This function checks if the [meta] instance is available (non-nil) before formatting
+// the `requestedTime`. If the [meta] instance is unavailable, it returns an empty string.
+// If available, it formats the requested time in UTC using the layout "2006-01-02 15:04:05.999999".
+//
+// Returns:
+//   - A formatted string representation of the requested time in UTC if available.
+//   - An empty string if the [meta] instance is unavailable.
+func (m *meta) RequestedTimeUTCFormat() string {
+	if !m.Available() {
+		return ""
+	}
+	return m.requestedTime.UTC().Format("2006-01-02 15:04:05.999999")
+}
+
 // CustomFields retrieves the custom fields from the [meta] instance.
 //
 // This function checks if the [meta] instance is available (non-nil) before retrieving
