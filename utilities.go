@@ -360,3 +360,45 @@ func escapeMarkdownPipe(s string) string {
 	s = strings.ReplaceAll(s, "\n", " ")
 	return s
 }
+
+// parseStackFrame parses a fully-qualified Go function name into a display name,
+// the bare function/method name used as a call label, and whether it is a runtime frame.
+//
+// It handles package names, receiver types, and method names, including special cases for runtime functions.
+//
+// Examples:
+//
+//	"github.com/polarixa/replify/pkg/strutil.(*StringWeaver).Append" → displayName: "strutil.StringWeaver.Append", callLabel: "Append", isRuntime: false
+//	"runtime.main" → displayName: "runtime", callLabel: "main", isRuntime: true
+//	"net/http.(*Server).Serve" → displayName: "http.Server.Serve", callLabel: "Serve", isRuntime: false
+func parseStackFrame(fullName string) (displayName, callLabel string, isRuntime bool) {
+	i := strings.LastIndex(fullName, "/")
+	short := fullName[i+1:]
+
+	// Special case for runtime package functions
+	if after, ok := strings.CutPrefix(short, "runtime."); ok {
+		return "runtime", after, true
+	}
+
+	before, after, ok := strings.Cut(short, ".")
+	if !ok {
+		return short, short, false
+	}
+	pkg := before
+	rest := after
+
+	// Receiver method: "(*Type).Method" or "(Type).Method"
+	if strings.HasPrefix(rest, "(") {
+		closeIdx := strings.Index(rest, ")")
+		if closeIdx > 0 {
+			typePart := strings.TrimPrefix(rest[1:closeIdx], "*")
+			if closeIdx+2 < len(rest) {
+				method := rest[closeIdx+2:]
+				return typePart + "." + method, method, false
+			}
+			return typePart, typePart, false
+		}
+	}
+
+	return pkg + "." + rest, rest, false
+}

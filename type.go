@@ -428,6 +428,23 @@ type wrapper struct {
 	cacheMutex sync.RWMutex   // Mutex for synchronizing access to the cached response data.
 }
 
+// sequenceParticipant represents a participant in a sequence diagram, typically used for visualizing interactions between different components or services in a system.
+// It contains information about the participant's unique identifier, display name, call label, and whether it is part of the runtime or user-defined code.
+// This information is used to generate sequence diagrams that illustrate the flow of messages and interactions between participants in a system.
+type sequenceParticipant struct {
+	// id is a unique identifier for the participant in the sequence diagram, used to reference the participant in arrows and messages.
+	id string
+
+	// displayName is the human-readable name of the participant, which will be shown in the sequence diagram.
+	displayName string
+
+	// callLabel is the label for the function or method call associated with the participant, which will be shown in the sequence diagram.
+	callLabel string
+
+	// isRuntime indicates whether the participant is part of the runtime (e.g., system-level functions) or user-defined code. This information can be used to differentiate between user and system participants in the sequence diagram.
+	isRuntime bool
+}
+
 // stack represents a stack of program counters. It is a slice of `uintptr`
 // values that store the addresses (or locations) of program counters
 // from a function call stack. This is useful for tracking where errors
