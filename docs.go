@@ -1,6 +1,9 @@
 package replify
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
@@ -338,6 +341,14 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 		sw.NewLine()
 	}
 
+	// 7b. Sequence diagram — visualises the error call flow
+	seqDiagramDoc := w.drawSequenceDiagramErrorStackTrace()
+	if seqDiagramDoc.IsNotEmpty() {
+		sw.Append(seqDiagramDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
 	// 8. Debug — verbose diagnostic data
 	debugDoc := w.DebugDoc()
 	if debugDoc.IsNotEmpty() {
@@ -347,4 +358,150 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 	}
 
 	return sw
+}
+
+func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsError() {
+		return sw
+	}
+
+	w.InjectStackTrace()
+	defer w.DisableInjectStackTrace()
+
+	if !w.IsDebuggingPresent() {
+		return sw
+	}
+	traceVal, ok := w.Debugging()["error_stack_trace"]
+	if !ok {
+		return sw
+	}
+	rawLines, _ := conv.StringSlice(traceVal)
+	if len(rawLines) == 0 {
+		return sw
+	}
+
+	type seqParticipant struct {
+		id          string
+		displayName string
+		callLabel   string
+		isRuntime   bool
+	}
+
+	var participants []seqParticipant
+	seen := make(map[string]bool)
+
+	for _, line := range rawLines {
+		spaceIdx := strings.LastIndex(line, " ")
+		funcFull := strings.TrimSpace(line)
+		if spaceIdx > 0 {
+			funcFull = strings.TrimSpace(line[:spaceIdx])
+		}
+		// Skip runtime epilogue frames that add no diagnostic value
+		if strings.Contains(funcFull, "runtime.goexit") || strings.Contains(funcFull, "runtime.mstart") {
+			continue
+		}
+
+		displayName, callLabel, isRt := seqParseFrameName(funcFull)
+		if isRt {
+			displayName = "runtime"
+		}
+		if seen[displayName] {
+			continue
+		}
+		seen[displayName] = true
+
+		participants = append(participants, seqParticipant{
+			displayName: displayName,
+			callLabel:   callLabel,
+			isRuntime:   isRt,
+		})
+	}
+
+	// If there are fewer than 2 participants, we cannot create a meaningful sequence diagram, so we return early.
+	if len(participants) < 2 {
+		return sw
+	}
+
+	// Reverse: stack trace is innermost-first; diagram is outermost-first
+	for i, j := 0, len(participants)-1; i < j; i, j = i+1, j-1 {
+		participants[i], participants[j] = participants[j], participants[i]
+	}
+	for i := range participants {
+		participants[i].id = fmt.Sprintf("P%d", i)
+	}
+
+	diagram := strchain.New()
+	diagram.Append("sequenceDiagram").NewLine()
+	diagram.IndentLine(2, "autonumber")
+	diagram.NewLine()
+
+	for _, p := range participants {
+		diagram.IndentF(2, "participant %s as %s", p.id, p.displayName).NewLine()
+	}
+	diagram.NewLine()
+
+	// Find the first non-runtime participant (outermost user frame after reversing)
+	firstUser := 0
+	for firstUser < len(participants) && participants[firstUser].isRuntime {
+		firstUser++
+	}
+
+	// Solid arrows: outermost user frame → innermost (call chain)
+	for i := firstUser; i < len(participants)-1; i++ {
+		from := participants[i]
+		to := participants[i+1]
+		diagram.IndentF(2, "%s->>%s: %s()", from.id, to.id, to.callLabel).NewLine()
+	}
+
+	// Dashed arrows: innermost → outermost (error propagation back to caller)
+	for i := len(participants) - 1; i >= 1; i-- {
+		from := participants[i]
+		to := participants[i-1]
+		label := "error"
+		if i == 1 {
+			label = "return"
+		}
+		diagram.IndentF(2, "%s-->>%s: %s", from.id, to.id, label).NewLine()
+	}
+
+	sw.CodeBlock("mermaid", diagram).NewLines(1)
+	return sw
+}
+
+// seqParseFrameName parses a fully-qualified Go function name into a display name,
+// the bare function/method name used as a call label, and whether it is a runtime frame.
+func seqParseFrameName(fullName string) (displayName, callLabel string, isRuntime bool) {
+	i := strings.LastIndex(fullName, "/")
+	short := fullName[i+1:]
+
+	if after, ok := strings.CutPrefix(short, "runtime."); ok {
+		return "runtime", after, true
+	}
+
+	// if strings.HasPrefix(short, "runtime.") {
+	// 	return "runtime", strings.TrimPrefix(short, "runtime."), true
+	// }
+
+	dotIdx := strings.Index(short, ".")
+	if dotIdx < 0 {
+		return short, short, false
+	}
+	pkg := short[:dotIdx]
+	rest := short[dotIdx+1:]
+
+	// Receiver method: "(*Type).Method" or "(Type).Method"
+	if strings.HasPrefix(rest, "(") {
+		closeIdx := strings.Index(rest, ")")
+		if closeIdx > 0 {
+			typePart := strings.TrimPrefix(rest[1:closeIdx], "*")
+			if closeIdx+2 < len(rest) {
+				method := rest[closeIdx+2:]
+				return typePart + "." + method, method, false
+			}
+			return typePart, typePart, false
+		}
+	}
+
+	return pkg + "." + rest, rest, false
 }
