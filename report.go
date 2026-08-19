@@ -37,18 +37,18 @@ func (w *wrapper) DumpJSON() (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
-			WithMessage("Dump: wrapper is required")
+			WithMessage("DumpJSON: wrapper is required")
 	}
 	d, err := dumpJSON(w.JSONBytes())
 	if err != nil {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
-			WithMessage("Dump: failed to create temp file")
+			WithMessage("DumpJSON: failed to create temp file")
 	}
 	return &Dump{syr: d}, New().
 		WithHeader(OK).
-		WithMessagef("Dump: succeeded and written to temp file %s", d.Name())
+		WithMessagef("DumpJSON: succeeded and written to temp file %s", d.Name())
 }
 
 // DumpJSONTo writes the full [wrapper] response as pretty-printed JSON to dst and
@@ -95,12 +95,12 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
-			WithMessage("DumpTo: wrapper is required")
+			WithMessage("DumpJSONTo: wrapper is required")
 	}
 	if strutil.IsEmpty(dst) {
 		return nil, New().
 			WithHeader(BadRequest).
-			WithMessage("DumpTo: destination path must not be empty")
+			WithMessage("DumpJSONTo: destination path must not be empty")
 	}
 	payload := w.JSONBytes()
 
@@ -110,7 +110,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
-			WithMessagef("DumpTo: write to %s failed", dst)
+			WithMessagef("DumpJSONTo: write to %s failed", dst)
 	}
 	// 2. Create an in-process seekable temp copy for streaming / re-reading.
 	d, err := dumpJSON(payload)
@@ -119,13 +119,13 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
-			WithMessage("DumpTo: failed to create in-process temp copy")
+			WithMessage("DumpJSONTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
-			WithMessagef("DumpTo: succeeded, written to %s", dst)
+			WithMessagef("DumpJSONTo: succeeded, written to %s", dst)
 }
 
 // DumpBody serializes the [wrapper]'s body payload as JSON and writes it
@@ -298,4 +298,32 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 		New().
 			WithHeader(OK).
 			WithMessagef("DumpBodyTo: succeeded, written to %s", dst)
+}
+
+// DumpMDDoc serializes the [wrapper]'s diagnostic report as Markdown and writes
+// it into a self-cleaning temporary file, returning a [Dump] that owns the file.
+//
+// The serialized content matches [wrapper.BasicDoc] — the full diagnostic report
+// with summary, debug, headers, pagination, cursors, meta, and custom fields.
+//
+// Both return values are always non-nil:
+//   - (*Dump, *wrapper) — Dump holds the seekable resource; wrapper carries
+//     the outcome for fluent chaining.
+//   - On error: Dump is nil, wrapper has the appropriate status + error detail.
+func (w *wrapper) DumpMDDoc() (*Dump, *wrapper) {
+	if !w.Available() {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithMessage("DumpMDDoc: wrapper is required")
+	}
+	d, err := dumpMarkdown(w.BasicDoc().Bytes())
+	if err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("DumpMDDoc: failed to create temp file")
+	}
+	return &Dump{syr: d}, New().
+		WithHeader(OK).
+		WithMessagef("DumpMDDoc: succeeded and written to temp file %s", d.Name())
 }
