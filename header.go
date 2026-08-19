@@ -305,15 +305,15 @@ func (h *header) String() string {
 		return sw.String()
 	}
 	sw.AppendF("code=%d", h.code)
-	if strutil.IsNotEmpty(h.text) {
+	if h.IsTextPresent() {
 		sw.Space()
 		sw.AppendF("text=%s", h.text)
 	}
-	if strutil.IsNotEmpty(h.typez) {
+	if h.IsTypePresent() {
 		sw.Space()
 		sw.AppendF("type=%s", h.typez)
 	}
-	if strutil.IsNotEmpty(h.description) {
+	if h.IsDescriptionPresent() {
 		sw.Space()
 		sw.AppendF("description=%s", h.description)
 	}
