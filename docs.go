@@ -9,10 +9,10 @@ import (
 // SummaryDoc generates a summary document for the wrapper instance, providing a concise overview of its status and message. It returns a StringWeaver instance that can be used to build and format the summary content.
 //
 // The summary document includes the following information:
-// - A header indicating that it is a summary.
-// - A table with two columns: "Field" and "Value".
-// - If a message is present, it will be included in the summary.
-// - If a status code is present, both the status code and its corresponding HTTP status text will be included.
+//   - A header indicating that it is a summary.
+//   - A table with two columns: "Field" and "Value".
+//   - If a message is present, it will be included in the summary.
+//   - If a status code is present, both the status code and its corresponding HTTP status text will be included.
 //
 // The generated summary document can be used for logging, reporting, or any other purpose where a concise overview of the wrapper's state is needed.
 func (w *wrapper) SummaryDoc() *strchain.StringWeaver {
@@ -36,9 +36,9 @@ func (w *wrapper) SummaryDoc() *strchain.StringWeaver {
 // DebugDoc generates a debug document for the wrapper instance, providing detailed information about its debugging state. It returns a StringWeaver instance that can be used to build and format the debug content.
 //
 // The debug document includes the following information:
-// - A header indicating that it is debug information.
-// - A table with two columns: "Key" and "Value".
-// - If debugging information is present, each key-value pair will be included in the table, except for the "error_stack_trace" key, which will be skipped.
+//   - A header indicating that it is debug information.
+//   - A table with two columns: "Key" and "Value".
+//   - If debugging information is present, each key-value pair will be included in the table, except for the "error_stack_trace" key, which will be skipped.
 //
 // The generated debug document can be used for logging, troubleshooting, or any other purpose where detailed debugging information is needed.
 func (w *wrapper) DebugDoc() *strchain.StringWeaver {
@@ -62,8 +62,8 @@ func (w *wrapper) DebugDoc() *strchain.StringWeaver {
 // ErrorStackTraceDoc generates a document for the error stack trace present in the wrapper instance, providing a detailed view of the error context. It returns a StringWeaver instance that can be used to build and format the error stack trace content.
 //
 // The error stack trace document includes the following information:
-// - A header indicating that it is an error stack trace.
-// - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
+//   - A header indicating that it is an error stack trace.
+//   - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
 //
 // The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
 func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
@@ -95,8 +95,8 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 // The SafeErrorStackTraceDoc method ensures that the stack trace injection is disabled after generating the document to avoid any side effects on the wrapper's state. This allows for safe retrieval of the error stack trace without modifying the wrapper's internal state.
 //
 // The error stack trace document includes the following information:
-// - A header indicating that it is an error stack trace.
-// - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
+//   - A header indicating that it is an error stack trace.
+//   - If debugging information is present and contains the "error_stack_trace" key, the corresponding value will be included in a code block format.
 //
 // The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
 func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
@@ -108,9 +108,9 @@ func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
 // HeaderDoc generates a document for the headers present in the wrapper instance, providing a detailed view of the header information. It returns a StringWeaver instance that can be used to build and format the header content.
 //
 // The header document includes the following information:
-// - A header indicating that it is header information.
-// - A table with two columns: "Field" and "Value".
-// - If headers are present, each header field and its corresponding value will be included in the table.
+//   - A header indicating that it is header information.
+//   - A table with two columns: "Field" and "Value".
+//   - If headers are present, each header field and its corresponding value will be included in the table.
 //
 // The generated header document can be used for logging, troubleshooting, or any other purpose where detailed header information is needed.
 func (w *wrapper) HeaderDoc() *strchain.StringWeaver {
@@ -125,6 +125,32 @@ func (w *wrapper) HeaderDoc() *strchain.StringWeaver {
 		sw.Pipe().Space().Append("Code").Space().Pipe().Space().AppendInt(h.Code()).Space().Pipe().NewLine()
 		sw.Pipe().Space().Append("Text").Space().Pipe().Space().Append(escapeMarkdownPipe(h.Text())).Space().Pipe().NewLine()
 		sw.Pipe().Space().Append("Type").Space().Pipe().Space().Append(escapeMarkdownPipe(h.Type())).Space().Pipe().NewLine()
+	}
+	return sw
+}
+
+// PagingDoc generates a document for the pagination information present in the wrapper instance, providing a detailed view of the pagination details. It returns a StringWeaver instance that can be used to build and format the pagination content.
+//
+// The pagination document includes the following information:
+//   - A header indicating that it is pagination information.
+//   - A table with two columns: "Field" and "Value".
+//   - If pagination information is present, each pagination field and its corresponding value will be included in the table.
+//
+// The generated pagination document can be used for logging, troubleshooting, or any other purpose where detailed pagination information is needed.
+func (w *wrapper) PagingDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	sw.Append("##").Space()
+	sw.Append("Pagination").NewLines(2)
+	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
+	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
+
+	if w.IsPagingPresent() {
+		p := w.Pagination()
+		sw.Pipe().Space().Append("Page").Space().Pipe().Space().AppendInt(p.Page()).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Per Page").Space().Pipe().Space().AppendInt(p.PerPage()).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Total Items").Space().Pipe().Space().AppendInt(p.TotalItems()).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Total Pages").Space().Pipe().Space().AppendInt(p.TotalPages()).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Is Last").Space().Pipe().Space().AppendBool(p.IsLast()).Space().Pipe().NewLine()
 	}
 	return sw
 }
