@@ -1451,3 +1451,75 @@ func (sw *StringWeaver) IsEmpty() bool {
 func (sw *StringWeaver) IsNotEmpty() bool {
 	return sw.builder.Len() > 0
 }
+
+// InlineCode adds a string wrapped in backticks for code representation.
+//
+// Example:
+//
+//	sw.InlineCode("fmt.Println(\"Hello, World!\")") // adds `fmt.Println("Hello, World!")`
+func (sw *StringWeaver) InlineCode(s string) Weaver {
+	sw.builder.WriteString("`")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("`")
+	return sw
+}
+
+// InlineCodeF adds a formatted inline code (printf-style) to the builder.
+//
+// Example:
+//
+//	sw.InlineCodeF("inline %s", "code") // adds '`inline code`'
+func (sw *StringWeaver) InlineCodeF(format string, args ...any) Weaver {
+	sw.builder.WriteString("`")
+	fmt.Fprintf(&sw.builder, format, args...)
+	sw.builder.WriteString("`")
+	return sw
+}
+
+// Bold adds a string wrapped in double asterisks for bold representation.
+//
+// Example:
+//
+//	sw.Bold("Important") // adds "**Important**"
+func (sw *StringWeaver) Bold(s string) Weaver {
+	sw.builder.WriteString("**")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("**")
+	return sw
+}
+
+// Italic adds a string wrapped in single asterisks for italic representation.
+//
+// Example:
+//
+//	sw.Italic("Emphasized") // adds "*Emphasized*"
+func (sw *StringWeaver) Italic(s string) Weaver {
+	sw.builder.WriteString("*")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("*")
+	return sw
+}
+
+// Strikethrough adds a string wrapped in double tildes for strikethrough representation.
+//
+// Example:
+//
+//	sw.Strikethrough("Obsolete") // adds "~~Obsolete~~"
+func (sw *StringWeaver) Strikethrough(s string) Weaver {
+	sw.builder.WriteString("~~")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("~~")
+	return sw
+}
+
+// Underline adds a string wrapped in <u> tags for underline representation.
+//
+// Example:
+//
+//	sw.Underline("Highlighted") // adds "<u>Highlighted</u>"
+func (sw *StringWeaver) Underline(s string) Weaver {
+	sw.builder.WriteString("<u>")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("</u>")
+	return sw
+}

@@ -424,4 +424,46 @@ type Weaver interface {
 	// 		fmt.Println("The builder has content.")
 	// 	}
 	IsNotEmpty() bool
+
+	// InlineCode adds inline code formatting to the given string and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.InlineCode("inline code") // adds '`inline code`'
+	InlineCode(s string) Weaver
+
+	// InlineCodeF adds formatted inline code (printf-style) to the builder.
+	//
+	// Example:
+	//
+	//	sw.InlineCodeF("inline %s", "code") // adds '`inline code`'
+	InlineCodeF(format string, args ...any) Weaver
+
+	// Bold adds bold formatting to the given string and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Bold("important") // adds '**important**'
+	Bold(s string) Weaver
+
+	// Italic adds italic formatting to the given string and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Italic("emphasis") // adds '*emphasis*'
+	Italic(s string) Weaver
+
+	// Strikethrough adds strikethrough formatting to the given string and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Strikethrough("obsolete") // adds '~~obsolete~~'
+	Strikethrough(s string) Weaver
+
+	// Underline adds underline formatting to the given string and returns the builder.
+	//
+	// Example:
+	//
+	//	sw.Underline("highlight") // adds '<u>highlight</u>'
+	Underline(s string) Weaver
 }
