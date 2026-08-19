@@ -165,6 +165,14 @@ func (w *wrapper) ErrorFlowDoc() *strchain.StringWeaver {
 	}
 	diagram.NewLine()
 
+	// Annotate each non-runtime participant with its source location
+	for _, p := range participants {
+		if !p.isRuntime && strutil.IsNotEmpty(p.location) {
+			diagram.IndentF(2, "Note over %s: %s", p.id, p.location).NewLine()
+		}
+	}
+	diagram.NewLine()
+
 	// Find the first non-runtime participant (outermost user frame after reversing)
 	// This is used to determine where to start drawing the solid arrows in the sequence diagram.
 	firstUser := 0
