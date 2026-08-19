@@ -402,3 +402,63 @@ func parseStackFrame(fullName string) (displayName, callLabel string, isRuntime 
 
 	return pkg + "." + rest, rest, false
 }
+
+// parseStackFrameParticipants parses the stack frame lines and extracts the unique participants for the sequence diagram.
+// It returns a slice of [sequenceParticipant] structs representing the participants in the call chain.
+//
+// The function skips frames that are part of the runtime epilogue, as they do not provide meaningful diagnostic information.
+// It also ensures that each participant is unique by using a map to track seen display names.
+func parseStackFrameParticipants(lines []string) []sequenceParticipant {
+	var participants []sequenceParticipant
+	seen := make(map[string]bool)
+
+	if len(lines) == 0 {
+		return participants
+	}
+
+	// Skip frames that are part of the runtime epilogue,
+	// as they do not provide meaningful diagnostic information.
+	skipFrames := []string{
+		"runtime.goexit",
+		"runtime.mstart",
+	}
+
+	for _, line := range lines {
+		spaceIdx := strings.LastIndex(line, " ")
+		funcFull := strings.TrimSpace(line)
+		if spaceIdx > 0 {
+			funcFull = strings.TrimSpace(line[:spaceIdx])
+		}
+		skip := false
+
+		// Skip frames that are part of the runtime epilogue,
+		// as they do not provide meaningful diagnostic information.
+		for _, frame := range skipFrames {
+			if strings.Contains(funcFull, frame) {
+				skip = true
+				break
+			}
+		}
+		if skip {
+			continue
+		}
+
+		// Parse the function name to extract the display name and call label for the sequence diagram.
+		displayName, callLabel, isRuntime := parseStackFrame(funcFull)
+		if isRuntime {
+			displayName = "runtime"
+		}
+		if seen[displayName] {
+			continue
+		}
+		seen[displayName] = true
+
+		participants = append(participants, sequenceParticipant{
+			displayName: displayName,
+			callLabel:   callLabel,
+			isRuntime:   isRuntime,
+		})
+	}
+
+	return participants
+}

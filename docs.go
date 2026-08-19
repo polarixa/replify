@@ -2,7 +2,6 @@ package replify
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/strchain"
@@ -82,7 +81,7 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 	w.InjectStackTrace() // Ensure the stack trace is injected before generating the document
 
 	sw.Append("##").Space()
-	sw.Append("Error Stack Trace").NewLines(2)
+	sw.Append("Error Stack Trace (EST)").NewLines(2)
 
 	if w.IsDebuggingPresent() {
 		if trace, ok := w.Debugging()["error_stack_trace"]; ok {
@@ -110,6 +109,94 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
 	sw := w.ErrorStackTraceDoc()
 	defer w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
+	return sw
+}
+
+// ErrorFlowDoc generates a sequence diagram document for the error flow present in the wrapper instance, providing a visual representation of the call flow leading to the error.
+// It returns a [strchain.StringWeaver] instance that can be used to build and format the sequence diagram content.
+//
+// The ErrorFlowDoc method analyzes the error stack trace present in the debugging information of the wrapper instance.
+// It extracts the participants involved in the call flow and generates a sequence diagram using the Mermaid syntax.
+func (w *wrapper) ErrorFlowDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsError() {
+		return sw
+	}
+	if !w.IsDebuggingPresent() {
+		return sw
+	}
+	w.InjectStackTrace()
+	defer w.DisableInjectStackTrace()
+
+	// Check if the "error_stack_trace" key is present in the debugging information
+	traceVal, ok := w.Debugging()["error_stack_trace"]
+	if !ok {
+		return sw
+	}
+	lines, _ := conv.StringSlice(traceVal)
+	if len(lines) == 0 {
+		return sw
+	}
+	participants := parseStackFrameParticipants(lines)
+
+	// If there are fewer than 2 participants, we cannot create a meaningful sequence diagram, so we return early.
+	if len(participants) < 2 {
+		return sw
+	}
+
+	// Reverse: stack trace is innermost-first; diagram is outermost-first
+	for i, j := 0, len(participants)-1; i < j; i, j = i+1, j-1 {
+		participants[i], participants[j] = participants[j], participants[i]
+	}
+
+	// Assign unique IDs to participants for the sequence diagram
+	for i := range participants {
+		participants[i].id = fmt.Sprintf("P%d", i)
+	}
+
+	diagram := strchain.New()
+	diagram.Append("sequenceDiagram").NewLine()
+	diagram.IndentLine(2, "autonumber")
+	diagram.NewLine()
+
+	// Declare participants in the sequence diagram
+	for _, p := range participants {
+		diagram.IndentF(2, "participant %s as %s", p.id, p.displayName).NewLine()
+	}
+	diagram.NewLine()
+
+	// Find the first non-runtime participant (outermost user frame after reversing)
+	// This is used to determine where to start drawing the solid arrows in the sequence diagram.
+	firstUser := 0
+	for firstUser < len(participants) && participants[firstUser].isRuntime {
+		firstUser++
+	}
+
+	// Solid arrows: outermost user frame → innermost (call chain)
+	// Draw solid arrows from the outermost user frame to the innermost frame,
+	// representing the call chain in the sequence diagram.
+	for i := firstUser; i < len(participants)-1; i++ {
+		from := participants[i]
+		to := participants[i+1]
+		diagram.IndentF(2, "%s->>%s: %s()", from.id, to.id, to.callLabel).NewLine()
+	}
+
+	// Dashed arrows: innermost → outermost (error propagation back to caller)
+	// Draw dashed arrows from the innermost frame back to the outermost user frame,
+	// representing the error propagation back to the caller in the sequence diagram.
+	for i := len(participants) - 1; i >= 1; i-- {
+		from := participants[i]
+		to := participants[i-1]
+		label := "error"
+		if i == 1 {
+			label = "return"
+		}
+		diagram.IndentF(2, "%s-->>%s: %s", from.id, to.id, label).NewLine()
+	}
+
+	sw.Append("##").Space()
+	sw.Append("EST Sequence Diagram").NewLines(2)
+	sw.CodeBlock("mermaid", diagram).NewLines(1)
 	return sw
 }
 
@@ -342,7 +429,7 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 	}
 
 	// 7b. Sequence diagram — visualises the error call flow
-	seqDiagramDoc := w.drawSequenceDiagramErrorStackTrace()
+	seqDiagramDoc := w.ErrorFlowDoc()
 	if seqDiagramDoc.IsNotEmpty() {
 		sw.Append(seqDiagramDoc.String()).NewLines(2)
 		sw.Dashes(3)
@@ -357,132 +444,5 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 		sw.NewLine()
 	}
 
-	return sw
-}
-
-func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
-	sw := strchain.New()
-	if !w.IsError() {
-		return sw
-	}
-
-	w.InjectStackTrace()
-	defer w.DisableInjectStackTrace()
-
-	if !w.IsDebuggingPresent() {
-		return sw
-	}
-	traceVal, ok := w.Debugging()["error_stack_trace"]
-	if !ok {
-		return sw
-	}
-	lines, _ := conv.StringSlice(traceVal)
-	if len(lines) == 0 {
-		return sw
-	}
-
-	var participants []sequenceParticipant
-	seen := make(map[string]bool)
-
-	// Skip frames that are part of the runtime epilogue,
-	// as they do not provide meaningful diagnostic information.
-	skipFrames := []string{
-		"runtime.goexit",
-		"runtime.mstart",
-	}
-
-	for _, line := range lines {
-		spaceIdx := strings.LastIndex(line, " ")
-		funcFull := strings.TrimSpace(line)
-		if spaceIdx > 0 {
-			funcFull = strings.TrimSpace(line[:spaceIdx])
-		}
-		skip := false
-
-		// Skip frames that are part of the runtime epilogue,
-		// as they do not provide meaningful diagnostic information.
-		for _, frame := range skipFrames {
-			if strings.Contains(funcFull, frame) {
-				skip = true
-				break
-			}
-		}
-		if skip {
-			continue
-		}
-
-		// Parse the function name to extract the display name and call label for the sequence diagram.
-		displayName, callLabel, isRuntime := parseStackFrame(funcFull)
-		if isRuntime {
-			displayName = "runtime"
-		}
-		if seen[displayName] {
-			continue
-		}
-		seen[displayName] = true
-
-		participants = append(participants, sequenceParticipant{
-			displayName: displayName,
-			callLabel:   callLabel,
-			isRuntime:   isRuntime,
-		})
-	}
-
-	// If there are fewer than 2 participants, we cannot create a meaningful sequence diagram, so we return early.
-	if len(participants) < 2 {
-		return sw
-	}
-
-	// Reverse: stack trace is innermost-first; diagram is outermost-first
-	for i, j := 0, len(participants)-1; i < j; i, j = i+1, j-1 {
-		participants[i], participants[j] = participants[j], participants[i]
-	}
-
-	// Assign unique IDs to participants for the sequence diagram
-	for i := range participants {
-		participants[i].id = fmt.Sprintf("P%d", i)
-	}
-
-	diagram := strchain.New()
-	diagram.Append("sequenceDiagram").NewLine()
-	diagram.IndentLine(2, "autonumber")
-	diagram.NewLine()
-
-	// Declare participants in the sequence diagram
-	for _, p := range participants {
-		diagram.IndentF(2, "participant %s as %s", p.id, p.displayName).NewLine()
-	}
-	diagram.NewLine()
-
-	// Find the first non-runtime participant (outermost user frame after reversing)
-	// This is used to determine where to start drawing the solid arrows in the sequence diagram.
-	firstUser := 0
-	for firstUser < len(participants) && participants[firstUser].isRuntime {
-		firstUser++
-	}
-
-	// Solid arrows: outermost user frame → innermost (call chain)
-	// Draw solid arrows from the outermost user frame to the innermost frame,
-	// representing the call chain in the sequence diagram.
-	for i := firstUser; i < len(participants)-1; i++ {
-		from := participants[i]
-		to := participants[i+1]
-		diagram.IndentF(2, "%s->>%s: %s()", from.id, to.id, to.callLabel).NewLine()
-	}
-
-	// Dashed arrows: innermost → outermost (error propagation back to caller)
-	// Draw dashed arrows from the innermost frame back to the outermost user frame,
-	// representing the error propagation back to the caller in the sequence diagram.
-	for i := len(participants) - 1; i >= 1; i-- {
-		from := participants[i]
-		to := participants[i-1]
-		label := "error"
-		if i == 1 {
-			label = "return"
-		}
-		diagram.IndentF(2, "%s-->>%s: %s", from.id, to.id, label).NewLine()
-	}
-
-	sw.CodeBlock("mermaid", diagram).NewLines(1)
 	return sw
 }
