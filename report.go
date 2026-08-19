@@ -327,3 +327,47 @@ func (w *wrapper) DumpMDDoc() (*Dump, *wrapper) {
 		WithHeader(OK).
 		WithMessagef("DumpMDDoc: succeeded and written to temp file %s", d.Name())
 }
+
+// DumpMDDocTo serializes the [wrapper]'s diagnostic report as Markdown to dst and
+// simultaneously returns a [Dump] holding an in-process seekable copy for
+// streaming or re-reading.
+//
+// The serialized content matches [wrapper.BasicDoc] — the full diagnostic report
+// with summary, debug, headers, pagination, cursors, meta, and custom fields.
+//
+// Both return values are always non-nil:
+//   - (*Dump, *wrapper) — Dump holds the seekable copy and the dst path;
+//     wrapper carries the outcome for fluent chaining.
+//   - On error: Dump is nil, wrapper has the appropriate status + error detail.
+func (w *wrapper) DumpMDDocTo(dst string) (*Dump, *wrapper) {
+	if !w.Available() {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithMessage("DumpMDDocTo: wrapper is required")
+	}
+	if strutil.IsEmpty(dst) {
+		return nil, New().
+			WithHeader(BadRequest).
+			WithMessage("DumpMDDocTo: destination path must not be empty")
+	}
+	payload := w.BasicDoc().Bytes()
+
+	if err := sysx.AppendOrWriteBytes(dst, payload, []byte("\n")); err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessagef("DumpMDDocTo: write to %s failed", dst)
+	}
+	d, err := dumpMarkdown(payload)
+	if err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("DumpMDDocTo: failed to create in-process temp copy")
+	}
+	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
+	return &Dump{syr: d, filepath: dst},
+		New().
+			WithHeader(OK).
+			WithMessagef("DumpMDDocTo: succeeded, written to %s", dst)
+}
