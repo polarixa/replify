@@ -5,6 +5,7 @@ import (
 	"crypto/md5"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"os"
 	"os/user"
@@ -679,4 +680,33 @@ func RemoveFileIfExist(path string) error {
 		return os.Remove(path)
 	}
 	return nil
+}
+
+// HumanizeBytes converts a byte count into a human-readable string using
+// binary prefixes (KiB, MiB, GiB, etc.). It rounds to one decimal place.
+//
+// Parameters:
+//   - `size`: the size in bytes to humanize.
+//
+// Returns:
+//
+//	A string representing the size in a human-readable format.
+//
+// Example:
+//
+//	fmt.Println(sysx.HumanizeBytes(1536)) // "1.5 KiB"
+func HumanizeBytes(size int64) string {
+	if size < 0 {
+		return "0 B"
+	}
+	const unit = 1024
+	if size < unit {
+		return fmt.Sprintf("%d B", size)
+	}
+	div, exp := int64(unit), 0
+	for n := size / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
 }
