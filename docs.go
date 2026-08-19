@@ -203,7 +203,7 @@ func (w *wrapper) MetaDoc() *strchain.StringWeaver {
 		return sw
 	}
 	sw.Append("##").Space()
-	sw.Append("Metadata").NewLines(2)
+	sw.Append("Meta").NewLines(2)
 	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
 	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
 
@@ -240,5 +240,89 @@ func (w *wrapper) CustomFieldDoc() *strchain.StringWeaver {
 	for k, v := range w.Meta().CustomFields() {
 		sw.Pipe().Space().Append(escapeMarkdownPipe(k)).Space().Pipe().Space().Append(escapeMarkdownPipe(conv.StringOrEmpty(v))).Space().Pipe().NewLine()
 	}
+	return sw
+}
+
+// PrepareBasicDocs prepares the basic documents for the wrapper instance, including summary, header, pagination, cursor, meta, error stack trace, debug information, and custom fields. It returns a StringWeaver instance that can be used to build and format the combined content of these documents.
+//
+// Sections are ordered for professional technical report readability:
+//
+//  1. Summary            — high-level outcome (status code, message)
+//  2. Headers            — response classification (code, text, type)
+//  3. Metadata           — request context (API version, request ID, locale, timestamps)
+//  4. Custom Fields      — extended metadata fields
+//  5. Pagination         — page-based navigation details
+//  6. Cursor             — cursor-based navigation details
+//  7. Error Stack Trace  — error origin (only when an error is present)
+//  8. Debug Information  — verbose diagnostic key-value pairs
+//
+// Each section is separated by two new lines and a horizontal rule for readability.
+func (w *wrapper) PrepareBasicDocs() *strchain.StringWeaver {
+	sw := strchain.New()
+
+	// 1. Summary — what happened
+	summaryDoc := w.SummaryDoc()
+	if summaryDoc.IsNotEmpty() {
+		sw.Append(summaryDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 2. Headers — response classification
+	headerDoc := w.HeaderDoc()
+	if headerDoc.IsNotEmpty() {
+		sw.Append(headerDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 3. Metadata — request context
+	metaDoc := w.MetaDoc()
+	if metaDoc.IsNotEmpty() {
+		sw.Append(metaDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 4. Custom Fields — extended metadata (grouped with Meta)
+	customFieldDoc := w.CustomFieldDoc()
+	if customFieldDoc.IsNotEmpty() {
+		sw.Append(customFieldDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 5. Pagination — page-based navigation
+	pagingDoc := w.PagingDoc()
+	if pagingDoc.IsNotEmpty() {
+		sw.Append(pagingDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 6. Cursor — cursor-based navigation
+	cursorDoc := w.CursorDoc()
+	if cursorDoc.IsNotEmpty() {
+		sw.Append(cursorDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 7. Error Stack Trace — error origin detail
+	safeErrorStackTraceDoc := w.SafeErrorStackTraceDoc()
+	if safeErrorStackTraceDoc.IsNotEmpty() {
+		sw.Append(safeErrorStackTraceDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
+	// 8. Debug — verbose diagnostic data
+	debugDoc := w.DebugDoc()
+	if debugDoc.IsNotEmpty() {
+		sw.Append(debugDoc.String()).NewLines(2)
+		sw.Dashes(3)
+		sw.NewLine()
+	}
+
 	return sw
 }
