@@ -381,15 +381,15 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 		return sw
 	}
 
-	type sequenceParticipant struct {
-		id          string
-		displayName string
-		callLabel   string
-		isRuntime   bool
-	}
-
 	var participants []sequenceParticipant
 	seen := make(map[string]bool)
+
+	// Skip frames that are part of the runtime epilogue,
+	// as they do not provide meaningful diagnostic information.
+	skipFrames := []string{
+		"runtime.goexit",
+		"runtime.mstart",
+	}
 
 	for _, line := range lines {
 		spaceIdx := strings.LastIndex(line, " ")
@@ -397,13 +397,23 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 		if spaceIdx > 0 {
 			funcFull = strings.TrimSpace(line[:spaceIdx])
 		}
-		// Skip runtime epilogue frames that add no diagnostic value
-		if strings.Contains(funcFull, "runtime.goexit") || strings.Contains(funcFull, "runtime.mstart") {
+		skip := false
+
+		// Skip frames that are part of the runtime epilogue,
+		// as they do not provide meaningful diagnostic information.
+		for _, frame := range skipFrames {
+			if strings.Contains(funcFull, frame) {
+				skip = true
+				break
+			}
+		}
+		if skip {
 			continue
 		}
 
-		displayName, callLabel, isRt := parseStackFrame(funcFull)
-		if isRt {
+		// Parse the function name to extract the display name and call label for the sequence diagram.
+		displayName, callLabel, isRuntime := parseStackFrame(funcFull)
+		if isRuntime {
 			displayName = "runtime"
 		}
 		if seen[displayName] {
@@ -414,7 +424,7 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 		participants = append(participants, sequenceParticipant{
 			displayName: displayName,
 			callLabel:   callLabel,
-			isRuntime:   isRt,
+			isRuntime:   isRuntime,
 		})
 	}
 
@@ -427,6 +437,8 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 	for i, j := 0, len(participants)-1; i < j; i, j = i+1, j-1 {
 		participants[i], participants[j] = participants[j], participants[i]
 	}
+
+	// Assign unique IDs to participants for the sequence diagram
 	for i := range participants {
 		participants[i].id = fmt.Sprintf("P%d", i)
 	}
@@ -436,18 +448,22 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 	diagram.IndentLine(2, "autonumber")
 	diagram.NewLine()
 
+	// Declare participants in the sequence diagram
 	for _, p := range participants {
 		diagram.IndentF(2, "participant %s as %s", p.id, p.displayName).NewLine()
 	}
 	diagram.NewLine()
 
 	// Find the first non-runtime participant (outermost user frame after reversing)
+	// This is used to determine where to start drawing the solid arrows in the sequence diagram.
 	firstUser := 0
 	for firstUser < len(participants) && participants[firstUser].isRuntime {
 		firstUser++
 	}
 
 	// Solid arrows: outermost user frame → innermost (call chain)
+	// Draw solid arrows from the outermost user frame to the innermost frame,
+	// representing the call chain in the sequence diagram.
 	for i := firstUser; i < len(participants)-1; i++ {
 		from := participants[i]
 		to := participants[i+1]
@@ -455,6 +471,8 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 	}
 
 	// Dashed arrows: innermost → outermost (error propagation back to caller)
+	// Draw dashed arrows from the innermost frame back to the outermost user frame,
+	// representing the error propagation back to the caller in the sequence diagram.
 	for i := len(participants) - 1; i >= 1; i-- {
 		from := participants[i]
 		to := participants[i-1]
@@ -467,41 +485,4 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 
 	sw.CodeBlock("mermaid", diagram).NewLines(1)
 	return sw
-}
-
-// parseStackFrame parses a fully-qualified Go function name into a display name,
-// the bare function/method name used as a call label, and whether it is a runtime frame.
-func parseStackFrame(fullName string) (displayName, callLabel string, isRuntime bool) {
-	i := strings.LastIndex(fullName, "/")
-	short := fullName[i+1:]
-
-	if after, ok := strings.CutPrefix(short, "runtime."); ok {
-		return "runtime", after, true
-	}
-
-	// if strings.HasPrefix(short, "runtime.") {
-	// 	return "runtime", strings.TrimPrefix(short, "runtime."), true
-	// }
-
-	dotIdx := strings.Index(short, ".")
-	if dotIdx < 0 {
-		return short, short, false
-	}
-	pkg := short[:dotIdx]
-	rest := short[dotIdx+1:]
-
-	// Receiver method: "(*Type).Method" or "(Type).Method"
-	if strings.HasPrefix(rest, "(") {
-		closeIdx := strings.Index(rest, ")")
-		if closeIdx > 0 {
-			typePart := strings.TrimPrefix(rest[1:closeIdx], "*")
-			if closeIdx+2 < len(rest) {
-				method := rest[closeIdx+2:]
-				return typePart + "." + method, method, false
-			}
-			return typePart, typePart, false
-		}
-	}
-
-	return pkg + "." + rest, rest, false
 }
