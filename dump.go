@@ -3,6 +3,8 @@ package replify
 import (
 	"os"
 
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/sysx"
 )
@@ -120,13 +122,7 @@ func (d *Dump) Filepath() string {
 	if d == nil {
 		return ""
 	}
-	if strutil.IsNotEmpty(d.filepath) {
-		return d.filepath
-	}
-	if d.syr != nil {
-		return d.syr.ActualPath()
-	}
-	return ""
+	return d.resolvePath()
 }
 
 // Size returns the byte length of the serialized payload as reported by the
@@ -194,6 +190,37 @@ func (d *Dump) FileInfo() (os.FileInfo, error) {
 	return os.Stat(p)
 }
 
+// FileSlogging logs the on-disk file backing this [Dump] at Info level using
+// the provided [*slogger.Logger] or the default logger if none is provided.
+//
+// The log message includes the file name, size, mode, modification time, and
+// whether it is a directory. If the [Dump] has no on-disk backing, nothing is logged.
+func (d *Dump) FileSlogging(logger ...*slogger.Logger) {
+	if d == nil {
+		return
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, slogger.InfoLevel, d.fileString())
+}
+
+// FileSizeHuman returns the size of the serialized payload in a human-readable format.
+// Returns "0 B" when the Dump is nil or the underlying Resource is nil.
+//
+// Example:
+//
+//	fmt.Println(d.FileSizeHuman()) // "1.5 KiB"
+func (d *Dump) FileSizeHuman() string {
+	f, _ := d.FileInfo()
+	return sysx.HumanizeBytes(f.Size())
+}
+
 // Close removes the backing temporary file and releases all held resources.
 // It is safe to call from multiple goroutines simultaneously; the cleanup
 // runs exactly once via [sync.Once] — subsequent calls are no-ops that
@@ -231,4 +258,22 @@ func (d *Dump) resolvePath() string {
 		return d.syr.ActualPath()
 	}
 	return ""
+}
+
+// fileString returns a string representation of the on-disk file backing this Dump.
+// Returns an empty string when the Dump is nil or has no on-disk backing.
+func (d *Dump) fileString() string {
+	sw := strchain.New()
+	f, _ := d.FileInfo()
+	if f == nil {
+		return ""
+	}
+
+	sw.AppendF("dump_filename=%s", f.Name()).Space()
+	sw.AppendF("file_path=%s", d.Filepath()).Space()
+	sw.AppendF("size=%s", sysx.HumanizeBytes(f.Size())).Space()
+	sw.AppendF("mode=%s", f.Mode()).Space()
+	sw.AppendF("mod_time=%s", f.ModTime().Format("2006-01-02 15:04:05")).Space()
+	sw.AppendF("is_dir=%t", f.IsDir())
+	return sw.String()
 }
