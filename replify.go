@@ -1744,7 +1744,7 @@ func (w *wrapper) WithHeader(v *header) *wrapper {
 		return w
 	}
 	w.header = v
-	w.WithStatusCode(w.Header().Code())
+	w.statusCode = v.Code()
 	return w
 }
 
