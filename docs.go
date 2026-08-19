@@ -30,7 +30,7 @@ func (w *wrapper) SummaryDoc() *strchain.StringWeaver {
 
 	if w.IsStatusCodePresent() {
 		sw.Pipe().Space().Append("Status Code").Space().Pipe().Space().AppendInt(w.StatusCode()).Space().Pipe().NewLine()
-		sw.Pipe().Space().Append("HTTP Status").Space().Pipe().Space().Append(escapeMarkdownPipe(w.StatusText())).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("HTTP Status").Space().Pipe().Space().Bold(escapeMarkdownPipe(w.StatusText())).Space().Pipe().NewLine()
 	}
 
 	return sw
