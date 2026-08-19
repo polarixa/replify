@@ -188,3 +188,30 @@ func (w *wrapper) CursorDoc() *strchain.StringWeaver {
 	sw.Pipe().Space().Append("Limit").Space().Pipe().Space().AppendInt(c.Limit()).Space().Pipe().NewLine()
 	return sw
 }
+
+// MetaDoc generates a document for the meta information present in the wrapper instance, providing a detailed view of the meta details. It returns a StringWeaver instance that can be used to build and format the meta content.
+//
+// The meta document includes the following information:
+//   - A header indicating that it is meta information.
+//   - A table with two columns: "Field" and "Value".
+//   - If meta information is present, each meta field and its corresponding value will be included in the table.
+//
+// The generated meta document can be used for logging, troubleshooting, or any other purpose where detailed meta information is needed.
+func (w *wrapper) MetaDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsMetaPresent() {
+		return sw
+	}
+	sw.Append("##").Space()
+	sw.Append("Metadata").NewLines(2)
+	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
+	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
+
+	m := w.Meta()
+	sw.Pipe().Space().Append("API Version").Space().Pipe().Space().Append(escapeMarkdownPipe(m.ApiVersion())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Locale").Space().Pipe().Space().Append(escapeMarkdownPipe(m.Locale())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Request ID").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestID())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Requested Time (local)").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestedTimeFormat())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Requested Time (UTC)").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestedTimeUTCFormat())).Space().Pipe().NewLine()
+	return sw
+}
