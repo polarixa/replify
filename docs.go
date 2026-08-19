@@ -208,10 +208,10 @@ func (w *wrapper) MetaDoc() *strchain.StringWeaver {
 	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
 
 	m := w.Meta()
-	sw.Pipe().Space().Append("API Version").Space().Pipe().Space().Append(escapeMarkdownPipe(m.ApiVersion())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("API Version").Space().Pipe().Space().InlineCode(escapeMarkdownPipe(m.ApiVersion())).Space().Pipe().NewLine()
 	sw.Pipe().Space().Append("Locale").Space().Pipe().Space().Append(escapeMarkdownPipe(m.Locale())).Space().Pipe().NewLine()
-	sw.Pipe().Space().Append("Request ID").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestID())).Space().Pipe().NewLine()
-	sw.Pipe().Space().Append("Requested Time (local)").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestedTimeFormat())).Space().Pipe().NewLine()
-	sw.Pipe().Space().Append("Requested Time (UTC)").Space().Pipe().Space().Append(escapeMarkdownPipe(m.RequestedTimeUTCFormat())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Request ID").Space().Pipe().Space().Bold(escapeMarkdownPipe(m.RequestID())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Requested Time (local)").Space().Pipe().Space().InlineCode(escapeMarkdownPipe(m.RequestedTimeFormat())).Space().Pipe().NewLine()
+	sw.Pipe().Space().Append("Requested Time (UTC)").Space().Pipe().Space().InlineCode(escapeMarkdownPipe(m.RequestedTimeUTCFormat())).Space().Pipe().NewLine()
 	return sw
 }
