@@ -104,3 +104,27 @@ func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
 	w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
 	return sw
 }
+
+// HeaderDoc generates a document for the headers present in the wrapper instance, providing a detailed view of the header information. It returns a StringWeaver instance that can be used to build and format the header content.
+//
+// The header document includes the following information:
+// - A header indicating that it is header information.
+// - A table with two columns: "Field" and "Value".
+// - If headers are present, each header field and its corresponding value will be included in the table.
+//
+// The generated header document can be used for logging, troubleshooting, or any other purpose where detailed header information is needed.
+func (w *wrapper) HeaderDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	sw.Append("##").Space()
+	sw.Append("Headers").NewLines(2)
+	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
+	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
+
+	if w.IsHeaderPresent() {
+		h := w.Header()
+		sw.Pipe().Space().Append("Code").Space().Pipe().Space().AppendInt(h.Code()).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Text").Space().Pipe().Space().Append(escapeMarkdownPipe(h.Text())).Space().Pipe().NewLine()
+		sw.Pipe().Space().Append("Type").Space().Pipe().Space().Append(escapeMarkdownPipe(h.Type())).Space().Pipe().NewLine()
+	}
+	return sw
+}
