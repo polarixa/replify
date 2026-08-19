@@ -1408,6 +1408,28 @@ func (w *wrapper) EqualMeta(m *meta) bool {
 	return w.meta.Equal(m)
 }
 
+// EqualCursor compares the cursor information of the [wrapper] instance with another [cursor] instance.
+//
+// This function checks if the [wrapper] is available and if the provided [cursor] instance is not nil.
+// It then compares the cursor details of the [wrapper] with those of the provided [cursor] instance.
+//
+// Parameters:
+//   - `c`: A pointer to a [cursor] instance to compare with the [wrapper]'s cursor.
+//
+// Returns:
+//   - A boolean value indicating whether the cursor information is equal:
+//   - `true` if both cursor instances have the same cursor details.
+//   - `false` if the [wrapper] is not available, the provided cursor is nil, or the cursor details do not match.
+func (w *wrapper) EqualCursor(c *cursor) bool {
+	if !w.Available() || c == nil {
+		return false
+	}
+	if w.cursor == nil {
+		return false
+	}
+	return w.cursor.Equal(c)
+}
+
 // Clone creates a deep copy of the [wrapper] instance.
 //
 // This function creates a new [wrapper] instance with the same fields as the original instance.
