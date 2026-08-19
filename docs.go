@@ -215,3 +215,30 @@ func (w *wrapper) MetaDoc() *strchain.StringWeaver {
 	sw.Pipe().Space().Append("Requested Time (UTC)").Space().Pipe().Space().InlineCode(escapeMarkdownPipe(m.RequestedTimeUTCFormat())).Space().Pipe().NewLine()
 	return sw
 }
+
+// CustomFieldDoc generates a document for the custom fields present in the meta information of the wrapper instance, providing a detailed view of the custom field details. It returns a StringWeaver instance that can be used to build and format the custom field content.
+//
+// The meta custom fields document includes the following information:
+//   - A header indicating that it is meta custom fields information.
+//   - A table with two columns: "Field" and "Value".
+//   - If custom fields are present in the meta information, each custom field and its corresponding value will be included in the table.
+//
+// The generated meta custom fields document can be used for logging, troubleshooting, or any other purpose where detailed meta custom field information is needed.
+func (w *wrapper) CustomFieldDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsMetaPresent() {
+		return sw
+	}
+	if !w.meta.IsCustomPresent() {
+		return sw
+	}
+	sw.Append("##").Space()
+	sw.Append("(Meta) Custom Fields").NewLines(2)
+	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
+	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
+
+	for k, v := range w.Meta().CustomFields() {
+		sw.Pipe().Space().Append(escapeMarkdownPipe(k)).Space().Pipe().Space().Append(escapeMarkdownPipe(conv.StringOrEmpty(v))).Space().Pipe().NewLine()
+	}
+	return sw
+}
