@@ -443,6 +443,9 @@ type sequenceParticipant struct {
 
 	// isRuntime indicates whether the participant is part of the runtime (e.g., system-level functions) or user-defined code. This information can be used to differentiate between user and system participants in the sequence diagram.
 	isRuntime bool
+
+	// location is the shortened source file and line number (e.g. "main.go:42") where this frame appears in the stack trace.
+	location string
 }
 
 // stack represents a stack of program counters. It is a slice of `uintptr`

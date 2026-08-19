@@ -426,8 +426,16 @@ func parseStackFrameParticipants(lines []string) []sequenceParticipant {
 	for _, line := range lines {
 		spaceIdx := strings.LastIndex(line, " ")
 		funcFull := strings.TrimSpace(line)
+		location := ""
 		if spaceIdx > 0 {
 			funcFull = strings.TrimSpace(line[:spaceIdx])
+			raw := strings.TrimSpace(line[spaceIdx+1:])
+			// Shorten the absolute path to just "file.go:line"
+			if slashIdx := strings.LastIndex(raw, "/"); slashIdx >= 0 {
+				location = raw[slashIdx+1:]
+			} else {
+				location = raw
+			}
 		}
 		skip := false
 
@@ -457,6 +465,7 @@ func parseStackFrameParticipants(lines []string) []sequenceParticipant {
 			displayName: displayName,
 			callLabel:   callLabel,
 			isRuntime:   isRuntime,
+			location:    location,
 		})
 	}
 
