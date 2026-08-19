@@ -120,7 +120,13 @@ func (d *Dump) Filepath() string {
 	if d == nil {
 		return ""
 	}
-	return d.filepath
+	if strutil.IsNotEmpty(d.filepath) {
+		return d.filepath
+	}
+	if d.syr != nil {
+		return d.syr.ActualPath()
+	}
+	return ""
 }
 
 // Size returns the byte length of the serialized payload as reported by the
