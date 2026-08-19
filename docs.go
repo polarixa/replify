@@ -83,7 +83,12 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 	sw.Append("##").Space()
 	sw.Append("Error Stack Trace (EST)").NewLines(2)
 
+	if w.IsErrorPresent() {
+		sw.Append("👉").Space().Append("Root Cause").NewLine()
+		sw.CodeBlock("go", strchain.New().Append(escapeMarkdownPipe(w.Error()))).NewLines(2)
+	}
 	if w.IsDebuggingPresent() {
+		sw.Append("🧩").Space().Append("Stack").NewLine()
 		if trace, ok := w.Debugging()["error_stack_trace"]; ok {
 			codeblock := strchain.New()
 			lines, _ := conv.StringSlice(trace)
