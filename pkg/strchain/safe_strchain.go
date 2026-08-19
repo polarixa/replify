@@ -1672,3 +1672,87 @@ func (sw *SafeStringWeaver) IsNotEmpty() bool {
 	defer sw.mu.Unlock()
 	return sw.builder.Len() > 0
 }
+
+// InlineCode adds a string wrapped in backticks to the builder.
+//
+// Example:
+//
+//	sw.InlineCode("inline code") // adds `inline code`
+func (sw *SafeStringWeaver) InlineCode(s string) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("`")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("`")
+	return sw
+}
+
+// InlineCodeF adds a formatted string wrapped in backticks to the builder.
+//
+// Example:
+//
+//	sw.InlineCodeF("inline %s", "code") // adds '`inline code`'
+func (sw *SafeStringWeaver) InlineCodeF(format string, args ...any) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("`")
+	fmt.Fprintf(&sw.builder, format, args...)
+	sw.builder.WriteString("`")
+	return sw
+}
+
+// Bold adds a string wrapped in double asterisks to the builder.
+//
+// Example:
+//
+//	sw.Bold("bold text") // adds **bold text**
+func (sw *SafeStringWeaver) Bold(s string) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("**")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("**")
+	return sw
+}
+
+// Italic adds a string wrapped in single asterisks to the builder.
+//
+// Example:
+//
+//	sw.Italic("italic text") // adds *italic text*
+func (sw *SafeStringWeaver) Italic(s string) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("*")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("*")
+	return sw
+}
+
+// Strikethrough adds a string wrapped in double tildes to the builder.
+//
+// Example:
+//
+//	sw.Strikethrough("strikethrough text") // adds ~~strikethrough text~~
+func (sw *SafeStringWeaver) Strikethrough(s string) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("~~")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("~~")
+	return sw
+}
+
+// Underline adds a string wrapped in <u> tags to the builder.
+//
+// Example:
+//
+//	sw.Underline("underlined text") // adds <u>underlined text</u>
+func (sw *SafeStringWeaver) Underline(s string) Weaver {
+	sw.mu.Lock()
+	defer sw.mu.Unlock()
+	sw.builder.WriteString("<u>")
+	sw.builder.WriteString(s)
+	sw.builder.WriteString("</u>")
+	return sw
+}
