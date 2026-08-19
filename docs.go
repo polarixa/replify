@@ -109,7 +109,7 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 // The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
 func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
 	sw := w.ErrorStackTraceDoc()
-	w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
+	defer w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
 	return sw
 }
 
@@ -376,22 +376,22 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 	if !ok {
 		return sw
 	}
-	rawLines, _ := conv.StringSlice(traceVal)
-	if len(rawLines) == 0 {
+	lines, _ := conv.StringSlice(traceVal)
+	if len(lines) == 0 {
 		return sw
 	}
 
-	type seqParticipant struct {
+	type sequenceParticipant struct {
 		id          string
 		displayName string
 		callLabel   string
 		isRuntime   bool
 	}
 
-	var participants []seqParticipant
+	var participants []sequenceParticipant
 	seen := make(map[string]bool)
 
-	for _, line := range rawLines {
+	for _, line := range lines {
 		spaceIdx := strings.LastIndex(line, " ")
 		funcFull := strings.TrimSpace(line)
 		if spaceIdx > 0 {
@@ -402,7 +402,7 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 			continue
 		}
 
-		displayName, callLabel, isRt := seqParseFrameName(funcFull)
+		displayName, callLabel, isRt := parseStackFrame(funcFull)
 		if isRt {
 			displayName = "runtime"
 		}
@@ -411,7 +411,7 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 		}
 		seen[displayName] = true
 
-		participants = append(participants, seqParticipant{
+		participants = append(participants, sequenceParticipant{
 			displayName: displayName,
 			callLabel:   callLabel,
 			isRuntime:   isRt,
@@ -469,9 +469,9 @@ func (w *wrapper) drawSequenceDiagramErrorStackTrace() *strchain.StringWeaver {
 	return sw
 }
 
-// seqParseFrameName parses a fully-qualified Go function name into a display name,
+// parseStackFrame parses a fully-qualified Go function name into a display name,
 // the bare function/method name used as a call label, and whether it is a runtime frame.
-func seqParseFrameName(fullName string) (displayName, callLabel string, isRuntime bool) {
+func parseStackFrame(fullName string) (displayName, callLabel string, isRuntime bool) {
 	i := strings.LastIndex(fullName, "/")
 	short := fullName[i+1:]
 
