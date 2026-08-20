@@ -73,6 +73,43 @@ With [Go's module support](https://go.dev/wiki/Modules#how-to-use-modules), `go 
 
 ## Quick Start
 
+### Native `net/http` Handler
+
+Use `Write` to send a Replify response directly to an `http.ResponseWriter`.
+No external helper is needed — `Write` sets `Content-Type`, writes the status
+code, serializes the response as JSON, and returns any write error.
+
+```go
+package main
+
+import (
+    "log"
+    "net/http"
+
+    "github.com/polarixa/replify"
+)
+
+func GetUser(w http.ResponseWriter, r *http.Request) {
+    user := map[string]string{"id": "123", "name": "John Doe"}
+
+    result := replify.New().
+        WithHeader(replify.OK).
+        WithBody(user).
+        WithMessage("User retrieved successfully").
+        WithRequestID(r.Header.Get("X-Request-ID")).
+        Write(w) // returns *wrapper; HTTP response is already committed
+
+    if result.IsErrorPresent() {
+        log.Printf("failed to write response: %v", result.Error())
+    }
+}
+
+func main() {
+    http.HandleFunc("/user", GetUser)
+    log.Fatal(http.ListenAndServe(":8080", nil))
+}
+```
+
 ### Basic Example
 
 ```go
@@ -86,7 +123,7 @@ import (
 func main() {
     // Create a simple success response
     response := replify.New().
-        WithStatusCode(200).
+        WithHeader(replify.OK).
         WithMessage("User retrieved successfully").
         WithBody(map[string]string{
             "id":   "123",
