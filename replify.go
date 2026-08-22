@@ -3153,7 +3153,7 @@ func (w *wrapper) build() map[string]any {
 		m["message"] = w.message
 	}
 	if w.IsBodyPresent() && !w.skipBody {
-		m["data"] = safeCastValue(w.data)
+		m["data"] = safeCastValueSupervised(w.data)
 	}
 	if w.IsTotalPresent() {
 		m["total"] = w.total
