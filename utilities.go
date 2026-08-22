@@ -286,6 +286,7 @@ func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
 // temporary file from a generic Go value. The value is first converted to a
 // string using [conv.String].
 func dumpAny(payload any) (*sysx.Resource, error) {
+	var body string
 	body, err := conv.String(payload)
 	if err != nil {
 		return nil, err
