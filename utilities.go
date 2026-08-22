@@ -1000,3 +1000,128 @@ func safeCastValue(value any) (as any) {
 	as, _ = castValue(value)
 	return as
 }
+
+// castValueSupervised attempts to convert a generic Go value into a JSON-compatible representation, similar to CastValue.
+// It returns both the resulting value and a wrapper instance indicating the status of the operation.
+//
+// Parameters:
+//   - value: The input value of any type to be cast.
+//
+// Returns:
+//   - as: The resulting value, which may be a JSON-compatible representation or the original value.
+//   - w: A pointer to a wrapper instance indicating the status of the operation.
+func castValueSupervised(value any) (as any, w *wrapper) {
+	w = New().Processing()
+	switch v := value.(type) {
+	case string:
+		return castString(&v)
+	case *string:
+		return castString(v)
+	case []byte:
+		return castBytes(&v)
+	case *[]byte:
+		return castBytes(v)
+	case []rune:
+		return castRunes(&v)
+	case *[]rune:
+		return castRunes(v)
+	case bool:
+		return castBool(&v)
+	case *bool:
+		return castBool(v)
+	case int:
+		return castInt(&v)
+	case *int:
+		return castInt(v)
+	case int8:
+		return castInt8(&v)
+	case *int8:
+		return castInt8(v)
+	case int16:
+		return castInt16(&v)
+	case *int16:
+		return castInt16(v)
+	case int32:
+		return castInt32(&v)
+	case *int32:
+		return castInt32(v)
+	case int64:
+		return castInt64(&v)
+	case *int64:
+		return castInt64(v)
+	case uint:
+		return castUint(&v)
+	case *uint:
+		return castUint(v)
+	case uint8:
+		return castUint8(&v)
+	case *uint8:
+		return castUint8(v)
+	case uint16:
+		return castUint16(&v)
+	case *uint16:
+		return castUint16(v)
+	case uint32:
+		return castUint32(&v)
+	case *uint32:
+		return castUint32(v)
+	case uint64:
+		return castUint64(&v)
+	case *uint64:
+		return castUint64(v)
+	case float32:
+		return castFloat32(&v)
+	case *float32:
+		return castFloat32(v)
+	case float64:
+		return castFloat64(&v)
+	case *float64:
+		return castFloat64(v)
+	case complex64:
+		return castComplex64(&v)
+	case *complex64:
+		return castComplex64(v)
+	case complex128:
+		return castComplex128(&v)
+	case *complex128:
+		return castComplex128(v)
+	case time.Time:
+		return castTime(&v)
+	case *time.Time:
+		return castTime(v)
+	case time.Duration:
+		return castDuration(&v)
+	case *time.Duration:
+		return castDuration(v)
+	case error:
+		return castError(v)
+	case fmt.Stringer:
+		return castFmtStringer(&v)
+	case *fmt.Stringer:
+		return castFmtStringer(v)
+	case json.RawMessage:
+		return castJSONRawMessage(&v)
+	case *json.RawMessage:
+		return castJSONRawMessage(v)
+	case json.Marshaler:
+		return castJSONMarshaler(&v)
+	case *json.Marshaler:
+		return castJSONMarshaler(v)
+	default:
+		as = v
+		return as, w.OK()
+	}
+}
+
+// safeCastValueSupervised attempts to convert a generic Go value into a JSON-compatible representation, similar to CastValueSupervised.
+// It returns only the resulting value, ignoring any wrapper information about the operation's status.
+//
+// Parameters:
+//   - value: The input value of any type to be cast.
+//
+// Returns:
+//   - as: The resulting value, which may be a JSON-compatible representation or the original value.
+func safeCastValueSupervised(value any) (as any) {
+	as, _ = castValueSupervised(value)
+	return as
+}
