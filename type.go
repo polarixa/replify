@@ -426,6 +426,8 @@ type wrapper struct {
 	cachedWrap map[string]any // Cached response data for performance optimization.
 	cacheHash  string         // Hash of the cached response, used for cache validation.
 	cacheMutex sync.RWMutex   // Mutex for synchronizing access to the cached response data.
+	filepath   string         // Filesystem path of a file to serve via WriteFile or Write.
+	filename   string         // Download filename for Content-Disposition in file and binary responses.
 }
 
 // sequenceParticipant represents a participant in a sequence diagram, typically used for visualizing interactions between different components or services in a system.

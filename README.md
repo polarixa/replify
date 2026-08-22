@@ -76,8 +76,9 @@ With [Go's module support](https://go.dev/wiki/Modules#how-to-use-modules), `go 
 ### Native `net/http` Handler
 
 Use `Write` to send a Replify response directly to an `http.ResponseWriter`.
-No external helper is needed — `Write` sets `Content-Type`, writes the status
-code, serializes the response as JSON, and returns any write error.
+`Write` dispatches automatically: if a filepath is configured it calls `WriteFile`,
+if the data is a `[]byte` it calls `WriteBinary`, and otherwise it calls `WriteJSON`.
+No external helper is needed — the correct Content-Type and status code are set for you.
 
 ```go
 package main
@@ -96,7 +97,7 @@ func GetUser(response http.ResponseWriter, request *http.Request) {
 		OK().
 		WithBody(user).
 		WithMessage("User retrieved successfully").
-		WriteJSON(response)
+		Write(response)
 
 	w.Slogging()
 
@@ -110,6 +111,97 @@ func main() {
     log.Fatal(http.ListenAndServe(":8080", nil))
 }
 ```
+
+## Write Responses
+
+Replify provides a generic `Write` method that dispatches to the right writer based on wrapper state, plus dedicated writers for JSON, files, and binary data. All writers are framework-independent and accept the standard `http.ResponseWriter`, so they work naturally with `net/http`, Gin, Echo, Fiber, and any other framework whose response writer implements that interface.
+
+> **Zero dependencies** — the implementation uses only Go's standard library (`net/http`, `mime`, `path/filepath`, `os`, `io`).
+
+### JSON
+
+```go
+replify.New().
+    WithStatusCode(http.StatusOK).
+    WithBody(user).
+    WithMessage("User retrieved successfully").
+    Write(w)
+```
+
+### File
+
+```go
+replify.New().
+    File("/tmp/report.pdf").
+    Write(w)
+```
+
+### File Attachment
+
+Serves the file with a `Content-Disposition: attachment` header so the browser offers a download dialog:
+
+```go
+replify.New().
+    FileAttachment("/tmp/report.pdf", "report.pdf").
+    Write(w)
+```
+
+### Binary
+
+```go
+replify.New().
+    Binary(data).
+    Write(w)
+```
+
+### Binary with Filename
+
+The filename drives MIME-type detection and the `Content-Disposition` header:
+
+```go
+replify.New().
+    Binary(data).
+    WithFilename("report.pdf").
+    Write(w)
+```
+
+### Custom Status Code
+
+```go
+replify.New().
+    WithStatusCode(http.StatusCreated).
+    Binary(data).
+    WithFilename("result.json").
+    Write(w)
+```
+
+### Gin
+
+Replify does **not** import Gin. It only depends on the standard `http.ResponseWriter` interface. Because Gin's `c.Writer` implements `http.ResponseWriter`, you can pass it directly:
+
+```go
+func Download(c *gin.Context) {
+    replify.New().
+        FileAttachment("/tmp/report.pdf", "report.pdf").
+        Write(c.Writer)
+}
+```
+
+### Dispatch Rules
+
+`Write` inspects wrapper state and calls the appropriate terminal writer:
+
+| Condition          | Writer called |
+| ------------------ | ------------- |
+| `filepath` is set  | `WriteFile`   |
+| `data` is `[]byte` | `WriteBinary` |
+| otherwise          | `WriteJSON`   |
+
+No response-type field is introduced. The decision is made purely from the existing wrapper state.
+
+### Safe Filename Handling
+
+Filenames used in `Content-Disposition` headers are validated and encoded by the standard `mime` package (RFC 5987). Filenames containing CR, LF, or null bytes are rejected with an error to prevent HTTP response-header injection.
 
 ### Basic Example
 

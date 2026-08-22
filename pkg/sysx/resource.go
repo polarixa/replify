@@ -408,6 +408,30 @@ func (r *Resource) FromReader(src io.Reader) (*Resource, error) {
 	return r, nil
 }
 
+// FromPath opens the file at path and installs it as the Resource backing.
+// The file is rewound and stat-ed; Size and (when not yet set) Name are
+// populated from the file's metadata. Whether the file is unlinked on
+// Close is controlled by WithRemoveOnClose (defaults to true).
+//
+// Parameters:
+//   - `path`: the filesystem path of the file to adopt.
+//
+// Returns:
+//
+// The receiver and any error encountered while opening, stat-ing, or
+// rewinding the file.
+func (r *Resource) FromPath(path string) (*Resource, error) {
+	if strutil.IsEmpty(path) {
+		return r, ErrNilResource
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return r, err
+	}
+	defer f.Close()
+	return r.FromFile(f)
+}
+
 // Close releases the underlying ReadSeekCloser, tolerating a nil
 // Resource or a nil Content. Calling Close more than once is safe; the
 // underlying backings are required to be idempotent.

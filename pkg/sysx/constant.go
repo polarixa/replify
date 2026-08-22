@@ -72,7 +72,7 @@ const (
 	MimePDF         = "application/pdf"
 	MimeZIP         = "application/zip"
 	MimeGZIP        = "application/gzip"
-	MimeSQL         = "application/sql"
+	MimeSQL         = "application/x-sql"
 )
 
 var (
