@@ -282,82 +282,22 @@ func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
 		})
 }
 
-// dumpBodyStream serializes body into a seekable [sysx.Resource] backed by a
-// spill buffer and writes output to a plain-text (.txt) file because the body
-// can carry any Go value — not only valid JSON.
-//
-// Serialization strategy (type-switch):
-//   - string       → written as raw UTF-8, no quoting.
-//   - []byte       → written as raw bytes, no encoding.
-//   - json.RawMessage → written as-is (already serialized JSON).
-//   - anything else → JSON-encoded via [json.Encoder]; output is valid JSON
-//     followed by a single newline, which is idiomatic for line-delimited logs.
-//
-// # Memory / large-body handling
-//
-// The body is streamed through an [io.Pipe] into [sysx.Resource.FromReader]
-// which manages a spill buffer: payloads up to [sysx.DefaultSpillThreshold]
-// (8 MiB) are held in memory; beyond that, the overflow is transparently
-// spilled to a self-removing temp file. The full body is never allocated as
-// a single []byte.
-//
-// # Thread-safety
-//
-// dumpBodyStream is safe for concurrent invocation:
-//   - Each call creates an independent [io.Pipe] pair, goroutine, and
-//     [sysx.Resource] instance. No package-level or wrapper state is mutated
-//     after the function returns.
-//   - The producer goroutine only reads the body value that was passed in.
-//     Callers must not mutate the body (or any data it references) while the
-//     returned Resource is open; this is the same contract as [json.Marshal].
-//   - Error propagation between the goroutine and the consumer is done
-//     entirely through [io.PipeWriter.CloseWithError], which is the
-//     synchronization primitive [io.Pipe] is designed for. A dedicated
-//     channel carries the goroutine's final error so the consumer can
-//     distinguish a write failure from an EOF.
-//
-// The caller owns the returned Resource and must call Close exactly once to
-// release the underlying buffer or temp file.
-func dumpBodyStream(body any) (*sysx.Resource, error) {
-	pr, pw := io.Pipe()
-	// errCh carries the producer's terminal error (nil on success) so that
-	// FromReader can propagate it to the caller without a data race.
-	errCh := make(chan error, 1)
-	go func() {
-		var err error
-		v, err := conv.String(body)
-		if err != nil {
-			errCh <- err
-			pw.CloseWithError(err)
-			return
-		}
-		_, err = io.WriteString(pw, v)
-		if err != nil {
-			errCh <- err
-			pw.CloseWithError(err)
-			return
-		}
-		errCh <- nil
-		pw.Close()
-	}()
-
-	res, err := sysx.NewResource().
-		WithName("replify-dump-body-*.txt").
-		WithContentType(sysx.MimeText).
-		FromReader(pr)
+// dumpAny creates a seekable in-process [sysx.Resource] backed by a
+// temporary file from a generic Go value. The value is first converted to a
+// string using [conv.String].
+func dumpAny(payload any) (*sysx.Resource, error) {
+	body, err := conv.String(payload)
 	if err != nil {
-		// Unblock the goroutine so it does not leak.
-		pr.CloseWithError(err)
-		<-errCh
 		return nil, err
 	}
-
-	// Drain the channel so the goroutine is fully released before we return.
-	if gErr := <-errCh; gErr != nil {
-		res.Close()
-		return nil, gErr
-	}
-	return res, nil
+	return sysx.NewResource().
+		WithName("w_snapshot_body.txt").
+		WithTempPattern("w_snapshot_body-*.txt").
+		WithContentType(sysx.MimeText).
+		FromTempFile(func(w io.Writer) error {
+			_, err := w.Write([]byte(body))
+			return err
+		})
 }
 
 // escapeMarkdownPipe escapes characters that would break Markdown

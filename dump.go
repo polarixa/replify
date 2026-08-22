@@ -207,7 +207,7 @@ func (d *Dump) FileSlogging(logger ...*slogger.Logger) {
 	child := l.With()
 	child.WithCaller(true).WithCallerSkip(3)
 
-	slogAtLevel(child, slogger.InfoLevel, d.fileString())
+	slogAtLevel(child, slogger.InfoLevel, d.fileproperties())
 }
 
 // SizeHumanReadable returns the size of the serialized payload in a human-readable format.
@@ -266,13 +266,22 @@ func (d *Dump) resolvePath() string {
 	return ""
 }
 
-// fileString returns a string representation of the on-disk file backing this Dump.
+// fileproperties returns a string representation of the on-disk file backing this Dump.
 // Returns an empty string when the Dump is nil or has no on-disk backing.
-func (d *Dump) fileString() string {
+func (d *Dump) fileproperties() string {
 	sw := strchain.New()
-	f, _ := d.FileInfo()
+	f, err := d.FileInfo()
+	if err != nil {
+		slogger.Error("dump.file: failed to stat file", slogger.Err(err))
+		return sw.String()
+	}
 	if f == nil {
-		return ""
+		slogger.Error("dump.file: file info is nil",
+			slogger.String("name", d.syr.Name()),
+			slogger.String("size", sysx.HumanizeBytes(d.Size())),
+			slogger.String("filepath", d.resolvePath()),
+		)
+		return sw.String()
 	}
 
 	sw.AppendF("snapshot_filename=%s", f.Name()).Space()

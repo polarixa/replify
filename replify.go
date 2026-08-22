@@ -62,11 +62,17 @@ func (w *wrapper) Error() string {
 // Returns:
 //   - The underlying cause of the error, which can be another error or the original error.
 func (w *wrapper) Cause() error {
-	if !w.Available() || w.errors == nil {
-		// prevent nil pointer dereference
-		// then just leave it as empty string
-		return errors.New("")
+	// prevent nil pointer dereference
+	// then just leave it as empty string
+	base := errors.New("")
+	if !w.Available() {
+		return base
 	}
+	w.autoAdjust() // ensure auto-adjustment of the error chain before retrieving the cause
+	if w.errors == nil {
+		return base
+	}
+
 	// Traverse through wrapped errors.
 	// We will use Unwrap() method to unwrap errors instead of checking for *wrapper explicitly.
 	// This way, we can traverse to the innermost cause regardless of error type.

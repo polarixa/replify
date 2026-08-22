@@ -13,7 +13,7 @@ import (
 // and idempotent.
 //
 // The temporary file lives in the OS default temp directory with the pattern
-// "replify-dump-*.json" and is removed automatically when Close is called.
+// "w_snapshot-*.json" and is removed automatically when Close is called.
 //
 // The serialized content matches [wrapper.JSONPretty] — the full response
 // envelope (status, headers, body, meta, pagination, debug).
@@ -122,6 +122,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpJSONTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
+	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
@@ -150,7 +151,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 // never allocated as a single []byte.
 //
 // The temporary file lives in the OS default temp directory with the pattern
-// "replify-dump-body-*.json" and is removed automatically when Close is called.
+// "w_snapshot_body-*.json" and is removed automatically when Close is called.
 //
 // Both return values are always non-nil:
 //   - (*Dump, *wrapper) — Dump holds the seekable resource; wrapper carries
@@ -181,14 +182,16 @@ func (w *wrapper) DumpBody() (*Dump, *wrapper) {
 	w.cacheMutex.RLock()
 	body := w.data
 	w.cacheMutex.RUnlock()
-	d, err := dumpBodyStream(body)
+
+	d, err := dumpAny(body)
 	if err != nil {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithErrorAck(err).
 			WithMessage("DumpBody: failed to create temp file")
 	}
-	return &Dump{syr: d}, New().
+	k := &Dump{syr: d}
+	return k, New().
 		WithHeader(OK).
 		WithMessagef("DumpBody: succeeded and written to temp file %s", d.Name())
 }
@@ -268,9 +271,7 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 	body := w.data
 	w.cacheMutex.RUnlock()
 
-	// Serialize body into a spill-buffered Resource (≤8 MiB in memory,
-	// >8 MiB on a self-removing temp file).
-	d, err := dumpBodyStream(body)
+	d, err := dumpAny(body)
 	if err != nil {
 		return nil, New().
 			WithHeader(InternalServerError).
@@ -294,6 +295,7 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpBodyTo: failed to rewind in-process copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the file itself is still the temp copy, not dst
+	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
@@ -366,6 +368,7 @@ func (w *wrapper) DumpMDDocTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpMDDocTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
+	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
