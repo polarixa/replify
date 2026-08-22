@@ -235,7 +235,7 @@ func main() {
     "id": "123",
     "name": "John Doe"
   },
-  "headers": {
+  "header": {
     "code": 200,
     "text": "OK"
   },

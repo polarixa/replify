@@ -227,7 +227,7 @@ func (w *wrapper) HeaderDoc() *strchain.StringWeaver {
 		return sw
 	}
 	sw.Append("##").Space()
-	sw.Append("Headers").NewLines(2)
+	sw.Append("Header").NewLines(2)
 	sw.Pipe().Space().Append("Field").Space().Pipe().Space().Append("Value").Space().Pipe().NewLine()
 	sw.Pipe().Dashes(3).Pipe().Dashes(3).Pipe().NewLine()
 
