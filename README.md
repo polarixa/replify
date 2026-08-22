@@ -89,19 +89,20 @@ import (
     "github.com/polarixa/replify"
 )
 
-func GetUser(w http.ResponseWriter, r *http.Request) {
-    user := map[string]string{"id": "123", "name": "John Doe"}
+func GetUser(response http.ResponseWriter, request *http.Request) {
+	user := map[string]string{"id": "123", "name": "John Doe"}
 
-    result := replify.New().
-        WithHeader(replify.OK).
-        WithBody(user).
-        WithMessage("User retrieved successfully").
-        WithRequestID(r.Header.Get("X-Request-ID")).
-        Write(w) // returns *wrapper; HTTP response is already committed
+	w := replify.New().
+		OK().
+		WithBody(user).
+		WithMessage("User retrieved successfully").
+		WriteJSON(response)
 
-    if result.IsErrorPresent() {
-        log.Printf("failed to write response: %v", result.Error())
-    }
+	w.Slogging()
+
+	if w.IsErrorPresent() {
+		w.S().Errorf("Error writing response: %v", w.Error())
+	}
 }
 
 func main() {
