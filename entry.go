@@ -191,12 +191,6 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		}
 		w.cursor = cursor
 	}
-	// if the data is a string, check if it is a valid JSON string and convert it to a json.RawMessage
-	// otherwise, keep it as a string.
-	// if the data is a []byte, check if it is a valid JSON byte slice and convert it to a json.RawMessage
-	// otherwise, keep it as a []byte.
-	// if the data is a json.RawMessage, keep it as a json.RawMessage
-	// otherwise, keep it as a json.RawMessage.
 	if value, exists := data["data"]; exists {
 		w.data = safeCastValue(value)
 	}
