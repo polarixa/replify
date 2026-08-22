@@ -179,7 +179,7 @@ func (w *wrapper) BodyString() string {
 	if !w.Available() {
 		return ""
 	}
-	return conv.StringOrDefault(w.data, "")
+	return conv.StringOrDefault(safeCastValueSupervised(w.data), "<empty>")
 }
 
 // CompressSafe compresses the body data if it exceeds a specified threshold.
