@@ -576,6 +576,20 @@ func (r *Resource) ReadAllBytes() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// SizeHumanReadable returns Size formatted as a human-readable string
+// using binary prefixes (KiB, MiB, GiB, etc.), as produced by
+// HumanizeBytes.
+//
+// Returns:
+//
+// The configured payload size in bytes, humanized.
+func (r *Resource) SizeHumanReadable() string {
+	if r == nil {
+		return HumanizeBytes(0)
+	}
+	return HumanizeBytes(r.Size())
+}
+
 // fillMime populates ContentType from Name when ContentType is empty. It
 // is invoked by every From* loader after Name and Content are settled.
 func (r *Resource) fillMime() {
