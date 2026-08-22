@@ -3068,7 +3068,7 @@ func (w *wrapper) String() string {
 		sw.AppendF("meta=%q", w.meta.String()).Space()
 	}
 	if w.IsHeaderPresent() {
-		sw.AppendF("headers=%q", w.header.String()).Space()
+		sw.AppendF("header=%q", w.header.String()).Space()
 	}
 	if w.IsDebuggingPresent() {
 		sw.AppendF("debug=%q", conv.StringOrEmpty(w.debug)).Space()
@@ -3179,7 +3179,7 @@ func (w *wrapper) build() map[string]any {
 		m["meta"] = w.meta.Respond()
 	}
 	if w.IsHeaderPresent() {
-		m["headers"] = w.header.Respond()
+		m["header"] = w.header.Respond()
 	}
 	if w.IsDebuggingPresent() {
 		m["debug"] = w.debug
