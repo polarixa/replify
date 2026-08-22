@@ -275,7 +275,7 @@ func (d *Dump) fileString() string {
 		return ""
 	}
 
-	sw.AppendF("dump_filename=%s", f.Name()).Space()
+	sw.AppendF("snapshot_filename=%s", f.Name()).Space()
 	sw.AppendF("file_path=%s", d.Filepath()).Space()
 	sw.AppendF("size=%s", sysx.HumanizeBytes(f.Size())).Space()
 	sw.AppendF("mode=%s", f.Mode()).Space()
