@@ -35,7 +35,7 @@ func TestWrite_SuccessfulResponse(t *testing.T) {
 	want := w.JSON() // snapshot before Write commits the response
 
 	rr := httptest.NewRecorder()
-	result := w.Write(rr)
+	result := w.WriteJSON(rr)
 	if result.IsErrorPresent() {
 		t.Fatalf("Write stored unexpected error: %v", result.Error())
 	}
@@ -61,7 +61,7 @@ func TestWrite_ErrorResponse(t *testing.T) {
 	want := w.JSON()
 
 	rr := httptest.NewRecorder()
-	result := w.Write(rr)
+	result := w.WriteJSON(rr)
 	if result.IsErrorPresent() {
 		t.Fatalf("Write stored unexpected error: %v", result.Error())
 	}
@@ -96,7 +96,7 @@ func TestWrite_CustomStatus(t *testing.T) {
 
 			w := replify.New().WithStatusCode(code).WithMessage("test")
 			rr := httptest.NewRecorder()
-			w.Write(rr)
+			w.WriteJSON(rr)
 			if rr.Code != code {
 				t.Errorf("expected status %d, got %d", code, rr.Code)
 			}
@@ -112,7 +112,7 @@ func TestWrite_EmptyBody(t *testing.T) {
 	want := w.JSON()
 
 	rr := httptest.NewRecorder()
-	w.Write(rr)
+	w.WriteJSON(rr)
 	if rr.Body.String() != want {
 		t.Errorf("body does not match JSON()\ngot:  %s\nwant: %s", rr.Body.String(), want)
 	}
@@ -124,7 +124,7 @@ func TestWrite_WrapperReturnValue(t *testing.T) {
 
 	w := replify.New().WithHeader(replify.OK).WithMessage("same pointer")
 	rr := httptest.NewRecorder()
-	returned := w.Write(rr)
+	returned := w.WriteJSON(rr)
 	if returned != w {
 		t.Error("Write did not return the same wrapper instance")
 	}
@@ -138,7 +138,7 @@ func TestWrite_ChainCompatibility(t *testing.T) {
 	w := replify.New().
 		WithHeader(replify.OK).
 		WithBody(map[string]string{"key": "value"}).
-		Write(rr) // chain operation — Write returns *wrapper
+		WriteJSON(rr) // chain operation — Write returns *wrapper
 
 	if w == nil {
 		t.Fatal("Write returned nil")
@@ -160,7 +160,7 @@ func TestWrite_ErrorPropagation(t *testing.T) {
 	fw := newFailingWriter(sentinel)
 
 	w := replify.New().WithHeader(replify.OK).WithMessage("test")
-	result := w.Write(fw)
+	result := w.WriteJSON(fw)
 
 	if !result.IsErrorPresent() {
 		t.Fatal("expected wrapper to hold a write error")
@@ -177,7 +177,7 @@ func TestWrite_HeaderBeforeBody(t *testing.T) {
 
 	w := replify.New().WithHeader(replify.OK).WithMessage("test")
 	rr := httptest.NewRecorder()
-	w.Write(rr)
+	w.WriteJSON(rr)
 	if got := rr.Result().Header.Get("Content-Type"); got != "application/json; charset=utf-8" {
 		t.Errorf("Content-Type not set correctly: %q", got)
 	}
@@ -188,7 +188,7 @@ func TestWrite_NilWriter(t *testing.T) {
 	t.Parallel()
 
 	w := replify.New().WithHeader(replify.OK)
-	result := w.Write(nil)
+	result := w.WriteJSON(nil)
 	if !result.IsErrorPresent() {
 		t.Fatal("expected wrapper to hold an error for nil ResponseWriter")
 	}
@@ -204,7 +204,7 @@ func TestWrite_ThroughR(t *testing.T) {
 		Reply()
 
 	rr := httptest.NewRecorder()
-	r.Write(rr)
+	r.WriteJSON(rr)
 	if rr.Code != http.StatusOK {
 		t.Errorf("expected 200, got %d", rr.Code)
 	}

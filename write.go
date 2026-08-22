@@ -4,17 +4,17 @@ import (
 	"net/http"
 )
 
-// Write writes the current response as JSON to w, sets the Content-Type header
+// WriteJSON writes the current response as JSON to w, sets the Content-Type header
 // to "application/json; charset=utf-8", and writes the configured HTTP status
 // code.
 //
-// Write returns the same wrapper so the Replify fluent chain can continue.
+// WriteJSON returns the same wrapper so the Replify fluent chain can continue.
 // If the underlying write fails, the error is stored in the wrapper via [WithErrorAck]
 // and can be inspected with IsError() / Cause().
 //
-// Note: once Write is called the HTTP response is committed. Subsequent mutations
+// Note: once WriteJSON is called the HTTP response is committed. Subsequent mutations
 // to the wrapper do not affect the already-sent HTTP response.
-func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
+func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
