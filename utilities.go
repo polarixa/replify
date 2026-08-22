@@ -247,7 +247,7 @@ func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
 // string using [conv.String].
 func dumpAny(payload any) (*sysx.Resource, error) {
 	var body string
-	body, err := conv.String(payload)
+	body, err := conv.String(safeCastValue(payload))
 	if err != nil {
 		return nil, err
 	}
@@ -398,17 +398,7 @@ func castString(value *string) (as any, w *wrapper) {
 	if value == nil || strutil.IsEmpty(*value) {
 		return value, w.OK()
 	}
-
-	// try to sanitize the string value for JSON parsing
-	sanitizeValue, err := encoding.NormalizeJSON(*value)
-	if err != nil {
-		if strutil.IsEmpty(sanitizeValue) {
-			return value, w.
-				WithHeader(BadRequest).
-				WithErrorAck(err).
-				WithMessage("failed to sanitize string value for JSON parsing")
-		}
-	}
+	sanitizeValue := *value
 
 	// if the sanitized value is a valid JSON string, return it as json.RawMessage
 	if encoding.IsValidJSONString(sanitizeValue) {
