@@ -237,7 +237,15 @@ func safeBody(value any) any {
 		if encoding.IsValidJSON(v) {
 			result = json.RawMessage(encoding.CompactJSON(v))
 		} else {
-			result = v
+			result = string(v)
+		}
+	case *[]byte:
+		if v != nil && encoding.IsValidJSON(*v) {
+			result = json.RawMessage(encoding.CompactJSON(*v))
+		} else if v != nil {
+			result = string(*v)
+		} else {
+			result = nil
 		}
 	default:
 		result = value
