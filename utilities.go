@@ -260,7 +260,8 @@ func safeBody(value any) any {
 // [sysx.NewResource] call site exists in exactly one place.
 func dumpJSON(payload []byte) (*sysx.Resource, error) {
 	return sysx.NewResource().
-		WithName("replify-dump-*.json").
+		WithName("w_snapshot.json").
+		WithTempPattern("w_snapshot-*.json").
 		WithContentType(sysx.MimeJSON).
 		FromTempFile(func(w io.Writer) error {
 			_, err := w.Write(payload)
@@ -272,7 +273,8 @@ func dumpJSON(payload []byte) (*sysx.Resource, error) {
 // temporary file from an already-serialized Markdown payload.
 func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
 	return sysx.NewResource().
-		WithName("replify-dump-*.md").
+		WithName("w_snapshot.md").
+		WithTempPattern("w_snapshot-*.md").
 		WithContentType(sysx.MimeText).
 		FromTempFile(func(w io.Writer) error {
 			_, err := w.Write(payload)
