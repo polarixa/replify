@@ -398,7 +398,17 @@ func castString(value *string) (as any, w *wrapper) {
 	if value == nil || strutil.IsEmpty(*value) {
 		return value, w.OK()
 	}
-	sanitizeValue := *value
+
+	// try to sanitize the string value for JSON parsing
+	sanitizeValue, err := encoding.NormalizeJSON(*value)
+	if err != nil {
+		if strutil.IsEmpty(sanitizeValue) {
+			return value, w.
+				WithHeader(BadRequest).
+				WithErrorAck(err).
+				WithMessage("failed to sanitize string value for JSON parsing")
+		}
+	}
 
 	// if the sanitized value is a valid JSON string, return it as json.RawMessage
 	if encoding.IsValidJSONString(sanitizeValue) {
