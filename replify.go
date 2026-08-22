@@ -1695,12 +1695,17 @@ func (w *wrapper) WithBody(v any) *wrapper {
 //	w, err := replify.New().WithBodySuppressed(myStruct)
 func (w *wrapper) WithBodySuppressed(v any) (*wrapper, error) {
 	if v == nil {
-		return w, NewError("WithBodySuppressed: value must not be nil; provide a non-nil value to normalize")
+		e2w := New().
+			BadRequest().
+			WithMessage("request body suppressed value must not be nil").
+			WithError("WithBodySuppressed: value must not be nil; provide a non-nil value to normalize")
+		e2w.Slogging()
+		return w, e2w.Cause()
 	}
-	as, w2w := castValue(v)
-	if w2w.IsError() {
-		w2w.Slogging()
-		return w, w2w.Cause()
+	as, e2w := castValue(v)
+	if e2w.IsError() {
+		e2w.Slogging()
+		return w, e2w.Cause()
 	}
 	w.data = as
 	return w, nil
