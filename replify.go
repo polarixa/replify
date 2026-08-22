@@ -1695,7 +1695,7 @@ func (w *wrapper) WithBody(v any) *wrapper {
 //	w, err := replify.New().WithJSONBody(myStruct)
 func (w *wrapper) WithJSONBody(v any) (*wrapper, error) {
 	if v == nil {
-		return w, NewError("WithJSONBody: cannot normalize nil value")
+		return w, NewError("WithJSONBody: value must not be nil; provide a non-nil value to normalize")
 	}
 	as, w2w := castValue(v)
 	if w2w.IsError() {
