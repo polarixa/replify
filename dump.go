@@ -210,14 +210,20 @@ func (d *Dump) FileSlogging(logger ...*slogger.Logger) {
 	slogAtLevel(child, slogger.InfoLevel, d.fileString())
 }
 
-// FileSizeHuman returns the size of the serialized payload in a human-readable format.
+// SizeHumanReadable returns the size of the serialized payload in a human-readable format.
 // Returns "0 B" when the Dump is nil or the underlying Resource is nil.
 //
 // Example:
 //
-//	fmt.Println(d.FileSizeHuman()) // "1.5 KiB"
-func (d *Dump) FileSizeHuman() string {
+//	fmt.Println(d.SizeHumanReadable()) // "1.5 KiB"
+func (d *Dump) SizeHumanReadable() string {
+	if d == nil {
+		return "0 B"
+	}
 	f, _ := d.FileInfo()
+	if f == nil {
+		return "0 B"
+	}
 	return sysx.HumanizeBytes(f.Size())
 }
 
