@@ -1,7 +1,6 @@
 package replify
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -1698,31 +1697,12 @@ func (w *wrapper) WithJSONBody(v any) (*wrapper, error) {
 	if v == nil {
 		return w, NewError("WithJSONBody: cannot normalize nil value")
 	}
-	switch val := v.(type) {
-	case string:
-		normalized, err := encoding.NormalizeJSON(val)
-		if err != nil {
-			return w, err
-		}
-		w.data = normalized
-	case []byte:
-		normalized, err := encoding.NormalizeJSON(string(val))
-		if err != nil {
-			return w, err
-		}
-		w.data = normalized
-	case json.RawMessage:
-		if !json.Valid(val) {
-			return w, NewError("WithJSONBody: json.RawMessage contains invalid JSON")
-		}
-		w.data = string(val)
-	default:
-		s, err := encoding.JSONE(val)
-		if err != nil {
-			return w, AppendError(err, "cannot marshal to JSON")
-		}
-		w.data = s
+	as, w2w := castValue(v)
+	if w2w.IsError() {
+		w2w.Slogging()
+		return w, w2w.Cause()
 	}
+	w.data = as
 	return w, nil
 }
 
@@ -3173,7 +3153,7 @@ func (w *wrapper) build() map[string]any {
 		m["message"] = w.message
 	}
 	if w.IsBodyPresent() && !w.skipBody {
-		m["data"] = safeBody(w.data)
+		m["data"] = safeCastValue(w.data)
 	}
 	if w.IsTotalPresent() {
 		m["total"] = w.total

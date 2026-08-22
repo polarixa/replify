@@ -820,7 +820,7 @@ func TestWithNormalizedBody_ValidJSON(t *testing.T) {
 		t.Error("WithNormalizedBody(valid): IsJSONBody() = false; want true")
 	}
 	if w.Body() != input {
-		t.Errorf("WithNormalizedBody(valid): Body() = %v; want %q", w.Body(), input)
+		t.Errorf("WithNormalizedBody(valid): Body() = %v; want %v", w.Body(), input)
 	}
 }
 

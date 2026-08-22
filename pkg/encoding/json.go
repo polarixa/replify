@@ -272,7 +272,7 @@ func NormalizeJSON(s string) (string, error) {
 		}
 	}
 
-	return "", fmt.Errorf("%w: input could not be repaired to valid JSON", ErrInvalidJSON)
+	return candidate, fmt.Errorf("%w: input could not be repaired to valid JSON", ErrInvalidJSON)
 }
 
 // JSON converts a Go value to its JSON string representation or returns an error if the marshalling fails.

@@ -198,7 +198,7 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 	// if the data is a json.RawMessage, keep it as a json.RawMessage
 	// otherwise, keep it as a json.RawMessage.
 	if value, exists := data["data"]; exists {
-		w.data = safeBody(value)
+		w.data = safeCastValue(value)
 	}
 	return w, nil
 }
