@@ -412,7 +412,8 @@ func castString(value *string) (as any, w *wrapper) {
 
 	// if the sanitized value is a valid JSON string, return it as json.RawMessage
 	if encoding.IsValidJSONString(sanitizeValue) {
-		as = json.RawMessage(encoding.CompactJSON([]byte(sanitizeValue)))
+		val := json.RawMessage(encoding.CompactJSON([]byte(sanitizeValue)))
+		as = val
 		return as, w.OK()
 	}
 
