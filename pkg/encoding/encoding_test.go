@@ -812,7 +812,7 @@ func TestNormalizeJSON_ObjectArray(t *testing.T) {
 // without modification and downstream functions work correctly.
 func TestWithNormalizedBody_ValidJSON(t *testing.T) {
 	input := `{"store":{"owner":"Alice"}}`
-	w, err := replify.New().WithJSONBody(input)
+	w, err := replify.New().WithBodySuppressed(input)
 	if err != nil {
 		t.Fatalf("WithNormalizedBody(valid) unexpected error: %v", err)
 	}
@@ -828,7 +828,7 @@ func TestWithNormalizedBody_ValidJSON(t *testing.T) {
 // fixed so that IsJSONBody(), JSON(), and JSONPretty() all behave correctly.
 func TestWithNormalizedBody_EscapedQuotes(t *testing.T) {
 	input := `{\"store\": {\"owner\": \"Alice\"}}`
-	w, err := replify.New().WithJSONBody(input)
+	w, err := replify.New().WithBodySuppressed(input)
 	if err != nil {
 		t.Fatalf("WithNormalizedBody(escaped) unexpected error: %v", err)
 	}
@@ -851,7 +851,7 @@ func TestWithNormalizedBody_EscapedQuotes(t *testing.T) {
 func TestWithNormalizedBody_InvalidInput(t *testing.T) {
 	w := replify.New()
 	w.WithBody("original")
-	_, err := w.WithJSONBody("{this is not json}")
+	_, err := w.WithBodySuppressed("{this is not json}")
 	if err == nil {
 		t.Error("WithNormalizedBody(invalid) expected error; got nil")
 	}
@@ -859,7 +859,7 @@ func TestWithNormalizedBody_InvalidInput(t *testing.T) {
 
 // TestWithNormalizedBody_Empty verifies that an empty string returns an error.
 func TestWithNormalizedBody_Empty(t *testing.T) {
-	_, err := replify.New().WithJSONBody("")
+	_, err := replify.New().WithBodySuppressed("")
 	if err == nil {
 		t.Error("WithNormalizedBody(\"\") expected error; got nil")
 	}
@@ -940,7 +940,7 @@ func TestNormalizeJSON_EscapedQuotesPlusTrailingComma(t *testing.T) {
 
 // TestWithNormalizedBody_Nil verifies that a nil input returns an error.
 func TestWithNormalizedBody_Nil(t *testing.T) {
-	_, err := replify.New().WithJSONBody(nil)
+	_, err := replify.New().WithBodySuppressed(nil)
 	if err == nil {
 		t.Error("WithNormalizedBody(nil) expected error; got nil")
 	}
@@ -950,7 +950,7 @@ func TestWithNormalizedBody_Nil(t *testing.T) {
 // is accepted and stored correctly.
 func TestWithNormalizedBody_ByteSlice(t *testing.T) {
 	input := []byte(`{"key":"value"}`)
-	w, err := replify.New().WithJSONBody(input)
+	w, err := replify.New().WithBodySuppressed(input)
 	if err != nil {
 		t.Fatalf("WithNormalizedBody([]byte valid) unexpected error: %v", err)
 	}
@@ -963,7 +963,7 @@ func TestWithNormalizedBody_ByteSlice(t *testing.T) {
 // structural quotes is normalized and stored correctly.
 func TestWithNormalizedBody_ByteSliceEscaped(t *testing.T) {
 	input := []byte(`{\"key\":\"value\"}`)
-	w, err := replify.New().WithJSONBody(input)
+	w, err := replify.New().WithBodySuppressed(input)
 	if err != nil {
 		t.Fatalf("WithNormalizedBody([]byte escaped) unexpected error: %v", err)
 	}
@@ -979,7 +979,7 @@ func TestWithNormalizedBody_Struct(t *testing.T) {
 		Name string `json:"name"`
 		Age  int    `json:"age"`
 	}
-	w, err := replify.New().WithJSONBody(payload{Name: "Alice", Age: 30})
+	w, err := replify.New().WithBodySuppressed(payload{Name: "Alice", Age: 30})
 	if err != nil {
 		t.Fatalf("WithNormalizedBody(struct) unexpected error: %v", err)
 	}
@@ -1000,7 +1000,7 @@ func TestWithNormalizedBody_Struct(t *testing.T) {
 // and stored as the body with IsJSONBody() returning true.
 func TestWithNormalizedBody_Map(t *testing.T) {
 	input := map[string]any{"x": 1, "y": true}
-	w, err := replify.New().WithJSONBody(input)
+	w, err := replify.New().WithBodySuppressed(input)
 	if err != nil {
 		t.Fatalf("WithNormalizedBody(map) unexpected error: %v", err)
 	}

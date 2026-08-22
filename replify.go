@@ -1654,13 +1654,13 @@ func (w *wrapper) WithMessagef(message string, args ...any) *wrapper {
 //   - This function does not validate or normalize the input value.
 //   - It simply assigns the value to the `data` field of the [wrapper].
 //   - The value will be marshalled to JSON when the [wrapper] is converted to a string.
-//   - Consider using WithJSONBody instead if you need to normalize the input value.
+//   - Consider using [WithBodySuppressed] instead if you need to normalize the input value.
 func (w *wrapper) WithBody(v any) *wrapper {
 	w.data = v
 	return w
 }
 
-// WithJSONBody normalizes the input value and sets it as the body data for
+// WithBodySuppressed normalizes the input value and sets it as the body data for
 // the [wrapper] instance.
 //
 // The method accepts any Go value and handles it according to its dynamic type:
@@ -1689,13 +1689,13 @@ func (w *wrapper) WithBody(v any) *wrapper {
 // Example:
 //
 //	// From a raw-string with escaped structural quotes:
-//	w, err := replify.New().WithJSONBody(`{\"key\": "value"}`)
+//	w, err := replify.New().WithBodySuppressed(`{\"key\": "value"}`)
 //
 //	// From a struct:
-//	w, err := replify.New().WithJSONBody(myStruct)
-func (w *wrapper) WithJSONBody(v any) (*wrapper, error) {
+//	w, err := replify.New().WithBodySuppressed(myStruct)
+func (w *wrapper) WithBodySuppressed(v any) (*wrapper, error) {
 	if v == nil {
-		return w, NewError("WithJSONBody: value must not be nil; provide a non-nil value to normalize")
+		return w, NewError("WithBodySuppressed: value must not be nil; provide a non-nil value to normalize")
 	}
 	as, w2w := castValue(v)
 	if w2w.IsError() {
