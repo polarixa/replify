@@ -308,6 +308,9 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 // The serialized content matches [wrapper.BasicDoc] — the full diagnostic report
 // with summary, debug, headers, pagination, cursors, meta, and custom fields.
 //
+// The temporary file lives in the OS default temp directory with the pattern
+// "w_snapshot-*.md" and is removed automatically when Close is called.
+//
 // Both return values are always non-nil:
 //   - (*Dump, *wrapper) — Dump holds the seekable resource; wrapper carries
 //     the outcome for fluent chaining.
