@@ -1,7 +1,10 @@
 package sysx
 
 import (
+	"mime"
 	"strings"
+
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // MimeFromName returns a best-effort IANA media type derived from the
@@ -26,6 +29,12 @@ func MimeFromName(name string) string {
 	if idx < 0 || idx == len(name)-1 {
 		return MimeOctetStream
 	}
+	// Use the standard library's mime.TypeByExtension to get the MIME type for the extension.
+	var ct = mime.TypeByExtension(name[idx:]) // This returns the MIME type with parameters, e.g., "text/html; charset=utf-8".
+	if strutil.IsNotEmpty(ct) {
+		return ct
+	}
+
 	switch strings.ToLower(name[idx+1:]) {
 	case "txt", "log":
 		return MimeText
