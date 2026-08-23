@@ -30,7 +30,6 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
 	}
-	// 204 No Content must not carry a body.
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
@@ -96,6 +95,12 @@ func (r *wrapper) Binary(data []byte) *wrapper {
 	if !r.Available() {
 		return r
 	}
+	// Check if the data is binary, if not, return an error acknowledgment
+	if !isBinaryValue(data) {
+		r.WithErrorAck(NewErrorf("Binary: data is not binary, got %T", data))
+		return r
+	}
+
 	r.data = data
 	return r
 }
@@ -136,7 +141,7 @@ func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filepath) {
 		return r.WriteFile(w)
 	}
-	if _, ok := r.data.([]byte); ok {
+	if r.IsBinaryBody() {
 		return r.WriteBinary(w)
 	}
 	return r.WriteJSON(w)
@@ -163,7 +168,6 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	if strutil.IsEmpty(r.filepath) {
 		return r.WithErrorAck(NewError("WriteFile called with empty filepath"))
 	}
-	// 204 No Content must not carry a body.
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
@@ -211,7 +215,6 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
 	}
-	// 204 No Content must not carry a body.
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
