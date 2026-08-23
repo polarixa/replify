@@ -16,15 +16,15 @@ import (
 // It updates the `filepath` field of the [wrapper] instance with the provided path.
 //
 // Parameters:
-//   - `path`: A string representing the file path to set.
+//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) File(path string) *wrapper {
+func (r *wrapper) File(filepath string) *wrapper {
 	if !r.Available() {
 		return r
 	}
-	r.filepath = path
+	r.filepath = filepath
 	return r
 }
 
@@ -34,7 +34,7 @@ func (r *wrapper) File(path string) *wrapper {
 // It updates the `filename` field of the [wrapper] instance with the provided value.
 //
 // Parameters:
-//   - `filename`: A string representing the filename to set.
+//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
@@ -52,16 +52,16 @@ func (r *wrapper) Filename(filename string) *wrapper {
 // It updates the `filepath` and `filename` fields of the [wrapper] instance with the provided values.
 //
 // Parameters:
-//   - `path`: A string representing the file path to set.
-//   - `filename`: A string representing the filename to set.
+//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
+//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) FileAttachment(path string, filename string) *wrapper {
+func (r *wrapper) FileAttachment(filepath string, filename string) *wrapper {
 	if !r.Available() {
 		return r
 	}
-	r.filepath = path
+	r.filepath = filepath
 	r.filename = filename
 	return r
 }
