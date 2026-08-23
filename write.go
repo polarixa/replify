@@ -2,6 +2,7 @@ package replify
 
 import (
 	"net/http"
+	"reflect"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/slogger"
@@ -104,15 +105,18 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
+	if r.EqualHeader(NoContent) {
+		w.WriteHeader(r.StatusCode())
+		return r
+	}
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteFile called with nil http.ResponseWriter"))
 	}
 	if strutil.IsEmpty(r.filepath) {
-		return r.WithErrorAck(NewError("WriteFile called with empty filepath"))
-	}
-	if r.EqualHeader(NoContent) {
-		w.WriteHeader(r.StatusCode())
-		return r
+		r.WithHeader(BadRequest).
+			WithMessage("failed to write file, filepath is empty").
+			BindCause()
+		return r.WriteJSON(w)
 	}
 
 	// Open the file specified in the [wrapper] instance.
@@ -195,18 +199,26 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
-	if w == nil {
-		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
-	}
-	if !r.IsBinaryBody() {
-		return r.WithErrorAck(NewErrorf("WriteBinary: data is not binary, got %T", r.data))
-	}
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
 	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
+	}
+	if !r.IsBinaryBody() {
+		typename := reflect.TypeOf(r.data).String()
 
-	defer New().Processing().Span("WriteBinary", slogger.String("filename", r.filename))()
+		r.WithHeader(UnprocessableEntity).
+			WithMessage("response body must be a binary byte slice").
+			WithErrorAck(NewErrorf("data is not binary, got %s", typename)).
+			WithDebuggingKV("data_type", typename)
+		return r.WriteJSON(w)
+	}
+
+	defer New().Processing().Span("WriteBinary",
+		slogger.String("filename", r.filename),
+	)()
 
 	// Safely cast the data to a byte slice for writing.
 	data, _ := r.data.([]byte)
@@ -222,7 +234,11 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filename) {
 		name, err := assembleContentDisposition(r.filename)
 		if err != nil {
-			return r.WithErrorAck(err)
+			r.WithHeader(InternalServerError).
+				WithMessagef("failed to assemble Content-Disposition for filename: '%s'", r.filename).
+				WithErrorAck(err).
+				WithDebuggingKV("filename", r.filename)
+			return r.WriteJSON(w)
 		}
 		w.Header().Set(HeaderContentDisposition.String(), name)
 	}
@@ -232,7 +248,11 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 
 	// Write the binary data to the ResponseWriter.
 	if _, err := w.Write(data); err != nil {
-		return r.WithErrorAck(err)
+		r.WithHeader(InternalServerError).
+			WithMessage("binary data could not be written to the response").
+			WithErrorAck(err).
+			WithDebuggingKV("filename", r.filename)
+		return r.WriteJSON(w)
 	}
 	return r
 }
@@ -253,13 +273,14 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
-	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
-	}
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
 	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
+	}
+
 	data := r.JSONBytes()
 
 	// Set the Content-Type header to indicate that the response is JSON with UTF-8 encoding.
