@@ -115,25 +115,34 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 		return r
 	}
 
-	// Use a deferred span for logging the WriteFile operation with the file path.
-	defer New().Processing().Span("WriteFile", slogger.String("filepath", r.filepath))()
-
 	// Open the file specified in the [wrapper] instance.
 	resource, err := sysx.NewResource().
 		FromPath(r.filepath, false)
 	if err != nil {
 		r.WithHeader(InternalServerError).
-			WithMessagef("failed to open file: '%s'", r.filepath).
-			WithErrorAck(err)
+			WithMessage("failed to open file").
+			WithErrorAck(err).
+			WithDebuggingKV("filepath", r.filepath)
 		return r.WriteJSON(w)
 	}
+
+	// Check if the resource is a directory. If it is, return an error response.
 	if resource.IsDir() {
 		r.WithHeader(InternalServerError).
-			WithMessagef("'%s' is a directory, not a file", r.filepath).
-			BindCause()
+			WithMessage("failed to write file: path is a directory").
+			BindCause().
+			WithDebuggingKV("filepath", r.filepath).
+			WithDebuggingKV("filename", r.filename)
 		return r.WriteJSON(w)
 	}
-	// defer resource.Close() // Ensure the resource is closed after writing.
+
+	// Use a deferred span for logging the WriteFile operation with the file path.
+	defer New().Processing().Span("WriteFile",
+		slogger.String("filepath", r.filepath),
+		slogger.String("filename", r.filename),
+		slogger.String("content_type", resource.ContentType()),
+		slogger.String("content_length", resource.SizeHumanReadable()),
+	)()
 
 	// Set the Content-Type header based on the resource's content type.
 	w.Header().Set(HeaderContentType.String(), resource.ContentType())
@@ -145,7 +154,11 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filename) {
 		name, err := assembleContentDisposition(r.filename)
 		if err != nil {
-			r.WithErrorAck(err)
+			r.WithHeader(InternalServerError).
+				WithMessagef("failed to assemble Content-Disposition for filename: '%s'", r.filename).
+				WithErrorAck(err).
+				WithDebuggingKV("filepath", r.filepath).
+				WithDebuggingKV("filename", r.filename)
 			return r.WriteJSON(w)
 		}
 		w.Header().Set(HeaderContentDisposition.String(), name)
@@ -157,7 +170,12 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	// Copy the resource's content to the ResponseWriter.
 	// If an error occurs during the copy operation, it is recorded in the [wrapper] instance.
 	if _, err := resource.CopyTo(w); err != nil {
-		return r.WithErrorAck(err)
+		r.WithHeader(InternalServerError).
+			WithMessage("file content could not be streamed to the response").
+			WithErrorAck(err).
+			WithDebuggingKV("filepath", r.filepath).
+			WithDebuggingKV("filename", r.filename)
+		return r.WriteJSON(w)
 	}
 	return r
 }
