@@ -869,6 +869,124 @@ func castJSONMarshaler(value *json.Marshaler) (as any, w *wrapper) {
 	return as, w.OK()
 }
 
+// castValueBase attempts to convert a generic Go value into a JSON-compatible
+// representation by dispatching on its concrete type. It handles strings,
+// byte slices, runes, booleans, integers, floats, complex numbers, time
+// values, errors, and JSON-related types.
+//
+// It is the shared dispatch table used by castValue and castValueSupervised;
+// callers are responsible for handling the case where the value's type is
+// not recognized (matched == false).
+//
+// Parameters:
+//   - value: The input value of any type to be cast.
+//
+// Returns:
+//   - as: The resulting value, when matched is true.
+//   - w: A pointer to a wrapper instance indicating the status of the operation, when matched is true.
+//   - matched: Whether value's type was recognized and handled.
+func castValueBase(value any) (as any, w *wrapper, matched bool) {
+	switch v := value.(type) {
+	case string:
+		as, w = castString(&v)
+	case *string:
+		as, w = castString(v)
+	case []byte:
+		as, w = castBytes(&v)
+	case *[]byte:
+		as, w = castBytes(v)
+	case []rune:
+		as, w = castRunes(&v)
+	case *[]rune:
+		as, w = castRunes(v)
+	case bool:
+		as, w = castBool(&v)
+	case *bool:
+		as, w = castBool(v)
+	case int:
+		as, w = castInt(&v)
+	case *int:
+		as, w = castInt(v)
+	case int8:
+		as, w = castInt8(&v)
+	case *int8:
+		as, w = castInt8(v)
+	case int16:
+		as, w = castInt16(&v)
+	case *int16:
+		as, w = castInt16(v)
+	case int32:
+		as, w = castInt32(&v)
+	case *int32:
+		as, w = castInt32(v)
+	case int64:
+		as, w = castInt64(&v)
+	case *int64:
+		as, w = castInt64(v)
+	case uint:
+		as, w = castUint(&v)
+	case *uint:
+		as, w = castUint(v)
+	case uint8:
+		as, w = castUint8(&v)
+	case *uint8:
+		as, w = castUint8(v)
+	case uint16:
+		as, w = castUint16(&v)
+	case *uint16:
+		as, w = castUint16(v)
+	case uint32:
+		as, w = castUint32(&v)
+	case *uint32:
+		as, w = castUint32(v)
+	case uint64:
+		as, w = castUint64(&v)
+	case *uint64:
+		as, w = castUint64(v)
+	case float32:
+		as, w = castFloat32(&v)
+	case *float32:
+		as, w = castFloat32(v)
+	case float64:
+		as, w = castFloat64(&v)
+	case *float64:
+		as, w = castFloat64(v)
+	case complex64:
+		as, w = castComplex64(&v)
+	case *complex64:
+		as, w = castComplex64(v)
+	case complex128:
+		as, w = castComplex128(&v)
+	case *complex128:
+		as, w = castComplex128(v)
+	case time.Time:
+		as, w = castTime(&v)
+	case *time.Time:
+		as, w = castTime(v)
+	case time.Duration:
+		as, w = castDuration(&v)
+	case *time.Duration:
+		as, w = castDuration(v)
+	case error:
+		as, w = castError(v)
+	case fmt.Stringer:
+		as, w = castFmtStringer(&v)
+	case *fmt.Stringer:
+		as, w = castFmtStringer(v)
+	case json.RawMessage:
+		as, w = castJSONRawMessage(&v)
+	case *json.RawMessage:
+		as, w = castJSONRawMessage(v)
+	case json.Marshaler:
+		as, w = castJSONMarshaler(&v)
+	case *json.Marshaler:
+		as, w = castJSONMarshaler(v)
+	default:
+		return nil, nil, false
+	}
+	return as, w, true
+}
+
 // castValue attempts to convert a generic Go value into a JSON-compatible representation.
 // It handles various types, including strings, byte slices, runes, booleans, integers, floats, complex numbers, time values, errors, and JSON-related types.
 // If the value is not one of the recognized types, it attempts to marshal it into JSON.
@@ -880,113 +998,19 @@ func castJSONMarshaler(value *json.Marshaler) (as any, w *wrapper) {
 //   - as: The resulting value, which may be a JSON-compatible representation or the original value.
 //   - w: A pointer to a wrapper instance indicating the status of the operation.
 func castValue(value any) (as any, w *wrapper) {
-	w = New().Processing()
-	switch v := value.(type) {
-	case string:
-		return castString(&v)
-	case *string:
-		return castString(v)
-	case []byte:
-		return castBytes(&v)
-	case *[]byte:
-		return castBytes(v)
-	case []rune:
-		return castRunes(&v)
-	case *[]rune:
-		return castRunes(v)
-	case bool:
-		return castBool(&v)
-	case *bool:
-		return castBool(v)
-	case int:
-		return castInt(&v)
-	case *int:
-		return castInt(v)
-	case int8:
-		return castInt8(&v)
-	case *int8:
-		return castInt8(v)
-	case int16:
-		return castInt16(&v)
-	case *int16:
-		return castInt16(v)
-	case int32:
-		return castInt32(&v)
-	case *int32:
-		return castInt32(v)
-	case int64:
-		return castInt64(&v)
-	case *int64:
-		return castInt64(v)
-	case uint:
-		return castUint(&v)
-	case *uint:
-		return castUint(v)
-	case uint8:
-		return castUint8(&v)
-	case *uint8:
-		return castUint8(v)
-	case uint16:
-		return castUint16(&v)
-	case *uint16:
-		return castUint16(v)
-	case uint32:
-		return castUint32(&v)
-	case *uint32:
-		return castUint32(v)
-	case uint64:
-		return castUint64(&v)
-	case *uint64:
-		return castUint64(v)
-	case float32:
-		return castFloat32(&v)
-	case *float32:
-		return castFloat32(v)
-	case float64:
-		return castFloat64(&v)
-	case *float64:
-		return castFloat64(v)
-	case complex64:
-		return castComplex64(&v)
-	case *complex64:
-		return castComplex64(v)
-	case complex128:
-		return castComplex128(&v)
-	case *complex128:
-		return castComplex128(v)
-	case time.Time:
-		return castTime(&v)
-	case *time.Time:
-		return castTime(v)
-	case time.Duration:
-		return castDuration(&v)
-	case *time.Duration:
-		return castDuration(v)
-	case error:
-		return castError(v)
-	case fmt.Stringer:
-		return castFmtStringer(&v)
-	case *fmt.Stringer:
-		return castFmtStringer(v)
-	case json.RawMessage:
-		return castJSONRawMessage(&v)
-	case *json.RawMessage:
-		return castJSONRawMessage(v)
-	case json.Marshaler:
-		return castJSONMarshaler(&v)
-	case *json.Marshaler:
-		return castJSONMarshaler(v)
-	default:
-		jsonVal, err := encoding.JSONE(v)
-		if err != nil {
-			return nil, w.
-				WithHeader(BadRequest).
-				WithErrorAck(err).
-				WithMessagef("cannot marshal value of type %T to JSON", v)
-		}
-		as = jsonVal
-		return as, w.OK()
+	if as, w, matched := castValueBase(value); matched {
+		return as, w
 	}
+
+	w = New().Processing()
+	jsonVal, err := encoding.JSONE(value)
+	if err != nil {
+		return nil, w.
+			WithHeader(BadRequest).
+			WithErrorAck(err).
+			WithMessagef("cannot marshal value of type %T to JSON", value)
+	}
+	return jsonVal, w.OK()
 }
 
 // safeCastValue attempts to convert a generic Go value into a JSON-compatible representation, similar to CastValue.
@@ -1012,106 +1036,11 @@ func safeCastValue(value any) (as any) {
 //   - as: The resulting value, which may be a JSON-compatible representation or the original value.
 //   - w: A pointer to a wrapper instance indicating the status of the operation.
 func castValueSupervised(value any) (as any, w *wrapper) {
-	w = New().Processing()
-	switch v := value.(type) {
-	case string:
-		return castString(&v)
-	case *string:
-		return castString(v)
-	case []byte:
-		return castBytes(&v)
-	case *[]byte:
-		return castBytes(v)
-	case []rune:
-		return castRunes(&v)
-	case *[]rune:
-		return castRunes(v)
-	case bool:
-		return castBool(&v)
-	case *bool:
-		return castBool(v)
-	case int:
-		return castInt(&v)
-	case *int:
-		return castInt(v)
-	case int8:
-		return castInt8(&v)
-	case *int8:
-		return castInt8(v)
-	case int16:
-		return castInt16(&v)
-	case *int16:
-		return castInt16(v)
-	case int32:
-		return castInt32(&v)
-	case *int32:
-		return castInt32(v)
-	case int64:
-		return castInt64(&v)
-	case *int64:
-		return castInt64(v)
-	case uint:
-		return castUint(&v)
-	case *uint:
-		return castUint(v)
-	case uint8:
-		return castUint8(&v)
-	case *uint8:
-		return castUint8(v)
-	case uint16:
-		return castUint16(&v)
-	case *uint16:
-		return castUint16(v)
-	case uint32:
-		return castUint32(&v)
-	case *uint32:
-		return castUint32(v)
-	case uint64:
-		return castUint64(&v)
-	case *uint64:
-		return castUint64(v)
-	case float32:
-		return castFloat32(&v)
-	case *float32:
-		return castFloat32(v)
-	case float64:
-		return castFloat64(&v)
-	case *float64:
-		return castFloat64(v)
-	case complex64:
-		return castComplex64(&v)
-	case *complex64:
-		return castComplex64(v)
-	case complex128:
-		return castComplex128(&v)
-	case *complex128:
-		return castComplex128(v)
-	case time.Time:
-		return castTime(&v)
-	case *time.Time:
-		return castTime(v)
-	case time.Duration:
-		return castDuration(&v)
-	case *time.Duration:
-		return castDuration(v)
-	case error:
-		return castError(v)
-	case fmt.Stringer:
-		return castFmtStringer(&v)
-	case *fmt.Stringer:
-		return castFmtStringer(v)
-	case json.RawMessage:
-		return castJSONRawMessage(&v)
-	case *json.RawMessage:
-		return castJSONRawMessage(v)
-	case json.Marshaler:
-		return castJSONMarshaler(&v)
-	case *json.Marshaler:
-		return castJSONMarshaler(v)
-	default:
-		as = v
-		return as, w.OK()
+	if as, w, matched := castValueBase(value); matched {
+		return as, w
 	}
+
+	return value, New().Processing().OK()
 }
 
 // safeCastValueSupervised attempts to convert a generic Go value into a JSON-compatible representation, similar to CastValueSupervised.
