@@ -178,3 +178,62 @@ func splitLines(s string) []string {
 	}
 	return result
 }
+
+// statIsDir checks whether the given *[os.File] represents a directory.
+//
+// It returns false if the file is nil, if Stat fails, or if the file is not a
+// directory. This function is nil-safe and does not propagate errors.
+func statIsDir(f *os.File) bool {
+	if f == nil {
+		return false
+	}
+	info, err := f.Stat()
+	if err != nil || info == nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// contentIsDir dispatches on the concrete backing type to determine
+// whether it represents an open directory handle. It is deliberately
+// exhaustive over every [ReadSeekCloser] implementation sysx produces
+// ([MemBlob], [TempFile], [spillBuffer]) plus the *[os.File] case a caller could
+// introduce via [Resource.WithContent], and falls back to a duck-typed
+// Stat check for any other custom implementation before giving up.
+func contentIsDir(content ReadSeekCloser) bool {
+	switch c := content.(type) {
+	case nil:
+		return false
+	case *MemBlob:
+		// Always memory-backed; can never be a directory.
+		return false
+	case *TempFile:
+		return c.isDir()
+	case *spillBuffer:
+		if c == nil {
+			return false
+		}
+		// Only the spilled-to-disk phase has a real file handle; the
+		// pure in-memory phase (c.file == nil) can't be a directory.
+		// nil-safe: t == nil -> Stat returns ErrNilResource
+		return c.file.isDir()
+	case *os.File:
+		return statIsDir(c)
+	default:
+		// An arbitrary caller-supplied [ReadSeekCloser] (via WithContent)
+		// that isn't any of the above. If it happens to also expose a
+		// Stat() ([os.FileInfo], error) method — as *[os.File]-wrapping
+		// custom types commonly do — use it; otherwise there's no safe
+		// way to determine directory-ness, so return false.
+		if s, ok := content.(interface {
+			Stat() (os.FileInfo, error)
+		}); ok {
+			info, err := s.Stat()
+			if err != nil || info == nil {
+				return false
+			}
+			return info.IsDir()
+		}
+		return false
+	}
+}

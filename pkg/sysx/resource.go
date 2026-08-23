@@ -590,6 +590,44 @@ func (r *Resource) SizeHumanReadable() string {
 	return HumanizeBytes(r.Size())
 }
 
+// IsDir reports whether the [Resource]'s underlying content handle is
+// actually an open directory rather than a regular file or in-memory
+// buffer.
+//
+// This can only be true for filesystem-backed content adopted via
+// FromFile / FromPath (both use [os.Open], which succeeds on directories on
+// most platforms) or attached directly via WithContent with a caller-
+// supplied *[os.File]. Purely in-memory backings ([MemBlob]) and the
+// in-memory phase of a [spillBuffer] can never be directories.
+//
+// Detection is done via Stat on the already-open file descriptor rather
+// than by re-stat-ing a path string, so the result reflects the actual
+// handle the Resource holds — it is unaffected by TOCTOU races (the path
+// being replaced on disk between calls) and, on Unix, keeps working even
+// if the directory entry was unlinked after opening. If the handle has
+// already been closed, or Stat fails for any other reason, IsDir
+// conservatively returns false rather than propagating an error: this
+// method is a boolean predicate, not a validator, and a Resource that
+// can't prove it's a directory should be treated as if it isn't one.
+//
+// A nil Resource, a Resource with no content loaded, and any
+// custom [ReadSeekCloser] supplied via WithContent that isn't *[os.File] or a
+// sysx-internal file-backed type all safely return false.
+//
+// Returns:
+//
+// True only when the content handle is confirmed, via Stat, to be a
+// directory.
+func (r *Resource) IsDir() bool {
+	if r == nil {
+		return false
+	}
+	r.mu.Lock()
+	content := r.content
+	r.mu.Unlock()
+	return contentIsDir(content)
+}
+
 // fillMime populates ContentType from Name when ContentType is empty. It
 // is invoked by every From* loader after Name and Content are settled.
 func (r *Resource) fillMime() {

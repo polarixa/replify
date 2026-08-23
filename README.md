@@ -161,7 +161,7 @@ The filename drives MIME-type detection and the `Content-Disposition` header:
 ```go
 replify.New().
     Binary(data).
-    WithFilename("report.pdf").
+    Filename("report.pdf").
     Write(w)
 ```
 
@@ -171,7 +171,7 @@ replify.New().
 replify.New().
     WithStatusCode(http.StatusCreated).
     Binary(data).
-    WithFilename("result.json").
+    Filename("result.json").
     Write(w)
 ```
 
