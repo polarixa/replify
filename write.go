@@ -10,86 +10,6 @@ import (
 	"github.com/polarixa/replify/pkg/sysx"
 )
 
-// File sets the file path in the [wrapper] instance.
-//
-// This method allows the user to specify a file path associated with the response.
-// It updates the `filepath` field of the [wrapper] instance with the provided path.
-//
-// Parameters:
-//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) File(filepath string) *wrapper {
-	if !r.Available() {
-		return r
-	}
-	r.filepath = filepath
-	return r
-}
-
-// Filename sets the filename for the response in the [wrapper] instance.
-//
-// This method allows the user to specify a filename associated with the response.
-// It updates the `filename` field of the [wrapper] instance with the provided value.
-//
-// Parameters:
-//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) Filename(filename string) *wrapper {
-	if !r.Available() {
-		return r
-	}
-	r.filename = filename
-	return r
-}
-
-// FileAttachment sets the file path and filename in the [wrapper] instance.
-//
-// This method allows the user to specify a file path and a filename associated with the response.
-// It updates the `filepath` and `filename` fields of the [wrapper] instance with the provided values.
-//
-// Parameters:
-//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
-//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) FileAttachment(filepath string, filename string) *wrapper {
-	if !r.Available() {
-		return r
-	}
-	r.filepath = filepath
-	r.filename = filename
-	return r
-}
-
-// Binary sets the binary data in the [wrapper] instance.
-//
-// This method allows the user to specify binary data associated with the response.
-// It updates the `data` field of the [wrapper] instance with the provided byte slice.
-//
-// Parameters:
-//   - `data`: A byte slice representing the binary data to set.
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) Binary(data []byte) *wrapper {
-	if !r.Available() {
-		return r
-	}
-	// Check if the data is binary, if not, return an error acknowledgment
-	if !isBinaryValue(data) {
-		r.WithErrorAck(NewErrorf("Binary: data is not binary, got %T", data))
-		return r
-	}
-
-	r.data = data
-	return r
-}
-
 // WriteFile writes the file specified in the [wrapper] instance to the provided [http.ResponseWriter].
 //
 // This method checks the availability of the [wrapper] instance and ensures that a valid file path is set.
@@ -142,6 +62,7 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 
 	// Use a deferred span for logging the WriteFile operation with the file path.
 	defer New().Processing().Span("WriteFile",
+		slogger.String("request_id", r.Meta().RequestID()),
 		slogger.String("filepath", r.filepath),
 		slogger.String("filename", r.filename),
 		slogger.String("content_type", resource.ContentType()),
@@ -206,6 +127,13 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
 	}
+	if r.data == nil {
+		r.WithHeader(BadRequest).
+			WithMessage("failed to write binary data, data is nil").
+			BindCause()
+		return r.WriteJSON(w)
+	}
+	// Check if the data is binary, if not, return an error acknowledgment
 	if !r.IsBinaryBody() {
 		typename := reflect.TypeOf(r.data).String()
 
@@ -217,6 +145,7 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	}
 
 	defer New().Processing().Span("WriteBinary",
+		slogger.String("request_id", r.Meta().RequestID()),
 		slogger.String("filename", r.filename),
 	)()
 
@@ -280,6 +209,12 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
 	}
+
+	defer New().Processing().Span("WriteJSON",
+		slogger.String("request_id", r.Meta().RequestID()),
+		slogger.Int("status_code", r.StatusCode()),
+		slogger.String("message", r.Message()),
+	)()
 
 	data := r.JSONBytes()
 

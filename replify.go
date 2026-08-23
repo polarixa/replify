@@ -3127,6 +3127,97 @@ func (w *wrapper) UnidecodeBody() string {
 	return translit.Unidecode(w.BodyString())
 }
 
+// File sets the file path in the [wrapper] instance.
+//
+// This method allows the user to specify a file path associated with the response.
+// It updates the `filepath` field of the [wrapper] instance with the provided path.
+//
+// Parameters:
+//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) File(filepath string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	r.filepath = filepath
+	return r
+}
+
+// Filename sets the filename for the response in the [wrapper] instance.
+//
+// This method allows the user to specify a filename associated with the response.
+// It updates the `filename` field of the [wrapper] instance with the provided value.
+//
+// Parameters:
+//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) Filename(filename string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	r.filename = filename
+	return r
+}
+
+// FileAttachment sets the file path and filename in the [wrapper] instance.
+//
+// This method allows the user to specify a file path and a filename associated with the response.
+// It updates the `filepath` and `filename` fields of the [wrapper] instance with the provided values.
+//
+// Parameters:
+//   - `filepath`: A string representing the file path to set, which will be used to locate the file to be sent in the response.
+//   - `filename`: A string representing the filename to set, which will be used in the [Content-Disposition] header of the response.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) FileAttachment(filepath string, filename string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	r.filepath = filepath
+	r.filename = filename
+	return r
+}
+
+// Binary sets the binary data in the [wrapper] instance.
+//
+// This method allows the user to specify binary data associated with the response.
+// It updates the `data` field of the [wrapper] instance with the provided byte slice.
+//
+// Parameters:
+//   - `data`: A byte slice representing the binary data to set.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) Binary(data []byte) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	if data == nil {
+		r.WithHeader(BadRequest).
+			WithMessage("failed to set binary data, data is nil").
+			BindCause()
+		return r
+	}
+	// Check if the data is binary, if not, return an error acknowledgment
+	if !isBinaryValue(data) {
+		typename := reflect.TypeOf(r.data).String()
+
+		r.WithHeader(UnprocessableEntity).
+			WithMessage("response body must be a binary byte slice").
+			WithErrorAck(NewErrorf("data is not binary, got %s", typename)).
+			WithDebuggingKV("data_type", typename)
+		return r
+	}
+
+	r.data = data
+	return r
+}
+
 // autoAdjust automatically synchronizes the [wrapper]'s error field with its message
 // when the HTTP status code indicates a client (4xx) or server (5xx) error and no
 // explicit error has been set yet.
