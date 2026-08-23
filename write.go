@@ -119,14 +119,21 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	defer New().Processing().Span("WriteFile", slogger.String("filepath", r.filepath))()
 
 	// Open the file specified in the [wrapper] instance.
-	resource, err := sysx.NewResource().FromPath(r.filepath)
+	resource, err := sysx.NewResource().
+		FromPath(r.filepath, false)
 	if err != nil {
-		return r.WithErrorAck(err)
+		r.WithHeader(InternalServerError).
+			WithMessagef("failed to open file: '%s'", r.filepath).
+			WithErrorAck(err)
+		return r.WriteJSON(w)
 	}
 	if resource.IsDir() {
-		return r.WithErrorAck(NewErrorf("WriteFile: '%s' is a directory", r.filepath))
+		r.WithHeader(InternalServerError).
+			WithMessagef("'%s' is a directory, not a file", r.filepath).
+			BindCause()
+		return r.WriteJSON(w)
 	}
-	defer resource.Close() // Ensure the resource is closed after writing.
+	// defer resource.Close() // Ensure the resource is closed after writing.
 
 	// Set the Content-Type header based on the resource's content type.
 	w.Header().Set(HeaderContentType.String(), resource.ContentType())
@@ -138,7 +145,8 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filename) {
 		name, err := assembleContentDisposition(r.filename)
 		if err != nil {
-			return r.WithErrorAck(err)
+			r.WithErrorAck(err)
+			return r.WriteJSON(w)
 		}
 		w.Header().Set(HeaderContentDisposition.String(), name)
 	}
