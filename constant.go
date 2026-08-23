@@ -1054,3 +1054,8 @@ const (
 	//  Example: fi_FI
 	LocaleFiFI Locale = "fi_FI"
 )
+
+// binarySniffLen is the number of leading bytes inspected when performing
+// content-based binary detection. This mirrors the sample size used by
+// net/http.DetectContentType and common gitattributes-style heuristics.
+const binarySniffLen = 512

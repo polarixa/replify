@@ -1172,6 +1172,42 @@ func (w *wrapper) IsJSONBody() bool {
 	return fj.IsValidJSONString(json) && encoding.IsValidJSONString(json)
 }
 
+// IsBinaryBody checks whether the body data is binary.
+//
+// This function first checks if the [wrapper] is available and if the body data is present using `IsBodyPresent()`.
+// Then it uses the `isBinaryValue()` function to determine if the body data is binary.
+//
+// Detection proceeds in tiers, from cheapest to most expensive:
+//
+//  1. Type-based fast path: concrete types that are unambiguously textual
+//     (json.RawMessage, error, fmt.Stringer) or in-memory byte containers
+//     ([]byte, *bytes.Buffer, ...) are resolved by type alone.
+//  2. Content sniffing for strings and byte slices: the payload's leading
+//     bytes are checked for a NUL byte or invalid UTF-8, either of which
+//     is a strong binary signal — the same heuristic git and most diff
+//     tools use to classify files.
+//  3. Reader-based sniffing: for io.ReadSeeker payloads (files, buffers,
+//     sysx.Resource-style ReadSeekCloser content), a bounded sample is
+//     peeked and the position is restored via Seek so callers can still
+//     consume the full payload afterward. Non-seekable io.Reader payloads
+//     cannot be sampled without consuming data meant for the response
+//     body, so they are conservatively treated as binary.
+//
+// Any type not covered by the above (structs, maps, numbers, slices other
+// than []byte, ...) is treated as text, since such values are destined to
+// be JSON-marshaled rather than streamed as raw bytes.
+//
+// Returns:
+//   - A boolean value indicating whether the body data is binary:
+//   - `true` if the [wrapper] is available, the body data is present, and the body data is binary.
+//   - `false` if the [wrapper] is not available, the body data is not present, or the body data is not binary.
+func (w *wrapper) IsBinaryBody() bool {
+	if !w.Available() || !w.IsBodyPresent() {
+		return false
+	}
+	return isBinaryValue(w.data)
+}
+
 // IsHeaderPresent checks whether header information is present in the [wrapper] instance.
 //
 // This function checks if the [header] field of the [wrapper] is not nil, indicating that header information is included.
