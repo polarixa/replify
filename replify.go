@@ -3189,11 +3189,13 @@ func (r *wrapper) FileAttachment(filepath string, filename string) *wrapper {
 // It updates the `data` field of the [wrapper] instance with the provided byte slice.
 //
 // Parameters:
-//   - `data`: A byte slice representing the binary data to set.
+//   - `data`: An `any` type representing the binary data to set.
+//     It must be a byte slice (`[]byte`) or a type that can be converted to a byte slice.
+//     If the provided data is not binary, an error acknowledgment will be generated.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) Binary(data []byte) *wrapper {
+func (r *wrapper) Binary(data any) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -3203,7 +3205,6 @@ func (r *wrapper) Binary(data []byte) *wrapper {
 			BindCause()
 		return r
 	}
-	// Check if the data is binary, if not, return an error acknowledgment
 	if !isBinaryValue(data) {
 		typename := reflect.TypeOf(r.data).String()
 
@@ -3213,7 +3214,6 @@ func (r *wrapper) Binary(data []byte) *wrapper {
 			WithDebuggingKV("data_type", typename)
 		return r
 	}
-
 	r.data = data
 	return r
 }
