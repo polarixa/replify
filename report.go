@@ -135,7 +135,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 // Unlike [Dump] — which dumps the complete response envelope (status, headers,
 // body, meta, pagination, debug) — DumpBody captures the raw body value only.
 // The serialized content matches the JSON representation of the value passed
-// to [WithBody] or [WithJSONBody].
+// to [WithBody] or [WithBodySuppressed].
 //
 // # Thread-safety
 //
