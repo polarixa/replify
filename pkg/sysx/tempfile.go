@@ -165,6 +165,22 @@ func (t *TempFile) Close() error {
 	return err
 }
 
+// isDir reports whether t wraps an open file that Stat confirms is
+// a directory.
+//
+// It delegates to [TempFile.Stat], which is already nil-safe
+// for a nil *[TempFile] or a TempFile with no underlying *[os.File], so any
+// Stat error (nil handle, closed fd, revoked handle, permission change,
+// ...) is treated conservatively as "not a directory" rather than
+// propagated.
+func (t *TempFile) isDir() bool {
+	info, err := t.Stat()
+	if err != nil || info == nil {
+		return false
+	}
+	return info.IsDir()
+}
+
 // newTempFileWith is the single shared constructor used by every public
 // TempFile factory. It applies the package's pattern fallbacks and
 // returns a TempFile whose removeOnClose flag is set to remove.

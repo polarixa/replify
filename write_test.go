@@ -344,7 +344,7 @@ func TestWriteFile_CustomHeaders(t *testing.T) {
 	}
 }
 
-func TestWriteFile_WithFilenameAttachment(t *testing.T) {
+func TestWriteFile_FilenameAttachment(t *testing.T) {
 	t.Parallel()
 	path := writeTempFile(t, "report.pdf", "%PDF-1.4")
 
@@ -514,12 +514,12 @@ func TestWriteBinary_ExactBytes(t *testing.T) {
 	}
 }
 
-func TestWriteBinary_ContentType_WithFilename(t *testing.T) {
+func TestWriteBinary_ContentType_Filename(t *testing.T) {
 	t.Parallel()
 
 	data := []byte("%PDF-1.4")
 	rr := httptest.NewRecorder()
-	replify.New().WithHeader(replify.OK).Binary(data).WithFilename("report.pdf").WriteBinary(rr)
+	replify.New().WithHeader(replify.OK).Binary(data).Filename("report.pdf").WriteBinary(rr)
 
 	ct := rr.Header().Get("Content-Type")
 	if !strings.HasPrefix(ct, "application/pdf") {
@@ -539,11 +539,11 @@ func TestWriteBinary_ContentType_WithoutFilename(t *testing.T) {
 	}
 }
 
-func TestWriteBinary_ContentDisposition_WithFilename(t *testing.T) {
+func TestWriteBinary_ContentDisposition_Filename(t *testing.T) {
 	t.Parallel()
 
 	rr := httptest.NewRecorder()
-	replify.New().WithHeader(replify.OK).Binary([]byte("data")).WithFilename("result.bin").WriteBinary(rr)
+	replify.New().WithHeader(replify.OK).Binary([]byte("data")).Filename("result.bin").WriteBinary(rr)
 
 	disp := rr.Header().Get("Content-Disposition")
 	if !strings.Contains(disp, "attachment") {
@@ -558,7 +558,7 @@ func TestWriteBinary_FallbackOctetStream(t *testing.T) {
 	t.Parallel()
 
 	rr := httptest.NewRecorder()
-	replify.New().WithHeader(replify.OK).Binary([]byte("unknown")).WithFilename("file.unknown_xyz99").WriteBinary(rr)
+	replify.New().WithHeader(replify.OK).Binary([]byte("unknown")).Filename("file.unknown_xyz99").WriteBinary(rr)
 
 	ct := rr.Header().Get("Content-Type")
 	if ct != "application/octet-stream" {
@@ -715,11 +715,11 @@ func TestWrite_FileAttachmentChain(t *testing.T) {
 	}
 }
 
-func TestWrite_BinaryWithFilename(t *testing.T) {
+func TestWrite_BinaryFilename(t *testing.T) {
 	t.Parallel()
 
 	rr := httptest.NewRecorder()
-	w := replify.New().WithHeader(replify.OK).Binary([]byte("data")).WithFilename("result.json").Write(rr)
+	w := replify.New().WithHeader(replify.OK).Binary([]byte("data")).Filename("result.json").Write(rr)
 
 	if w.IsErrorPresent() {
 		t.Fatalf("unexpected error: %v", w.Error())
@@ -792,7 +792,7 @@ func TestWriteBinary_UnsafeFilename_CRLF(t *testing.T) {
 	rr := httptest.NewRecorder()
 	w := replify.New().WithHeader(replify.OK).
 		Binary([]byte("data")).
-		WithFilename("inject\r\nX-Hdr: val").
+		Filename("inject\r\nX-Hdr: val").
 		WriteBinary(rr)
 
 	if !w.IsErrorPresent() {

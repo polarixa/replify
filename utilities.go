@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
 	"reflect"
 	"strings"
 	"time"
@@ -1183,4 +1184,30 @@ func isBinaryValue(value any) bool {
 		}
 		return false
 	}
+}
+
+// IsSafeFilename checks if the provided filename is safe for use in HTTP headers.
+// It returns false if the filename is empty or contains any unsafe characters (CR, LF, or null bytes).
+// If the filename is safe, it returns true; otherwise, it returns false along with an error describing the issue.
+func IsSafeFilename(filename string) (bool, error) {
+	if strutil.IsEmpty(filename) {
+		return false, NewError("filename is empty")
+	}
+	for i, c := range filename {
+		if c == '\r' || c == '\n' || c == 0 {
+			return false, NewErrorf("filename contains unsafe character at byte position %d", i)
+		}
+	}
+	return true, nil
+}
+
+// assembleContentDisposition returns a safe Content-Disposition attachment header value.
+// Filenames with CR, LF, or null bytes are rejected to prevent header injection.
+// All other characters are properly encoded by the mime package (RFC 5987 for non-ASCII).
+func assembleContentDisposition(filename string) (string, error) {
+	_, err := IsSafeFilename(filename)
+	if err != nil {
+		return "", err
+	}
+	return mime.FormatMediaType("attachment", map[string]string{"filename": filename}), nil
 }
