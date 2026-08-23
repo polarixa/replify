@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"reflect"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/encoding"
@@ -1054,4 +1056,131 @@ func castValueSupervised(value any) (as any, w *wrapper) {
 func safeCastValueSupervised(value any) (as any) {
 	as, _ = castValueSupervised(value)
 	return as
+}
+
+// sniffBytes applies content-based binary detection to a byte slice.
+//
+// The payload is treated as binary when its leading sample (bounded by
+// binarySniffLen) contains a NUL byte or is not valid UTF-8. An empty
+// slice is treated as text.
+func sniffBytes(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+	sample := b
+	if len(sample) > binarySniffLen {
+		sample = sample[:binarySniffLen]
+	}
+	if bytes.IndexByte(sample, 0) >= 0 {
+		return true
+	}
+	return !utf8.Valid(sample)
+}
+
+// sniffString applies the same content-based binary detection as
+// sniffBytes without forcing a []byte allocation for the common case.
+//
+// The payload is treated as binary when its leading sample (bounded by
+// binarySniffLen) contains a NUL byte or is not valid UTF-8. An empty
+// string is treated as text.
+func sniffString(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	sample := s
+	if len(sample) > binarySniffLen {
+		sample = sample[:binarySniffLen]
+	}
+	if strings.IndexByte(sample, 0) >= 0 {
+		return true
+	}
+	return !utf8.ValidString(sample)
+}
+
+// sniffSeekableReader peeks up to binarySniffLen bytes from an
+// [io.ReadSeeker] to classify its content, then restores the original
+// stream position so the caller can still read the full payload
+// afterward. Any error while peeking or restoring the position is
+// treated conservatively as binary, since the stream can no longer be
+// trusted to replay from its original position.
+func sniffSeekableReader(rs io.ReadSeeker) bool {
+	if rs == nil {
+		return false
+	}
+	pos, err := rs.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return true
+	}
+	buf := make([]byte, binarySniffLen)
+	n, readErr := io.ReadFull(rs, buf)
+	if readErr != nil && readErr != io.ErrUnexpectedEOF && readErr != io.EOF {
+		_, _ = rs.Seek(pos, io.SeekStart)
+		return true
+	}
+	if _, err := rs.Seek(pos, io.SeekStart); err != nil {
+		return true
+	}
+	return sniffBytes(buf[:n])
+}
+
+// isBinaryValue is the recursive worker behind IsBinaryBody. It resolves
+// unambiguous types directly, falls back to content sniffing for strings,
+// byte slices, and readers, and unwraps one level of pointer indirection
+// for any other concrete type.
+//
+// The function returns true if the value is determined to be binary, and false otherwise.
+func isBinaryValue(value any) bool {
+	switch v := value.(type) {
+	case nil:
+		return false
+	// unambiguously textual, regardless of content
+	case json.RawMessage:
+		return false
+	case *json.RawMessage:
+		return false
+	case error:
+		return false
+	case fmt.Stringer:
+		return sniffString(v.String())
+	case *fmt.Stringer:
+		if v == nil {
+			return false
+		}
+		return sniffString((*v).String())
+	// strings.Reader only ever wraps text
+	case *strings.Reader:
+		return false
+	// unambiguously binary-shaped containers
+	case []byte:
+		return sniffBytes(v)
+	case *[]byte:
+		if v == nil {
+			return false
+		}
+		return sniffBytes(*v)
+	// content-sniffed strings
+	case string:
+		return sniffString(v)
+	case *string:
+		if v == nil {
+			return false
+		}
+		return sniffString(*v)
+	// seekable readers (files, sysx.Resource content, bytes.Reader, ...)
+	case io.ReadSeeker:
+		return sniffSeekableReader(v)
+	// non-seekable readers can't be sampled without consuming
+	// the body meant for the response, so treat conservatively as binary.
+	case io.Reader:
+		return true
+	default:
+		rv := reflect.ValueOf(value)
+		if rv.Kind() == reflect.Ptr {
+			if rv.IsNil() {
+				return false
+			}
+			return isBinaryValue(rv.Elem().Interface())
+		}
+		return false
+	}
 }
