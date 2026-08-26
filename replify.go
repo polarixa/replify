@@ -15,6 +15,7 @@ import (
 	"github.com/polarixa/replify/pkg/encoding"
 	"github.com/polarixa/replify/pkg/fj"
 	"github.com/polarixa/replify/pkg/hashy"
+	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/translit"
@@ -179,7 +180,12 @@ func (w *wrapper) BodyString() string {
 	if !w.Available() {
 		return ""
 	}
-	return conv.StringOrDefault(safeCastValueSupervised(w.data), "<empty>")
+	d, err := conv.String(w.data) // conv.StringOrDefault(safeCastValueSupervised(w.data), "<empty>")
+	if err != nil {
+		slogger.Errorf("response body could not be converted to a string: %v", err)
+		return ""
+	}
+	return d
 }
 
 // CompressSafe compresses the body data if it exceeds a specified threshold.
@@ -3083,7 +3089,7 @@ func (w *wrapper) String() string {
 		sw.AppendF("error=%q", w.Error()).Space()
 	}
 	if w.IsBodyPresent() && !w.skipBody {
-		sw.AppendF("data=%+v", w.BodyString()).Space()
+		sw.AppendF("data=%v", w.BodyString()).Space()
 	}
 	if w.IsTotalPresent() {
 		sw.AppendF("total=%d", w.total).Space()
