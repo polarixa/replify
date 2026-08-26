@@ -49,172 +49,101 @@ func (c *Converter) String(from any) (string, error) {
 	// Fast path for common types
 	switch v := from.(type) {
 	case string:
-		return v, nil
+		return castString(&v), nil
 	case *string:
-		if v == nil {
-			return "", nil
-		}
-		return *v, nil
+		return castString(v), nil
 	case []byte:
-		return string(v), nil
+		return castBytes(&v), nil
 	case *[]byte:
-		if v == nil {
-			return "", nil
-		}
-		return string(*v), nil
+		return castBytes(v), nil
 	case []rune:
-		return string(v), nil
+		return castRunes(&v), nil
+	case *[]rune:
+		return castRunes(v), nil
 	case bool:
-		return strconv.FormatBool(v), nil
+		return castBool(&v), nil
 	case *bool:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatBool(*v), nil
+		return castBool(v), nil
 	case int:
-		return strconv.Itoa(v), nil
+		return castInt(&v), nil
 	case *int:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.Itoa(*v), nil
+		return castInt(v), nil
 	case int8:
-		return strconv.FormatInt(int64(v), 10), nil
+		return castInt8(&v), nil
 	case *int8:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatInt(int64(*v), 10), nil
+		return castInt8(v), nil
 	case int16:
-		return strconv.FormatInt(int64(v), 10), nil
+		return castInt16(&v), nil
 	case *int16:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatInt(int64(*v), 10), nil
+		return castInt16(v), nil
 	case int32:
-		return strconv.FormatInt(int64(v), 10), nil
+		return castInt32(&v), nil
 	case *int32:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatInt(int64(*v), 10), nil
+		return castInt32(v), nil
 	case int64:
-		return strconv.FormatInt(v, 10), nil
+		return castInt64(&v), nil
 	case *int64:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatInt(*v, 10), nil
+		return castInt64(v), nil
 	case uint:
-		return strconv.FormatUint(uint64(v), 10), nil
+		return castUint(&v), nil
 	case *uint:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatUint(uint64(*v), 10), nil
+		return castUint(v), nil
 	case uint8:
-		return strconv.FormatUint(uint64(v), 10), nil
+		return castUint8(&v), nil
 	case *uint8:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatUint(uint64(*v), 10), nil
+		return castUint8(v), nil
 	case uint16:
-		return strconv.FormatUint(uint64(v), 10), nil
+		return castUint16(&v), nil
+	case *uint16:
+		return castUint16(v), nil
 	case uint32:
-		return strconv.FormatUint(uint64(v), 10), nil
+		return castUint32(&v), nil
 	case *uint32:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatUint(uint64(*v), 10), nil
+		return castUint32(v), nil
 	case uint64:
-		return strconv.FormatUint(v, 10), nil
+		return castUint64(&v), nil
 	case *uint64:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatUint(*v, 10), nil
+		return castUint64(v), nil
 	case float32:
-		return strconv.FormatFloat(float64(v), 'f', -1, 32), nil
+		return castFloat32(&v), nil
 	case *float32:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatFloat(float64(*v), 'f', -1, 32), nil
+		return castFloat32(v), nil
 	case float64:
-		return strconv.FormatFloat(v, 'f', -1, 64), nil
+		return castFloat64(&v), nil
 	case *float64:
-		if v == nil {
-			return "", nil
-		}
-		return strconv.FormatFloat(*v, 'f', -1, 64), nil
+		return castFloat64(v), nil
 	case complex64:
-		return encodeComplexJSONToken(float64(real(v)), float64(imag(v)), true)
+		return castComplex64(&v)
 	case *complex64:
-		if v == nil {
-			return "", nil
-		}
-		return encodeComplexJSONToken(float64(real(*v)), float64(imag(*v)), true)
+		return castComplex64(v)
 	case complex128:
-		return encodeComplexJSONToken(real(v), imag(v), false)
+		return castComplex128(&v)
 	case *complex128:
-		if v == nil {
-			return "", nil
-		}
-		return encodeComplexJSONToken(real(*v), imag(*v), false)
+		return castComplex128(v)
 	case time.Time:
-		return v.Format(time.RFC3339), nil
+		return castTime(&v), nil
 	case *time.Time:
-		if v == nil {
-			return "", nil
-		}
-		return (*v).Format(time.RFC3339), nil
+		return castTime(v), nil
 	case time.Duration:
-		return v.String(), nil
+		return castDuration(&v), nil
 	case *time.Duration:
-		if v == nil {
-			return "", nil
-		}
-		return (*v).String(), nil
-	case error:
-		return v.Error(), nil
+		return castDuration(v), nil
 	case fmt.Stringer:
-		return v.String(), nil
+		return castFmtStringer(&v), nil
 	case *fmt.Stringer:
-		if v == nil {
-			return "", nil
-		}
-		return (*v).String(), nil
+		return castFmtStringer(v), nil
 	case json.RawMessage:
-		if !json.Valid(v) {
-			return "", newConvError(from, "invalid JSON")
-		}
-		return string(v), nil
+		return castJSONRawMessage(&v)
 	case *json.RawMessage:
-		if v == nil {
-			return "", nil
-		}
-		if !json.Valid(*v) {
-			return "", newConvError(from, "invalid JSON")
-		}
-		return string(*v), nil
+		return castJSONRawMessage(v)
 	case json.Marshaler:
-		b, err := v.MarshalJSON()
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
+		return castJSONMarshaler(&v)
 	case *json.Marshaler:
-		if v == nil {
-			return "", nil
-		}
-		b, err := (*v).MarshalJSON()
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
+		return castJSONMarshaler(v)
+	case error:
+		return castError(&v), nil
+	case *error:
+		return castError(v), nil
 	}
 
 	// Check for custom converter interfaces
@@ -475,4 +404,467 @@ func encodeComplexJSONToken(realPart, imagPart float64, is32 bool) (string, erro
 		return "", errors.New("non-finite float (NaN/Inf)")
 	}
 	return `{"real":` + r + `,"imag":` + i + `}`, nil
+}
+
+// castString safely dereferences a string pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a string.
+//
+// Returns:
+//   - The dereferenced string value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var strPtr *string
+//	result := castString(strPtr) // result will be ""
+func castString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+// castBytes safely dereferences a byte slice pointer, returning an empty string if the pointer is nil or the slice is empty.
+//
+// Parameters:
+//   - value: A pointer to a byte slice.
+//
+// Returns:
+//   - The string representation of the byte slice if the pointer is not nil and the slice is not empty; otherwise, an empty string.
+//
+// Example:
+//
+//	var bytesPtr *[]byte
+//	result := castBytes(bytesPtr) // result will be ""
+func castBytes(value *[]byte) string {
+	if value == nil || len(*value) == 0 {
+		return ""
+	}
+	return string(*value)
+}
+
+// castRunes safely dereferences a rune slice pointer, returning an empty string if the pointer is nil or the slice is empty.
+//
+// Parameters:
+//   - value: A pointer to a rune slice.
+//
+// Returns:
+//   - The string representation of the rune slice if the pointer is not nil and the slice is not empty; otherwise, an empty string.
+//
+// Example:
+//
+//	var runesPtr *[]rune
+//	result := castRunes(runesPtr) // result will be ""
+func castRunes(value *[]rune) string {
+	if value == nil || len(*value) == 0 {
+		return ""
+	}
+	return string(*value)
+}
+
+// castBool safely dereferences a bool pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a bool.
+//
+// Returns:
+//   - The string representation of the bool value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var boolPtr *bool
+//	result := castBool(boolPtr) // result will be ""
+func castBool(value *bool) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatBool(*value)
+}
+
+// castInt safely dereferences an int pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an int.
+//
+// Returns:
+//   - The string representation of the int value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var intPtr *int
+//	result := castInt(intPtr) // result will be ""
+func castInt(value *int) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.Itoa(*value)
+}
+
+// castInt8 safely dereferences an int8 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an int8.
+//
+// Returns:
+//   - The string representation of the int8 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var int8Ptr *int8
+//	result := castInt8(int8Ptr) // result will be ""
+func castInt8(value *int8) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatInt(int64(*value), 10)
+}
+
+// castInt16 safely dereferences an int16 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an int16.
+//
+// Returns:
+//   - The string representation of the int16 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var int16Ptr *int16
+//	result := castInt16(int16Ptr) // result will be ""
+func castInt16(value *int16) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatInt(int64(*value), 10)
+}
+
+// castInt32 safely dereferences an int32 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an int32.
+//
+// Returns:
+//   - The string representation of the int32 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var int32Ptr *int32
+//	result := castInt32(int32Ptr) // result will be ""
+func castInt32(value *int32) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatInt(int64(*value), 10)
+}
+
+// castInt64 safely dereferences an int64 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an int64.
+//
+// Returns:
+//   - The string representation of the int64 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var int64Ptr *int64
+//	result := castInt64(int64Ptr) // result will be ""
+func castInt64(value *int64) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatInt(*value, 10)
+}
+
+// castUint safely dereferences a uint pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a uint.
+//
+// Returns:
+//   - The string representation of the uint value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var uintPtr *uint
+//	result := castUint(uintPtr) // result will be ""
+func castUint(value *uint) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*value), 10)
+}
+
+// castUint8 safely dereferences a uint8 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a uint8.
+//
+// Returns:
+//   - The string representation of the uint8 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var uint8Ptr *uint8
+//	result := castUint8(uint8Ptr) // result will be ""
+func castUint8(value *uint8) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*value), 10)
+}
+
+// castUint16 safely dereferences a uint16 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a uint16.
+//
+// Returns:
+//   - The string representation of the uint16 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var uint16Ptr *uint16
+//	result := castUint16(uint16Ptr) // result will be ""
+func castUint16(value *uint16) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*value), 10)
+}
+
+// castUint32 safely dereferences a uint32 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a uint32.
+//
+// Returns:
+//   - The string representation of the uint32 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var uint32Ptr *uint32
+//	result := castUint32(uint32Ptr) // result will be ""
+func castUint32(value *uint32) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatUint(uint64(*value), 10)
+}
+
+// castUint64 safely dereferences a uint64 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a uint64.
+//
+// Returns:
+//   - The string representation of the uint64 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var uint64Ptr *uint64
+//	result := castUint64(uint64Ptr) // result will be ""
+func castUint64(value *uint64) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatUint(*value, 10)
+}
+
+// castFloat32 safely dereferences a float32 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a float32.
+//
+// Returns:
+//   - The string representation of the float32 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var float32Ptr *float32
+//	result := castFloat32(float32Ptr) // result will be ""
+func castFloat32(value *float32) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatFloat(float64(*value), 'f', -1, 32)
+}
+
+// castFloat64 safely dereferences a float64 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a float64.
+//
+// Returns:
+//   - The string representation of the float64 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var float64Ptr *float64
+//	result := castFloat64(float64Ptr) // result will be ""
+func castFloat64(value *float64) string {
+	if value == nil {
+		return ""
+	}
+	return strconv.FormatFloat(*value, 'f', -1, 64)
+}
+
+// castComplex64 safely dereferences a complex64 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a complex64.
+//
+// Returns:
+//   - The string representation of the complex64 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var complex64Ptr *complex64
+//	result := castComplex64(complex64Ptr) // result will be ""
+func castComplex64(value *complex64) (string, error) {
+	if value == nil {
+		return "", nil
+	}
+	return encodeComplexJSONToken(float64(real(*value)), float64(imag(*value)), true)
+}
+
+// castComplex128 safely dereferences a complex128 pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a complex128.
+//
+// Returns:
+//   - The string representation of the complex128 value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var complex128Ptr *complex128
+//	result := castComplex128(complex128Ptr) // result will be ""
+func castComplex128(value *complex128) (string, error) {
+	if value == nil {
+		return "", nil
+	}
+	return encodeComplexJSONToken(real(*value), imag(*value), false)
+}
+
+// castTime safely dereferences a time.Time pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a time.Time.
+//
+// Returns:
+//   - The string representation of the time.Time value in RFC3339 format if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var timePtr *time.Time
+//	result := castTime(timePtr) // result will be ""
+func castTime(value *time.Time) string {
+	if value == nil {
+		return ""
+	}
+	return value.Format(time.RFC3339)
+}
+
+// castDuration safely dereferences a time.Duration pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a time.Duration.
+//
+// Returns:
+//   - The string representation of the time.Duration value if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var durationPtr *time.Duration
+//	result := castDuration(durationPtr) // result will be ""
+func castDuration(value *time.Duration) string {
+	if value == nil {
+		return ""
+	}
+	return value.String()
+}
+
+// castError safely dereferences an error pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to an error.
+//
+// Returns:
+//   - The string representation of the error if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var errPtr *error
+//	result := castError(errPtr) // result will be ""
+func castError(value *error) string {
+	if value == nil || *value == nil {
+		return ""
+	}
+	return (*value).Error()
+}
+
+// castFmtStringer safely dereferences a fmt.Stringer pointer, returning an empty string if the pointer is nil.
+//
+// Parameters:
+//   - value: A pointer to a fmt.Stringer.
+//
+// Returns:
+//   - The string representation of the fmt.Stringer if the pointer is not nil; otherwise, an empty string.
+//
+// Example:
+//
+//	var stringerPtr *fmt.Stringer
+//	result := castFmtStringer(stringerPtr) // result will be ""
+func castFmtStringer(value *fmt.Stringer) string {
+	if value == nil || *value == nil {
+		return ""
+	}
+	return (*value).String()
+}
+
+// castJSONRawMessage safely dereferences a json.RawMessage pointer, returning an empty string if the pointer is nil or the JSON is invalid.
+//
+// Parameters:
+//   - value: A pointer to a json.RawMessage.
+//
+// Returns:
+//   - The string representation of the JSON if the pointer is not nil and the JSON is valid; otherwise, an empty string or an error.
+//
+// Example:
+//
+//	var rawMsgPtr *json.RawMessage
+//	result, err := castJSONRawMessage(rawMsgPtr) // result will be "", err will be nil
+func castJSONRawMessage(value *json.RawMessage) (string, error) {
+	if value == nil {
+		return "", nil
+	}
+	if !json.Valid(*value) {
+		return "", newConvError(value, "invalid JSON")
+	}
+	return string(*value), nil
+}
+
+// castJSONMarshaler safely dereferences a json.Marshaler pointer, returning an empty string if the pointer is nil or if marshalling fails.
+//
+// Parameters:
+//   - value: A pointer to a json.Marshaler.
+//
+// Returns:
+//   - The string representation of the marshalled JSON if the pointer is not nil and marshalling succeeds; otherwise, an empty string or an error.
+//
+// Example:
+//
+//	var marshalerPtr *json.Marshaler
+//	result, err := castJSONMarshaler(marshalerPtr) // result will be "", err will be nil
+func castJSONMarshaler(value *json.Marshaler) (string, error) {
+	if value == nil {
+		return "", nil
+	}
+	b, err := (*value).MarshalJSON()
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
