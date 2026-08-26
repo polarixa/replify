@@ -216,6 +216,12 @@ func (c *Converter) stringFromReflect(from any) (string, error) {
 			d := value.Interface().(time.Duration)
 			return castDuration(&d), nil
 		}
+		if conv, ok := value.Interface().(stringConverter); ok {
+			return conv.String(), nil
+		}
+		if conv, ok := value.Interface().(stringErrorConverter); ok {
+			return conv.String()
+		}
 	case reflect.Ptr:
 		if value.IsNil() {
 			if c.nilAsZero {
