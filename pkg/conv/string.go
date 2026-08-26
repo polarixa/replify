@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unsafe"
 )
 
 // ///////////////////////////
@@ -158,6 +159,87 @@ func (c *Converter) String(from any) (string, error) {
 	return c.stringFromReflect(from)
 }
 
+// stringFromReflect converts a reflect.Value to a string based on its kind.
+//
+// Parameters:
+//   - `from`: The input value to be converted to string.
+//
+// Returns:
+//   - A string representation of the input value.
+//   - An error if the conversion fails.
+func (c *Converter) stringFromReflect(from any) (string, error) {
+	value := indirectValue(reflect.ValueOf(from))
+	if !value.IsValid() {
+		if c.nilAsZero {
+			return "", nil
+		}
+		return "", newConvError(from, "string")
+	}
+
+	kind := value.Kind()
+	switch kind {
+	case reflect.String:
+		s := value.String()
+		return castString(&s), nil
+	case reflect.Bool:
+		s := value.Bool()
+		return castBool(&s), nil
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		s := value.Int()
+		return castInt64(&s), nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		s := value.Uint()
+		return castUint64(&s), nil
+	case reflect.Float32:
+		s := value.Float()
+		f := float32(s)
+		return castFloat32(&f), nil
+	case reflect.Float64:
+		s := value.Float()
+		return castFloat64(&s), nil
+	case reflect.Complex64:
+		return castComplex64Ref(value)
+	case reflect.Complex128:
+		return castComplex128Ref(value)
+	case reflect.Slice:
+		if value.Type().Elem().Kind() == reflect.Uint8 {
+			// s := value.Bytes()
+			// return castBytes(&s), nil
+			return castBytes((*[]byte)(unsafe.Pointer(value.Pointer()))), nil
+		}
+	case reflect.Struct:
+		if value.Type() == reflect.TypeFor[time.Time]() {
+			t := value.Interface().(time.Time)
+			return castTime(&t), nil
+		}
+		if value.Type() == reflect.TypeFor[time.Duration]() {
+			d := value.Interface().(time.Duration)
+			return castDuration(&d), nil
+		}
+	case reflect.Ptr:
+		if value.IsNil() {
+			if c.nilAsZero {
+				return "", nil
+			}
+			return "", newConvError(from, "string")
+		}
+		elem := value.Elem()
+		return c.stringFromReflect(elem.Interface())
+	case reflect.Interface:
+		if value.IsNil() {
+			if c.nilAsZero {
+				return "", nil
+			}
+			return "", newConvError(from, "string")
+		}
+		elem := value.Elem()
+		return c.stringFromReflect(elem.Interface())
+	}
+
+	// Fallback to fmt.Sprintf
+	return fmt.Sprintf("%v", from), nil
+}
+
 // ///////////////////////////
 // Section: String formatting
 // ///////////////////////////
@@ -257,52 +339,6 @@ func Join(from any, sep string) (string, error) {
 		return "", err
 	}
 	return strings.Join(slice, sep), nil
-}
-
-// stringFromReflect converts a reflect.Value to a string based on its kind.
-//
-// Parameters:
-//   - `from`: The input value to be converted to string.
-//
-// Returns:
-//   - A string representation of the input value.
-//   - An error if the conversion fails.
-func (c *Converter) stringFromReflect(from any) (string, error) {
-	value := indirectValue(reflect.ValueOf(from))
-	if !value.IsValid() {
-		if c.nilAsZero {
-			return "", nil
-		}
-		return "", newConvError(from, "string")
-	}
-
-	kind := value.Kind()
-	switch kind {
-	case reflect.String:
-		return value.String(), nil
-	case reflect.Bool:
-		return strconv.FormatBool(value.Bool()), nil
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(value.Int(), 10), nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return strconv.FormatUint(value.Uint(), 10), nil
-	case reflect.Float32:
-		return strconv.FormatFloat(value.Float(), 'f', -1, 32), nil
-	case reflect.Float64:
-		return strconv.FormatFloat(value.Float(), 'f', -1, 64), nil
-	case reflect.Slice:
-		if value.Type().Elem().Kind() == reflect.Uint8 {
-			return string(value.Bytes()), nil
-		}
-	case reflect.Complex64, reflect.Complex128:
-		// Encode as {"real":...,"imag":...}
-		r, i := realFrom(value), imagFrom(value)
-		s, err := encodeComplexJSONToken(r, i, value.Kind() == reflect.Complex64)
-		return s, err
-	}
-
-	// Fallback to fmt.Sprintf
-	return fmt.Sprintf("%v", from), nil
 }
 
 // realFrom extracts the real part of a complex number from a reflect.Value.
@@ -729,6 +765,29 @@ func castComplex64(value *complex64) (string, error) {
 	return encodeComplexJSONToken(float64(real(*value)), float64(imag(*value)), true)
 }
 
+// castComplex64Ref safely dereferences a reflect.Value containing a complex64, returning an empty string if the value is nil or invalid.
+//
+// Parameters:
+//   - value: A reflect.Value containing a complex64.
+//
+// Returns:
+//   - The string representation of the complex64 value if the value is valid; otherwise, an empty string or an error.
+//
+// Example:
+//
+//	var complex64Val complex64 = 1.23 + 4.56i
+//	result, err := castComplex64Ref(reflect.ValueOf(complex64Val)) // result will be the JSON representation of the complex number
+func castComplex64Ref(value reflect.Value) (string, error) {
+	if value.IsNil() {
+		return "", nil
+	}
+	if !value.IsValid() {
+		return "", newConvError(value.Interface(), "invalid complex64 value")
+	}
+	r, i := realFrom(value), imagFrom(value)
+	return encodeComplexJSONToken(r, i, true)
+}
+
 // castComplex128 safely dereferences a complex128 pointer, returning an empty string if the pointer is nil.
 //
 // Parameters:
@@ -746,6 +805,29 @@ func castComplex128(value *complex128) (string, error) {
 		return "", nil
 	}
 	return encodeComplexJSONToken(real(*value), imag(*value), false)
+}
+
+// castComplex128Ref safely dereferences a reflect.Value containing a complex128, returning an empty string if the value is nil or invalid.
+//
+// Parameters:
+//   - value: A reflect.Value containing a complex128.
+//
+// Returns:
+//   - The string representation of the complex128 value if the value is valid; otherwise, an empty string or an error.
+//
+// Example:
+//
+//	var complex128Val complex128 = 1.23 + 4.56i
+//	result, err := castComplex128Ref(reflect.ValueOf(complex128Val)) // result will be the JSON representation of the complex number
+func castComplex128Ref(value reflect.Value) (string, error) {
+	if value.IsNil() {
+		return "", nil
+	}
+	if !value.IsValid() {
+		return "", newConvError(value.Interface(), "invalid complex128 value")
+	}
+	r, i := realFrom(value), imagFrom(value)
+	return encodeComplexJSONToken(r, i, false)
 }
 
 // castTime safely dereferences a time.Time pointer, returning an empty string if the pointer is nil.
