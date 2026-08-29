@@ -298,11 +298,11 @@ func encodeMap(v reflect.Value) ([]byte, error) {
 // Example:
 //
 //	jsonString, err := safeMarshalJSONString(myStruct, false)
-func safeMarshalJSONString(v any, pretty bool) (out string, err error) {
+func safeMarshalJSONString(v any, pretty bool) (as string, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("%w: %v", ErrMarshalPanicRecovered, r)
-			out = ""
+			as = ""
 		}
 	}()
 
@@ -603,6 +603,61 @@ func marshalJSON(data any, pretty bool) string {
 	return s
 }
 
+// castJSONString converts a pointer to a string into a JSON string representation.
+// If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
+//
+// Parameters:
+//   - `value`: A pointer to a string that may be nil or point to an empty string.
+//
+// Returns:
+//   - A string containing the JSON representation of the input string pointer.
+//
+// Example:
+//
+//	str := "hello"
+//	jsonStr := castJSONString(&str) // jsonStr will be "\"hello\""
+func castJSONString(value *string) (string, error) {
+	if value == nil {
+		return "null", nil
+	}
+	as := *value
+	if as == "" {
+		return "", nil
+	}
+	return as, nil
+}
+
+// castJSONStringPtr converts a pointer to a string into a JSON string representation.
+// If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
+//
+// Parameters:
+//   - `value`: A pointer to a string that may be nil or point to an empty string.
+//
+// Returns:
+//   - A string containing the JSON representation of the input string pointer.
+//
+// Example:
+//
+//	str := "hello"
+//	jsonStr := castJSONStringPtr(&str) // jsonStr will be "\"hello\""
+func castJSONRawMessage(value *json.RawMessage, pretty bool) (string, error) {
+	if value == nil {
+		return "null", nil
+	}
+	as := *value
+	if !json.Valid(as) {
+		return "", ErrInvalidRawMessage
+	}
+	if !pretty {
+		return string(as), nil
+	}
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, as, "", "    "); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
 // marshalJSONE converts a Go value to its JSON string representation or returns an error if the marshalling fails.
 // It uses a deferred function to recover from any panics that may occur during marshalling.
 //
@@ -622,28 +677,15 @@ func marshalJSONE(data any, pretty bool) (string, error) {
 		return "", ErrNilInterface
 	}
 
-	// if data is string, return it
-	s, ok := data.(string)
-	if ok {
-		return s, nil
-	}
-
-	// 1) Pass-through raw JSON if explicitly provided.
-	if rm, ok := data.(json.RawMessage); ok {
-		if rm == nil {
-			return "null", nil
-		}
-		if !json.Valid(rm) {
-			return "", ErrInvalidRawMessage
-		}
-		if !pretty {
-			return string(rm), nil
-		}
-		var buf bytes.Buffer
-		if err := json.Indent(&buf, rm, "", "    "); err != nil {
-			return "", err
-		}
-		return buf.String(), nil
+	switch v := data.(type) {
+	case string:
+		return castJSONString(&v)
+	case *string:
+		return castJSONString(v)
+	case json.RawMessage:
+		return castJSONRawMessage(&v, pretty)
+	case *json.RawMessage:
+		return castJSONRawMessage(v, pretty)
 	}
 
 	v := reflect.ValueOf(data)
