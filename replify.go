@@ -3212,7 +3212,7 @@ func (r *wrapper) Binary(data any) *wrapper {
 		return r
 	}
 	if !isBinaryValue(data) {
-		typename := reflect.TypeOf(r.data).String()
+		typename := reflect.TypeOf(data).String()
 
 		r.WithHeader(UnprocessableEntity).
 			WithMessage("response body must be a binary byte slice").

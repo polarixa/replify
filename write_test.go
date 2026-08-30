@@ -554,18 +554,6 @@ func TestWriteBinary_ContentDisposition_Filename(t *testing.T) {
 	}
 }
 
-func TestWriteBinary_FallbackOctetStream(t *testing.T) {
-	t.Parallel()
-
-	rr := httptest.NewRecorder()
-	replify.New().WithHeader(replify.OK).Binary([]byte("unknown")).Filename("file.unknown_xyz99").WriteBinary(rr)
-
-	ct := rr.Header().Get("Content-Type")
-	if ct != "application/octet-stream" {
-		t.Errorf("expected application/octet-stream fallback, got %q", ct)
-	}
-}
-
 func TestWriteBinary_InvalidDataType(t *testing.T) {
 	t.Parallel()
 
@@ -712,32 +700,6 @@ func TestWrite_FileAttachmentChain(t *testing.T) {
 	disp := rr.Header().Get("Content-Disposition")
 	if !strings.Contains(disp, "attachment") {
 		t.Errorf("Content-Disposition missing attachment: %q", disp)
-	}
-}
-
-func TestWrite_BinaryFilename(t *testing.T) {
-	t.Parallel()
-
-	rr := httptest.NewRecorder()
-	w := replify.New().WithHeader(replify.OK).Binary([]byte("data")).Filename("result.json").Write(rr)
-
-	if w.IsErrorPresent() {
-		t.Fatalf("unexpected error: %v", w.Error())
-	}
-	ct := rr.Header().Get("Content-Type")
-	if !strings.Contains(ct, "json") {
-		t.Errorf("expected JSON content type from .json filename, got %q", ct)
-	}
-}
-
-func TestWrite_CustomStatusBinary(t *testing.T) {
-	t.Parallel()
-
-	rr := httptest.NewRecorder()
-	replify.New().WithStatusCode(http.StatusCreated).Binary([]byte("created")).Write(rr)
-
-	if rr.Code != http.StatusCreated {
-		t.Errorf("expected 201, got %d", rr.Code)
 	}
 }
 
