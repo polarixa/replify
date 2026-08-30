@@ -1,5 +1,7 @@
 package encoding
 
+import "reflect"
+
 // OptionsConfig defines the configuration options for pretty-printing JSON data.
 // It allows customization of width, prefix, indentation, and sorting of keys.
 // These options control how the JSON output will be formatted.
@@ -63,4 +65,11 @@ type kvSorter struct {
 	json   []byte    // original JSON data
 	buf    []byte    // buffer used for processing values
 	pairs  []kvPairs // list of key-value pairs to sort
+}
+
+// mapEntry is an intermediate key-value pair collected during [encodeMap]
+// before the entries are sorted and serialised.
+type mapEntry struct {
+	key string
+	val reflect.Value
 }
