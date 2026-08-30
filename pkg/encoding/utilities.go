@@ -603,7 +603,7 @@ func marshalJSON(data any, pretty bool) string {
 	return s
 }
 
-// castJSONString converts a pointer to a string into a JSON string representation.
+// marshalJSONString converts a pointer to a string into a JSON string representation.
 // If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
 //
 // Parameters:
@@ -615,8 +615,8 @@ func marshalJSON(data any, pretty bool) string {
 // Example:
 //
 //	str := "hello"
-//	jsonStr := castJSONString(&str) // jsonStr will be "\"hello\""
-func castJSONString(value *string) (string, error) {
+//	jsonStr := marshalJSONString(&str) // jsonStr will be "\"hello\""
+func marshalJSONString(value *string) (string, error) {
 	if value == nil {
 		return "null", nil
 	}
@@ -627,7 +627,7 @@ func castJSONString(value *string) (string, error) {
 	return as, nil
 }
 
-// castJSONStringPtr converts a pointer to a string into a JSON string representation.
+// marshalJSONStringPtr converts a pointer to a string into a JSON string representation.
 // If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
 //
 // Parameters:
@@ -640,7 +640,7 @@ func castJSONString(value *string) (string, error) {
 //
 //	str := "hello"
 //	jsonStr := castJSONStringPtr(&str) // jsonStr will be "\"hello\""
-func castJSONRawMessage(value *json.RawMessage, pretty bool) (string, error) {
+func marshalJSONRawMessage(value *json.RawMessage, pretty bool) (string, error) {
 	if value == nil {
 		return "null", nil
 	}
@@ -679,13 +679,13 @@ func marshalJSONE(data any, pretty bool) (string, error) {
 
 	switch v := data.(type) {
 	case string:
-		return castJSONString(&v)
+		return marshalJSONString(&v)
 	case *string:
-		return castJSONString(v)
+		return marshalJSONString(v)
 	case json.RawMessage:
-		return castJSONRawMessage(&v, pretty)
+		return marshalJSONRawMessage(&v, pretty)
 	case *json.RawMessage:
-		return castJSONRawMessage(v, pretty)
+		return marshalJSONRawMessage(v, pretty)
 	}
 
 	v := reflect.ValueOf(data)
