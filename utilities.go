@@ -121,6 +121,9 @@ func chunk(data map[string]any) [][]byte {
 //
 //	jsonStr := jsonpass(myStruct)
 func jsonpass(data any) string {
+	if s, ok := data.(string); ok {
+		return s
+	}
 	return encoding.JSON(data)
 }
 
@@ -140,6 +143,9 @@ func jsonpass(data any) string {
 //
 //	jsonPrettyStr := jsonpretty(myStruct)
 func jsonpretty(data any) string {
+	if s, ok := data.(string); ok {
+		return s
+	}
 	return encoding.JSONPretty(data)
 }
 

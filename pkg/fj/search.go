@@ -288,7 +288,9 @@ func Pluck(json, path string, fields ...string) []Context {
 			if wrote > 0 {
 				b.WriteByte(',')
 			}
-			b.WriteString(`"` + f + `":`)
+			b.WriteString(`"`)
+			b.WriteString(f)
+			b.WriteString(`":`)
 			raw := v.raw
 			if raw == "" {
 				raw = v.String()
