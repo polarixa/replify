@@ -2,6 +2,7 @@ package encoding
 
 import (
 	"bytes"
+	stdencoding "encoding"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -11,750 +12,6 @@ import (
 	"strings"
 	"sync"
 )
-
-// _jsonMarshalerType is the reflect.Type of the json.Marshaler interface.
-// Used to detect types that implement their own JSON serialisation so that
-// toJSONCompatible can leave them untouched.
-var _jsonMarshalerType = reflect.TypeFor[json.Marshaler]()
-
-// _complexTypeCache caches typeContainsComplex results keyed by reflect.Type.
-// After the first reflection walk for a given type every subsequent call is O(1).
-var _complexTypeCache sync.Map
-
-// containsComplex reports whether t or any type structurally reachable from t
-// contains a complex64 or complex128 field. Results are cached per type, so
-// repeated marshaling of the same struct pays only a single sync.Map lookup.
-func containsComplex(t reflect.Type) bool {
-	if v, ok := _complexTypeCache.Load(t); ok {
-		return v.(bool)
-	}
-	result := typeContainsComplex(t, make(map[reflect.Type]bool))
-	_complexTypeCache.Store(t, result)
-	return result
-}
-
-// typeContainsComplex is the recursive worker for containsComplex.
-// seen prevents infinite loops for self-referential types.
-func typeContainsComplex(t reflect.Type, seen map[reflect.Type]bool) bool {
-	switch t.Kind() {
-	case reflect.Complex64, reflect.Complex128:
-		return true
-	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
-		return typeContainsComplex(t.Elem(), seen)
-	case reflect.Map:
-		return typeContainsComplex(t.Key(), seen) || typeContainsComplex(t.Elem(), seen)
-	case reflect.Struct:
-		if seen[t] {
-			return false // recursive type — avoid infinite loop
-		}
-		seen[t] = true
-		for i := 0; i < t.NumField(); i++ {
-			if typeContainsComplex(t.Field(i).Type, seen) {
-				return true
-			}
-		}
-		return false
-	default:
-		return false
-	}
-}
-
-// parseJSONTag extracts the effective JSON key name, the omitempty flag, and
-// whether the field should be omitted entirely ("-") from a struct field's tag.
-func parseJSONTag(sf reflect.StructField) (name string, omitempty, skip bool) {
-	tag := sf.Tag.Get("json")
-	if tag == "" {
-		return sf.Name, false, false
-	}
-	if tag == "-" {
-		return "", false, true
-	}
-	before, after, ok := strings.Cut(tag, ",")
-	if !ok {
-		return tag, false, false
-	}
-	name = before
-	if name == "" {
-		name = sf.Name
-	}
-	omitempty = strings.Contains(after, "omitempty")
-	return name, omitempty, false
-}
-
-// encodeValue encodes a reflect.Value to compact JSON bytes, handling
-// complex64/complex128 at any depth and preserving struct field declaration
-// order. Types that implement json.Marshaler are handed off directly so that
-// their custom serialisation (e.g. time.Time → RFC3339) is preserved.
-func encodeValue(v reflect.Value) ([]byte, error) {
-	// Dereference pointer chain.
-	for v.Kind() == reflect.Ptr {
-		if v.IsNil() {
-			return []byte("null"), nil
-		}
-		v = v.Elem()
-	}
-	// Unwrap interface layers.
-	for v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return []byte("null"), nil
-		}
-		v = v.Elem()
-	}
-	if !v.IsValid() {
-		return []byte("null"), nil
-	}
-
-	t := v.Type()
-	// Honour custom JSON marshaling (e.g. time.Time, json.RawMessage…).
-	if t.Implements(_jsonMarshalerType) || reflect.PointerTo(t).Implements(_jsonMarshalerType) {
-		return json.Marshal(v.Interface())
-	}
-
-	switch v.Kind() {
-	case reflect.Complex64, reflect.Complex128:
-		r, i := realFrom(v), imagFrom(v)
-		return json.Marshal(map[string]float64{"real": r, "imag": i})
-
-	case reflect.Struct:
-		return encodeStruct(v)
-
-	case reflect.Slice:
-		if v.IsNil() {
-			return []byte("null"), nil
-		}
-		return encodeSlice(v)
-
-	case reflect.Array:
-		return encodeSlice(v)
-
-	case reflect.Map:
-		if v.IsNil() {
-			return []byte("null"), nil
-		}
-		return encodeMap(v)
-
-	default:
-		return json.Marshal(v.Interface())
-	}
-}
-
-// isAnonymousPromoted reports whether sf is an anonymous (embedded) struct field
-// whose sub-fields should be promoted into the parent JSON object — i.e. it
-// carries no explicit JSON key name. This mirrors encoding/json promotion rules.
-func isAnonymousPromoted(sf reflect.StructField) bool {
-	if !sf.Anonymous {
-		return false
-	}
-	tag := sf.Tag.Get("json")
-	if tag == "" {
-		return true
-	}
-	if tag == "-" {
-		return false
-	}
-	// `json:",omitempty"` — comma is the first character, no explicit name → promote.
-	// `json:"name"` or `json:"name,omitempty"` — has explicit name → do not promote.
-	return strings.IndexByte(tag, ',') == 0
-}
-
-// writeStructFields writes the exported fields of struct v to buf in declaration
-// order, honouring json struct tags. Anonymous (embedded) struct fields whose
-// tag carries no explicit name are promoted — their sub-fields are written
-// inline, matching encoding/json embedding semantics.
-func writeStructFields(v reflect.Value, buf *bytes.Buffer, first *bool) error {
-	t := v.Type()
-	for i := 0; i < t.NumField(); i++ {
-		sf := t.Field(i)
-		if !sf.IsExported() {
-			continue
-		}
-		fv := v.Field(i)
-
-		if isAnonymousPromoted(sf) {
-			// Dereference an embedded pointer; skip the whole embed if nil.
-			fw := fv
-			nilPtr := false
-			for fw.Kind() == reflect.Ptr {
-				if fw.IsNil() {
-					nilPtr = true
-					break
-				}
-				fw = fw.Elem()
-			}
-			if !nilPtr && fw.Kind() == reflect.Struct {
-				if err := writeStructFields(fw, buf, first); err != nil {
-					return err
-				}
-			}
-			continue
-		}
-
-		name, omitempty, skip := parseJSONTag(sf)
-		if skip {
-			continue
-		}
-		if omitempty && fv.IsZero() {
-			continue
-		}
-		if !*first {
-			buf.WriteByte(',')
-		}
-		*first = false
-		keyBytes, err := json.Marshal(name)
-		if err != nil {
-			return err
-		}
-		buf.Write(keyBytes)
-		buf.WriteByte(':')
-		valBytes, err := encodeValue(fv)
-		if err != nil {
-			return err
-		}
-		buf.Write(valBytes)
-	}
-	return nil
-}
-
-// encodeStruct serialises a struct to compact JSON bytes in field declaration
-// order, honouring json struct tags (name, omitempty, "-") and promoting
-// anonymous (embedded) struct fields that carry no explicit JSON name.
-func encodeStruct(v reflect.Value) ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
-	if err := writeStructFields(v, &buf, &first); err != nil {
-		return nil, err
-	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
-}
-
-// encodeSlice serialises a slice or array to compact JSON bytes.
-func encodeSlice(v reflect.Value) ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('[')
-	for i := 0; i < v.Len(); i++ {
-		if i > 0 {
-			buf.WriteByte(',')
-		}
-		b, err := encodeValue(v.Index(i))
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(b)
-	}
-	buf.WriteByte(']')
-	return buf.Bytes(), nil
-}
-
-// encodeMap serialises a map to compact JSON bytes.
-// It first attempts a direct json.Marshal; on UnsupportedTypeError (complex
-// values) it falls back to encoding each value individually.
-func encodeMap(v reflect.Value) ([]byte, error) {
-	// Fast path: no complex values — let json.Marshal handle it.
-	b, err := json.Marshal(v.Interface())
-	if err == nil {
-		return b, nil
-	}
-	if _, ok := err.(*json.UnsupportedTypeError); !ok {
-		return nil, err
-	}
-	// Slow path: at least one value is a complex type.
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-	first := true
-	for _, key := range v.MapKeys() {
-		if !first {
-			buf.WriteByte(',')
-		}
-		first = false
-		keyBytes, err := json.Marshal(fmt.Sprintf("%v", key.Interface()))
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(keyBytes)
-		buf.WriteByte(':')
-		valBytes, err := encodeValue(v.MapIndex(key))
-		if err != nil {
-			return nil, err
-		}
-		buf.Write(valBytes)
-	}
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
-}
-
-// safeMarshalJSONString marshals a Go value to its JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
-//
-// Parameters:
-//   - `v`: The Go value to be marshalled into JSON.
-//   - `pretty`: A boolean indicating whether the JSON should be pretty-printed.
-//
-// Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
-//
-// Example:
-//
-//	jsonString, err := safeMarshalJSONString(myStruct, false)
-func safeMarshalJSONString(v any, pretty bool) (as string, err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("%w: %v", ErrMarshalPanicRecovered, r)
-			as = ""
-		}
-	}()
-
-	rv := reflect.ValueOf(v)
-
-	// Static fast-path: if the concrete type is known to contain complex numbers
-	// skip the doomed json.Marshal attempt entirely. containsComplex is O(1)
-	// after the first call per type thanks to the sync.Map cache.
-	if rv.IsValid() && containsComplex(rv.Type()) {
-		b, encErr := encodeValue(rv)
-		if encErr != nil {
-			return "", encErr
-		}
-		if pretty {
-			var indented bytes.Buffer
-			if indentErr := json.Indent(&indented, b, "", "    "); indentErr != nil {
-				return "", indentErr
-			}
-			b = indented.Bytes()
-		}
-		return string(b), nil
-	}
-
-	// No statically known complex fields — attempt direct marshal.
-	var b []byte
-	if pretty {
-		b, err = MarshalJSONIndent(v, "", "    ")
-	} else {
-		b, err = MarshalJSON(v)
-	}
-	if err == nil {
-		return string(b), nil
-	}
-
-	// Dynamic fallback: an any-typed field holding a complex value can only be
-	// detected at runtime. Retry once with the order-preserving encoder.
-	if _, ok := err.(*json.UnsupportedTypeError); ok {
-		b, err = encodeValue(rv)
-		if err != nil {
-			return "", err
-		}
-		if pretty {
-			var indented bytes.Buffer
-			if indentErr := json.Indent(&indented, b, "", "    "); indentErr != nil {
-				return "", indentErr
-			}
-			b = indented.Bytes()
-		}
-		return string(b), nil
-	}
-
-	return "", err
-}
-
-// realFrom extracts the real part of a complex number from a reflect.Value.
-//
-// Parameters:
-//   - `v`: The reflect.Value to extract the real part from.
-//
-// Returns:
-//   - The real part of the complex number as a float64.
-//
-// Example:
-//
-//	realPart := realFrom(reflect.ValueOf(complex(1.23, 4.56)))
-func realFrom(v reflect.Value) float64 {
-	switch v.Kind() {
-	case reflect.Complex64:
-		return float64(real(v.Complex()))
-	case reflect.Complex128:
-		return real(v.Complex())
-	default:
-		return 0
-	}
-}
-
-// imagFrom extracts the imaginary part of a complex number from a reflect.Value.
-//
-// Parameters:
-//   - `v`: The reflect.Value to extract the imaginary part from.
-//
-// Returns:
-//   - The imaginary part of the complex number as a float64.
-//
-// Example:
-//
-//	imagPart := imagFrom(reflect.ValueOf(complex(1.23, 4.56)))
-func imagFrom(v reflect.Value) float64 {
-	switch v.Kind() {
-	case reflect.Complex64:
-		return float64(imag(v.Complex()))
-	case reflect.Complex128:
-		return imag(v.Complex())
-	default:
-		return 0
-	}
-}
-
-// formatJSONFloat formats a float64 to its JSON string representation.
-// It uses 'g' formatting like encoding/json and converts non-finite numbers to null.
-//
-// Parameters:
-//   - `f`: The float64 value to format.
-//   - `is32`: A boolean indicating whether the float is a float32 (true) or float64 (false).
-//
-// Returns:
-//   - A string containing the JSON representation of the float.
-//
-// Example:
-//
-//	jsonFloat := formatJSONFloat(1.2345, false)
-func formatJSONFloat(f float64, is32 bool) string {
-	if math.IsNaN(f) || math.IsInf(f, 0) {
-		if floatsUseNullForNonFinite {
-			return "null"
-		}
-		return ""
-	}
-	bitSize := 64
-	if is32 {
-		bitSize = 32
-	}
-	// 'g' format is used for general-purpose formatting. It uses the shortest
-	// representation of the float, either in decimal or scientific notation.
-	// The -1 precision means that the smallest number of digits necessary to
-	// represent the float will be used.
-	return strconv.FormatFloat(f, 'g', -1, bitSize)
-}
-
-// encodeComplexJSON encodes a complex number to its JSON string representation.
-// It uses 'g' formatting like encoding/json and converts non-finite numbers to null.
-//
-// Parameters:
-//   - `realPart`: The real part of the complex number.
-//   - `imagPart`: The imaginary part of the complex number.
-//   - `is32`: A boolean indicating whether the complex number is a complex64 (true) or complex128 (false).
-//
-// Returns:
-//   - A string containing the JSON representation of the complex number.
-//
-// Example:
-//
-//	r := encodeComplexJSON(1.2345, 6.789, false)
-func encodeComplexJSON(realPart, imagPart float64, is32 bool) string {
-	// Use 'g' formatting like encoding/json; convert non-finite to null.
-	r := formatJSONFloat(realPart, is32)
-	i := formatJSONFloat(imagPart, is32)
-	if r == "" || i == "" {
-		return ""
-	}
-	// Format complex number as JSON object with "real" and "imag" fields.
-	// This is done to avoid the default JSON representation of complex numbers,
-	// which is not valid JSON.
-	return `{"real":` + r + `,"imag":` + i + `}`
-}
-
-// encodeComplexJSONToken encodes a complex number to its JSON string representation.
-// It uses 'g' formatting like encoding/json and converts non-finite numbers to null.
-//
-// Parameters:
-//   - `realPart`: The real part of the complex number.
-//   - `imagPart`: The imaginary part of the complex number.
-//   - `is32`: A boolean indicating whether the complex number is a complex64 (true) or complex128 (false).
-//
-// Returns:
-//   - A string containing the JSON representation of the complex number.
-//   - An error if the marshalling fails.
-//
-// Example:
-//
-//	r := encodeComplexJSONToken(1.2345, 6.789, false)
-func encodeComplexJSONToken(realPart, imagPart float64, is32 bool) (string, error) {
-	r := formatJSONFloat(realPart, is32)
-	i := formatJSONFloat(imagPart, is32)
-	// formatFloatJSON returns "" only when floatsUseNullForNonFinite is false and the
-	// component is non-finite (NaN/Inf). In that case the token policy is to error.
-	if r == "" || i == "" {
-		return "", ErrNonFiniteFloat
-	}
-	return `{"real":` + r + `,"imag":` + i + `}`, nil
-}
-
-// marshalJSON converts a Go value to its JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
-//
-// Parameters:
-//   - `data`: The Go value to be converted to JSON.
-//   - `pretty`: A boolean indicating whether the JSON should be pretty-printed.
-//
-// Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
-//
-// Example:
-//
-//	jsonString, err := marshalJSON(myStruct, false)
-func marshalJSON(data any, pretty bool) string {
-	if data == nil {
-		return ""
-	}
-
-	// if data is string, return it
-	s, ok := data.(string)
-	if ok {
-		return s
-	}
-
-	// 1) Pass-through raw JSON if explicitly provided.
-	if rm, ok := data.(json.RawMessage); ok {
-		if rm == nil {
-			return "null"
-		}
-		if !json.Valid(rm) {
-			// Invalid raw JSON => treat as error sentinel.
-			return ""
-		}
-		if !pretty {
-			return string(rm)
-		}
-		var buf bytes.Buffer
-		// json.Indent is a no-op for primitives; safe to call for any valid JSON value.
-		if err := json.Indent(&buf, rm, "", "    "); err != nil {
-			return ""
-		}
-		return buf.String()
-	}
-
-	v := reflect.ValueOf(data)
-
-	// 2) Unwrap *all* interface layers; nil interface => "".
-	for v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return ""
-		}
-		v = v.Elem()
-	}
-	data = v.Interface()
-
-	// 3) Nil-able kinds (Ptr, Map, Slice, Func, Chan) when nil => "null".
-	v = reflect.ValueOf(data)
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
-		if v.IsNil() {
-			return "null"
-		}
-	}
-
-	// 4) Scalar fast-path as valid JSON tokens.
-	switch v.Kind() {
-	case reflect.String:
-		// MUST quote/escape to be a valid JSON string token.
-		b, err := json.Marshal(v.String())
-		if err != nil {
-			return ""
-		}
-		return string(b)
-
-	case reflect.Bool:
-		return strconv.FormatBool(v.Bool())
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(v.Int(), 10)
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return strconv.FormatUint(v.Uint(), 10)
-
-	case reflect.Uintptr:
-		// Avoid precision loss & misleading semantics; emit as quoted hex address.
-		return fmt.Sprintf("%q", fmt.Sprintf("0x%x", v.Uint()))
-
-	case reflect.Float32, reflect.Float64:
-		f := v.Float()
-		if math.IsNaN(f) || math.IsInf(f, 0) {
-			if floatsUseNullForNonFinite {
-				return "null"
-			}
-			// Optional legacy behavior: treat as marshal error sentinel.
-			return ""
-		}
-		bitSize := 64
-		if v.Kind() == reflect.Float32 {
-			bitSize = 32
-		}
-		// Match encoding/json's number formatting preference.
-		return strconv.FormatFloat(f, 'g', -1, bitSize)
-
-	case reflect.Complex64, reflect.Complex128:
-		// JSON has no complex type; emit as an object {"real":..., "imag":...}.
-		r, i := realFrom(v), imagFrom(v)
-		return encodeComplexJSON(r, i, v.Kind() == reflect.Complex64)
-	}
-
-	// 5) Everything else: marshal with panic protection and optional pretty indent.
-	s, err := safeMarshalJSONString(data, pretty)
-	if err != nil {
-		return ""
-	}
-	return s
-}
-
-// marshalJSONString converts a pointer to a string into a JSON string representation.
-// If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
-//
-// Parameters:
-//   - `value`: A pointer to a string that may be nil or point to an empty string.
-//
-// Returns:
-//   - A string containing the JSON representation of the input string pointer.
-//
-// Example:
-//
-//	str := "hello"
-//	jsonStr := marshalJSONString(&str) // jsonStr will be "\"hello\""
-func marshalJSONString(value *string) (string, error) {
-	if value == nil {
-		return "null", nil
-	}
-	as := *value
-	if as == "" {
-		return "", nil
-	}
-	return as, nil
-}
-
-// marshalJSONStringPtr converts a pointer to a string into a JSON string representation.
-// If the pointer is nil, it returns the JSON literal "null". If the pointer points to an empty string, it returns an empty string.
-//
-// Parameters:
-//   - `value`: A pointer to a string that may be nil or point to an empty string.
-//
-// Returns:
-//   - A string containing the JSON representation of the input string pointer.
-//
-// Example:
-//
-//	str := "hello"
-//	jsonStr := castJSONStringPtr(&str) // jsonStr will be "\"hello\""
-func marshalJSONRawMessage(value *json.RawMessage, pretty bool) (string, error) {
-	if value == nil {
-		return "null", nil
-	}
-	as := *value
-	if !json.Valid(as) {
-		return "", ErrInvalidRawMessage
-	}
-	if !pretty {
-		return string(as), nil
-	}
-	var buf bytes.Buffer
-	if err := json.Indent(&buf, as, "", "    "); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-// marshalJSONE converts a Go value to its JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
-//
-// Parameters:
-//   - `data`: The Go value to be converted to JSON.
-//   - `pretty`: A boolean indicating whether the JSON should be pretty-printed.
-//
-// Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
-//
-// Example:
-//
-//	jsonString, err := marshalJSONE(myStruct, false)
-func marshalJSONE(data any, pretty bool) (string, error) {
-	if data == nil {
-		return "", ErrNilInterface
-	}
-
-	switch v := data.(type) {
-	case string:
-		return marshalJSONString(&v)
-	case *string:
-		return marshalJSONString(v)
-	case json.RawMessage:
-		return marshalJSONRawMessage(&v, pretty)
-	case *json.RawMessage:
-		return marshalJSONRawMessage(v, pretty)
-	}
-
-	v := reflect.ValueOf(data)
-
-	// 2) Unwrap *all* interface layers; nil interface => error.
-	for v.Kind() == reflect.Interface {
-		if v.IsNil() {
-			return "", ErrNilInterface
-		}
-		v = v.Elem()
-	}
-	data = v.Interface()
-
-	// 3) Nil-able kinds (Ptr, Map, Slice, Func, Chan) when nil => "null".
-	v = reflect.ValueOf(data)
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
-		if v.IsNil() {
-			return "null", nil
-		}
-	}
-
-	// 4) Scalar fast-path as valid JSON tokens.
-	switch v.Kind() {
-	case reflect.String:
-		// MUST quote/escape to be a valid JSON string token.
-		b, err := json.Marshal(v.String())
-		if err != nil {
-			return "", err
-		}
-		return string(b), nil
-
-	case reflect.Bool:
-		return strconv.FormatBool(v.Bool()), nil
-
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		return strconv.FormatInt(v.Int(), 10), nil
-
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
-		return strconv.FormatUint(v.Uint(), 10), nil
-
-	case reflect.Uintptr:
-		// Avoid precision loss & misleading semantics; emit as quoted hex address.
-		return fmt.Sprintf("%q", fmt.Sprintf("0x%x", v.Uint())), nil
-
-	case reflect.Float32, reflect.Float64:
-		f := v.Float()
-		if math.IsNaN(f) || math.IsInf(f, 0) {
-			if floatsUseNullForNonFinite {
-				return "null", nil
-			}
-			return "", ErrNonFiniteFloat
-		}
-		bitSize := 64
-		if v.Kind() == reflect.Float32 {
-			bitSize = 32
-		}
-		return strconv.FormatFloat(f, 'g', -1, bitSize), nil
-
-	case reflect.Complex64, reflect.Complex128:
-		// Encode as {"real":...,"imag":...}
-		r, i := realFrom(v), imagFrom(v)
-		s, err := encodeComplexJSONToken(r, i, v.Kind() == reflect.Complex64)
-		return s, err
-	}
-
-	// 5) Everything else: marshal with panic protection and optional pretty indent.
-	return safeMarshalJSONString(data, pretty)
-}
 
 // compactJSON processes a source byte slice and removes unwanted characters, returning a new cleaned-up byte slice.
 //
@@ -1495,4 +752,1148 @@ func sanitizeJSON(source, destination []byte) []byte {
 		}
 	}
 	return destination
+}
+
+// Pre-computed interface types used for custom-marshaler detection.
+var (
+	// jsonMarshalerType is the reflect.Type of the json.Marshaler interface.
+	jsonMarshalerType = reflect.TypeFor[json.Marshaler]()
+
+	// textMarshalerType is the reflect.Type of the encoding.TextMarshaler interface.
+	textMarshalerType = reflect.TypeFor[stdencoding.TextMarshaler]()
+
+	// complexTypeCache memoises containsComplex results keyed by reflect.Type
+	// to avoid repeated full-type-tree walks.
+	complexTypeCache sync.Map
+)
+
+// marshalJSONCommon is the single implementation shared by [JSON] and [JSONE].
+//
+// Parameters:
+//   - data       - the value to encode.
+//   - pretty     - when true the output is indented with 4 spaces.
+//   - errorOnNil - when true a nil top-level value returns [ErrNilInterface]
+//     instead of an empty string.
+//
+// Returns:
+//   - string - the JSON representation.
+//   - error  - non-nil on encoding failure.
+func marshalJSONCommon(data any, pretty, errorOnNil bool) (string, error) {
+	if data == nil {
+		if errorOnNil {
+			return "", ErrNilInterface
+		}
+		return "", nil
+	}
+
+	// Fast-path well-known types that do not need reflection.
+	switch v := data.(type) {
+	case string:
+		return marshalStringToken(v)
+	case *string:
+		if v == nil {
+			return "null", nil
+		}
+		return marshalStringToken(*v)
+	case json.RawMessage:
+		return marshalRawMessageToken(v, pretty)
+	case *json.RawMessage:
+		if v == nil {
+			return "null", nil
+		}
+		return marshalRawMessageToken(*v, pretty)
+	}
+
+	rv, ok := unwrapInterfaces(reflect.ValueOf(data))
+	if !ok {
+		if errorOnNil {
+			return "", ErrNilInterface
+		}
+		return "", nil
+	}
+
+	if isNilValue(rv) {
+		return "null", nil
+	}
+
+	// Scalars (bool, int*, uint*, float*, complex*, string) are handled
+	// without falling into the heavier marshal path.
+	if token, handled, err := scalarJSONToken(rv); handled {
+		return token, err
+	}
+
+	return safeMarshalJSONString(rv.Interface(), pretty)
+}
+
+// marshalStringToken JSON-encodes a Go string value.
+//
+// The result includes the surrounding double-quote characters and all
+// necessary escape sequences as required by the JSON specification.
+//
+// Parameters:
+//   - s - the raw Go string to encode.
+//
+// Returns:
+//   - string - the quoted, escaped JSON string (e.g. `"hello\nworld"`).
+//   - error  - non-nil if json.Marshal fails (extremely rare for strings).
+//
+// Example:
+//
+//	marshalStringToken("hi")        // `"hi"`, nil
+//	marshalStringToken("a\tb")      // `"a\tb"`, nil
+//	marshalStringToken("")          // `""`, nil
+func marshalStringToken(s string) (string, error) {
+	b, err := json.Marshal(s)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// marshalRawMessageToken validates and returns a [json.RawMessage] as a string,
+// optionally pretty-printing it.
+//
+// Parameters:
+//   - msg    - the raw JSON bytes to validate and return.
+//   - pretty - when true the bytes are re-indented with 4 spaces.
+//
+// Returns:
+//   - string - the (optionally indented) JSON string.
+//   - error  - [ErrInvalidRawMessage] if msg is not valid JSON,
+//     or a json.Indent error on pretty-print failure.
+//
+// Example:
+//
+//	marshalRawMessageToken(json.RawMessage(`{"a":1}`), false) // `{"a":1}`, nil
+//	marshalRawMessageToken(json.RawMessage(`{"a":1}`), true)  // "{\n    \"a\": 1\n}", nil
+//	marshalRawMessageToken(json.RawMessage(`{bad}`),  false)  // "", ErrInvalidRawMessage
+//	marshalRawMessageToken(nil, false)                        // "null", nil
+func marshalRawMessageToken(msg json.RawMessage, pretty bool) (string, error) {
+	if msg == nil {
+		return "null", nil
+	}
+	if !json.Valid(msg) {
+		return "", ErrInvalidRawMessage
+	}
+	if !pretty {
+		return string(msg), nil
+	}
+
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, msg, "", "    "); err != nil {
+		return "", err
+	}
+	return buf.String(), nil
+}
+
+// unwrapInterfaces peels away one or more consecutive interface layers from v.
+//
+// Unwrapping stops as soon as a non-interface kind is reached. If any
+// intermediate interface value is nil, or if v is itself invalid, the
+// function signals failure via the boolean return.
+//
+// Parameters:
+//   - v - the reflect.Value to unwrap; may be of any kind.
+//
+// Returns:
+//   - reflect.Value - the innermost non-interface value.
+//   - bool          - true on success; false when v is invalid or a nil
+//     interface is encountered during unwrapping.
+//
+// Example:
+//
+//	var i any = 42
+//	rv, ok := unwrapInterfaces(reflect.ValueOf(&i).Elem()) // reflect.Value(42), true
+//
+//	var nilI any
+//	rv, ok := unwrapInterfaces(reflect.ValueOf(&nilI).Elem()) // zero, false
+func unwrapInterfaces(v reflect.Value) (reflect.Value, bool) {
+	for v.IsValid() && v.Kind() == reflect.Interface {
+		if v.IsNil() {
+			return reflect.Value{}, false
+		}
+		v = v.Elem()
+	}
+	if !v.IsValid() {
+		return reflect.Value{}, false
+	}
+	return v, true
+}
+
+// isNilValue reports whether v holds a nil pointer, map, slice, func, or
+// channel. All other kinds (including non-nilable scalars and structs) return
+// false.
+//
+// Parameters:
+//   - v - any valid reflect.Value.
+//
+// Returns:
+//   - bool - true when v is a nilable kind whose current value is nil.
+//
+// Example:
+//
+//	isNilValue(reflect.ValueOf((*int)(nil)))    // true
+//	isNilValue(reflect.ValueOf([]int(nil)))     // true
+//	isNilValue(reflect.ValueOf([]int{}))        // false
+//	isNilValue(reflect.ValueOf(0))              // false
+func isNilValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan:
+		return v.IsNil()
+	default:
+		return false
+	}
+}
+
+// scalarJSONToken converts a scalar reflect.Value to its JSON token string
+// without allocating a full marshal round-trip.
+//
+// Handled kinds: String, Bool, Int*, Uint*, Uintptr, Float32/64,
+// Complex64/128. For all other kinds the function returns ("", false, nil)
+// to tell the caller to fall back to the full marshal path.
+//
+// Parameters:
+//   - v - a reflect.Value of any kind.
+//
+// Returns:
+//   - token   - the JSON token string (e.g. "true", "42", `"hello"`).
+//   - handled - true when the kind was recognised and token is valid.
+//   - err     - non-nil when the kind was recognised but encoding failed
+//     (e.g. [ErrNonFiniteFloat] for NaN/Inf).
+//
+// Example:
+//
+//	scalarJSONToken(reflect.ValueOf(true))        // "true",    true,  nil
+//	scalarJSONToken(reflect.ValueOf(-7))          // "-7",      true,  nil
+//	scalarJSONToken(reflect.ValueOf(math.NaN()))  // "",        true,  ErrNonFiniteFloat
+//	scalarJSONToken(reflect.ValueOf([]int{1}))    // "",        false, nil
+func scalarJSONToken(v reflect.Value) (string, bool, error) {
+	switch v.Kind() {
+	case reflect.String:
+		b, err := json.Marshal(v.String())
+		return string(b), true, err
+
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool()), true, nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10), true, nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return strconv.FormatUint(v.Uint(), 10), true, nil
+
+	case reflect.Uintptr:
+		// Rendered as a quoted hex string so it is always a valid JSON value.
+		return fmt.Sprintf("%q", fmt.Sprintf("0x%x", v.Uint())), true, nil
+
+	case reflect.Float32, reflect.Float64:
+		token, _, err := formatFloatToken(v.Float(), v.Kind() == reflect.Float32)
+		return token, true, err
+
+	case reflect.Complex64, reflect.Complex128:
+		token, err := encodeComplexJSONToken(v)
+		return token, true, err
+
+	default:
+		return "", false, nil
+	}
+}
+
+// safeMarshalJSONString is a panic-safe wrapper around [marshalWithComplexFallback].
+//
+// Some custom [json.Marshaler] implementations may panic instead of returning
+// an error. This function recovers from any such panic and converts it into an
+// error wrapping [ErrMarshalPanicRecovered].
+//
+// Parameters:
+//   - v      - the value to marshal; must already be unwrapped from interface.
+//   - pretty - when true the output is indented with 4 spaces.
+//
+// Returns:
+//   - string - the JSON string, or "" on panic/error.
+//   - error  - non-nil when encoding fails or a panic is caught.
+//
+// Example:
+//
+//	safeMarshalJSONString(struct{ X int }{3}, false) // `{"X":3}`, nil
+//	// (panic inside a custom marshaler is recovered and returned as an error)
+func safeMarshalJSONString(v any, pretty bool) (as string, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("%w: %v", ErrMarshalPanicRecovered, r)
+			as = ""
+		}
+	}()
+	return marshalWithComplexFallback(v, pretty)
+}
+
+// marshalWithComplexFallback marshals v to a JSON string, automatically
+// switching to the reflection-based complex encoder when the standard library
+// refuses the value because it contains complex numbers.
+//
+// The fast path uses [MarshalJSON] / [MarshalJSONIndent] (stdlib-backed).
+// If those return a [*json.UnsupportedTypeError] caused by a complex kind,
+// the function retries with [encodeValueString].
+//
+// Parameters:
+//   - v      - the value to marshal.
+//   - pretty - when true output is indented with 4 spaces.
+//
+// Returns:
+//   - string - the JSON representation.
+//   - error  - non-nil on encoding failure.
+//
+// Example:
+//
+//	marshalWithComplexFallback(42, false)                  // "42", nil
+//	marshalWithComplexFallback(complex(1, 2), false)       // `{"real":1,"imag":2}`, nil
+//	marshalWithComplexFallback(struct{ X int }{7}, true)   // "{\n    \"X\": 7\n}", nil
+func marshalWithComplexFallback(v any, pretty bool) (string, error) {
+	rv := reflect.ValueOf(v)
+
+	// Skip the stdlib entirely when we already know the type contains complex
+	// numbers; it would just return an unsupported-type error.
+	if rv.IsValid() && containsComplex(rv.Type()) {
+		return encodeValueString(rv, pretty)
+	}
+
+	var (
+		b   []byte
+		err error
+	)
+	if pretty {
+		b, err = MarshalJSONIndent(v, "", "    ")
+	} else {
+		b, err = MarshalJSON(v)
+	}
+	if err == nil {
+		return string(b), nil
+	}
+
+	if !shouldFallbackToComplexEncoder(err) {
+		return "", err
+	}
+
+	return encodeValueString(rv, pretty)
+}
+
+// shouldFallbackToComplexEncoder reports whether a json.Marshal error was
+// caused by a complex number type that the custom encoder can handle.
+//
+// It returns true only when err is a [*json.UnsupportedTypeError] whose
+// underlying type is complex64, complex128, or a composite type that
+// contains one of those kinds.
+//
+// Parameters:
+//   - err - the error returned by json.Marshal or json.MarshalIndent.
+//
+// Returns:
+//   - bool - true when the error is recoverable by [encodeValueString].
+//
+// Example:
+//
+//	_, err := json.Marshal(complex(1, 2))
+//	shouldFallbackToComplexEncoder(err) // true
+//
+//	_, err = json.Marshal(make(chan int))
+//	shouldFallbackToComplexEncoder(err) // false
+func shouldFallbackToComplexEncoder(err error) bool {
+	ute, ok := err.(*json.UnsupportedTypeError)
+	if !ok || ute.Type == nil {
+		return false
+	}
+	t := ute.Type
+	return t.Kind() == reflect.Complex64 || t.Kind() == reflect.Complex128 || containsComplex(t)
+}
+
+// encodeValueString encodes a reflect.Value using [encodeValue] and
+// optionally pretty-prints the raw JSON bytes.
+//
+// Parameters:
+//   - v      - a reflect.Value to encode (any kind supported by [encodeValue]).
+//   - pretty - when true the output is re-indented with 4 spaces via
+//     [json.Indent].
+//
+// Returns:
+//   - string - the JSON string.
+//   - error  - non-nil when [encodeValue] or [json.Indent] fails.
+//
+// Example:
+//
+//	encodeValueString(reflect.ValueOf([]int{1, 2}), false) // "[1,2]", nil
+//	encodeValueString(reflect.ValueOf([]int{1, 2}), true)  // "[\n    1,\n    2\n]", nil
+func encodeValueString(v reflect.Value, pretty bool) (string, error) {
+	b, err := encodeValue(v)
+	if err != nil {
+		return "", err
+	}
+	if !pretty {
+		return string(b), nil
+	}
+
+	var indented bytes.Buffer
+	if err := json.Indent(&indented, b, "", "    "); err != nil {
+		return "", err
+	}
+	return indented.String(), nil
+}
+
+// containsComplex reports (with memoisation via [complexTypeCache]) whether
+// type t is or transitively contains a complex64 or complex128 kind.
+//
+// Results are cached in complexTypeCache so repeated lookups for the same
+// type are O(1).
+//
+// Parameters:
+//   - t - the reflect.Type to inspect; nil returns false.
+//
+// Returns:
+//   - bool - true when t is or contains a complex numeric kind.
+//
+// Example:
+//
+//	containsComplex(reflect.TypeOf(complex128(0)))          // true
+//	containsComplex(reflect.TypeOf(struct{ C complex64 }{})) // true
+//	containsComplex(reflect.TypeOf(42))                      // false
+//	containsComplex(nil)                                     // false
+func containsComplex(t reflect.Type) bool {
+	if t == nil {
+		return false
+	}
+	if cached, ok := complexTypeCache.Load(t); ok {
+		return cached.(bool)
+	}
+	result := typeContainsComplex(t, make(map[reflect.Type]bool))
+	complexTypeCache.Store(t, result)
+	return result
+}
+
+// typeContainsComplex is the recursive worker for [containsComplex].
+//
+// It walks the full type tree, using seen to prevent infinite loops on
+// self-referential struct types (e.g. linked-list nodes).
+//
+// Parameters:
+//   - t    - the reflect.Type to inspect.
+//   - seen - a set of already-visited struct types; prevents cycles.
+//
+// Returns:
+//   - bool - true when t or any reachable sub-type is complex64/128.
+//
+// Example:
+//
+//	typeContainsComplex(reflect.TypeOf([]complex64{}), map[reflect.Type]bool{}) // true
+//	typeContainsComplex(reflect.TypeOf(0),             map[reflect.Type]bool{}) // false
+func typeContainsComplex(t reflect.Type, seen map[reflect.Type]bool) bool {
+	switch t.Kind() {
+	case reflect.Complex64, reflect.Complex128:
+		return true
+
+	case reflect.Ptr, reflect.Slice, reflect.Array, reflect.Chan:
+		return typeContainsComplex(t.Elem(), seen)
+
+	case reflect.Map:
+		return typeContainsComplex(t.Key(), seen) || typeContainsComplex(t.Elem(), seen)
+
+	case reflect.Struct:
+		if seen[t] {
+			return false
+		}
+		seen[t] = true
+		for i := 0; i < t.NumField(); i++ {
+			if typeContainsComplex(t.Field(i).Type, seen) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// encodeValue is the core recursive encoder used by the complex-number fallback
+// path and all composite-type helpers.
+//
+// It first unwraps any interface/pointer indirection layers (returning "null"
+// for nil pointers or interfaces), then checks for custom marshalers via
+// [marshalViaCustomMarshaler], and finally dispatches by kind:
+//
+//   - complex64/128  → [encodeComplexBytes]
+//   - struct         → [encodeStruct]
+//   - slice/array    → [encodeSlice]
+//   - map            → [encodeMap]
+//   - everything else → json.Marshal (stdlib)
+//
+// Parameters:
+//   - v - the reflect.Value to encode; any kind is accepted.
+//
+// Returns:
+//   - []byte - the raw JSON bytes.
+//   - error  - non-nil when encoding fails.
+//
+// Example:
+//
+//	encodeValue(reflect.ValueOf(42))              // []byte("42"), nil
+//	encodeValue(reflect.ValueOf((*int)(nil)))     // []byte("null"), nil
+//	encodeValue(reflect.ValueOf(complex(3, 4)))   // []byte(`{"real":3,"imag":4}`), nil
+func encodeValue(v reflect.Value) ([]byte, error) {
+	// Unwrap interfaces and pointers in a single unified loop.
+	for v.IsValid() {
+		switch v.Kind() {
+		case reflect.Interface:
+			if v.IsNil() {
+				return []byte("null"), nil
+			}
+			v = v.Elem()
+			continue
+		case reflect.Ptr:
+			if v.IsNil() {
+				return []byte("null"), nil
+			}
+			v = v.Elem()
+			continue
+		}
+		break
+	}
+	if !v.IsValid() {
+		return []byte("null"), nil
+	}
+
+	// Custom marshalers take precedence over built-in logic.
+	if b, ok, err := marshalViaCustomMarshaler(v); ok {
+		return b, err
+	}
+
+	switch v.Kind() {
+	case reflect.Complex64, reflect.Complex128:
+		return encodeComplexBytes(v)
+
+	case reflect.Struct:
+		return encodeStruct(v)
+
+	case reflect.Slice:
+		if v.IsNil() {
+			return []byte("null"), nil
+		}
+		return encodeSlice(v)
+
+	case reflect.Array:
+		return encodeSlice(v)
+
+	case reflect.Map:
+		if v.IsNil() {
+			return []byte("null"), nil
+		}
+		return encodeMap(v)
+
+	default:
+		return json.Marshal(v.Interface())
+	}
+}
+
+// marshalViaCustomMarshaler checks whether v (or its address, when
+// addressable) implements [json.Marshaler] or [encoding.TextMarshaler] and
+// invokes the appropriate method.
+//
+// Priority order:
+//  1. json.Marshaler - value receiver
+//  2. json.Marshaler - pointer receiver (requires v.CanAddr())
+//  3. encoding.TextMarshaler - value receiver (output is JSON-quoted)
+//  4. encoding.TextMarshaler - pointer receiver (requires v.CanAddr())
+//
+// For TextMarshaler the raw text bytes are wrapped in a JSON string via
+// json.Marshal so the result is always valid JSON.
+//
+// Parameters:
+//   - v - the reflect.Value to inspect and possibly marshal.
+//
+// Returns:
+//   - []byte - the marshalled bytes when a marshaler was found.
+//   - bool   - true when a marshaler was found (regardless of error).
+//   - error  - non-nil when the marshaler returned an error.
+//
+// Example:
+//
+//	// Given a type implementing json.Marshaler:
+//	marshalViaCustomMarshaler(reflect.ValueOf(myType{})) // <bytes>, true, nil
+//
+//	// Given a plain int:
+//	marshalViaCustomMarshaler(reflect.ValueOf(42)) // nil, false, nil
+func marshalViaCustomMarshaler(v reflect.Value) ([]byte, bool, error) {
+	t := v.Type()
+
+	// json.Marshaler - value receiver.
+	if t.Implements(jsonMarshalerType) {
+		b, err := json.Marshal(v.Interface())
+		return b, true, err
+	}
+	// json.Marshaler - pointer receiver.
+	if v.CanAddr() && v.Addr().Type().Implements(jsonMarshalerType) {
+		b, err := json.Marshal(v.Addr().Interface())
+		return b, true, err
+	}
+
+	// encoding.TextMarshaler - value receiver.
+	if t.Implements(textMarshalerType) {
+		b, err := v.Interface().(stdencoding.TextMarshaler).MarshalText()
+		if err != nil {
+			return nil, true, err
+		}
+		quoted, qerr := json.Marshal(string(b))
+		return quoted, true, qerr
+	}
+	// encoding.TextMarshaler - pointer receiver.
+	if v.CanAddr() && v.Addr().Type().Implements(textMarshalerType) {
+		b, err := v.Addr().Interface().(stdencoding.TextMarshaler).MarshalText()
+		if err != nil {
+			return nil, true, err
+		}
+		quoted, qerr := json.Marshal(string(b))
+		return quoted, true, qerr
+	}
+
+	return nil, false, nil
+}
+
+// parseJSONTag parses the `json:"…"` struct tag on sf and returns the
+// resolved field name together with encoding options.
+//
+// Behaviour matches the encoding/json package:
+//   - No tag       → use the field name, no omitempty, not skipped.
+//   - Tag "-"      → field is skipped entirely.
+//   - Tag "name"   → use "name".
+//   - Tag ",opts"  → use the field name, apply opts.
+//   - Tag "name,opts" → use "name", apply opts.
+//
+// Parameters:
+//   - sf - the reflect.StructField whose tag is to be parsed.
+//
+// Returns:
+//   - name      - the JSON key for this field.
+//   - omitempty - true when the "omitempty" option is present.
+//   - skip      - true when the tag value is exactly "-".
+//
+// Example:
+//
+//	// Field tagged `json:"id,omitempty"`
+//	parseJSONTag(sf) // "id", true, false
+//
+//	// Field tagged `json:"-"`
+//	parseJSONTag(sf) // "", false, true
+//
+//	// Field with no json tag
+//	parseJSONTag(sf) // "<FieldName>", false, false
+func parseJSONTag(sf reflect.StructField) (name string, omitempty, skip bool) {
+	tag := sf.Tag.Get("json")
+	if tag == "" {
+		return sf.Name, false, false
+	}
+	if tag == "-" {
+		return "", false, true
+	}
+
+	before, after, hasSep := strings.Cut(tag, ",")
+	if !hasSep {
+		return tag, false, false
+	}
+
+	name = before
+	if name == "" {
+		name = sf.Name
+	}
+	omitempty = strings.Contains(after, "omitempty")
+	return name, omitempty, false
+}
+
+// shouldPromoteAnonymousStruct reports whether an anonymous (embedded) struct
+// field should have its own fields inlined ("promoted") into the parent JSON
+// object rather than being nested under a key.
+//
+// Promotion is performed when all of the following are true:
+//   - sf.Anonymous is true.
+//   - The json tag is not "-".
+//   - The json tag does not provide an explicit name (only options are allowed,
+//     e.g. ",omitempty").
+//   - The concrete value reached after pointer dereferences is a struct.
+//
+// Parameters:
+//   - sf - the reflect.StructField describing the embedded field.
+//   - fv - the reflect.Value of that field in the parent struct.
+//
+// Returns:
+//   - reflect.Value - the dereferenced struct value to inline, when promotion
+//     applies.
+//   - bool          - true when the field should be promoted.
+//
+// Example:
+//
+//	type Inner struct{ X int }
+//	type Outer struct{ Inner }      // promoted  → true
+//	type Outer2 struct {
+//	    Inner `json:"inner"` }      // explicit name → false
+//	type Outer3 struct {
+//	    Inner `json:",omitempty"` } // options only → true (promoted)
+func shouldPromoteAnonymousStruct(sf reflect.StructField, fv reflect.Value) (reflect.Value, bool) {
+	if !sf.Anonymous {
+		return reflect.Value{}, false
+	}
+
+	tag := sf.Tag.Get("json")
+	if tag == "-" {
+		return reflect.Value{}, false
+	}
+	// Text before the first comma means an explicit name → no promotion.
+	if idx := strings.IndexByte(tag, ','); idx > 0 {
+		return reflect.Value{}, false
+	}
+
+	w := fv
+	for w.IsValid() && w.Kind() == reflect.Ptr {
+		if w.IsNil() {
+			return reflect.Value{}, false
+		}
+		w = w.Elem()
+	}
+	if !w.IsValid() || w.Kind() != reflect.Struct {
+		return reflect.Value{}, false
+	}
+
+	return w, true
+}
+
+// isEmptyJSONValue reports whether v is considered "empty" for the purpose of
+// the "omitempty" json tag option.
+//
+// The definition matches the encoding/json package:
+//   - false, 0, 0.0, 0+0i, nil pointer/interface, empty string/slice/map/array.
+//
+// Parameters:
+//   - v - any valid reflect.Value.
+//
+// Returns:
+//   - bool - true when v should be omitted.
+//
+// Example:
+//
+//	isEmptyJSONValue(reflect.ValueOf(""))          // true
+//	isEmptyJSONValue(reflect.ValueOf("x"))         // false
+//	isEmptyJSONValue(reflect.ValueOf(0))           // true
+//	isEmptyJSONValue(reflect.ValueOf(1))           // false
+//	isEmptyJSONValue(reflect.ValueOf([]int(nil)))  // true
+//	isEmptyJSONValue(reflect.ValueOf([]int{}))     // true
+func isEmptyJSONValue(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Array, reflect.Map, reflect.Slice, reflect.String:
+		return v.Len() == 0
+	case reflect.Bool:
+		return !v.Bool()
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return v.Int() == 0
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return v.Uint() == 0
+	case reflect.Float32, reflect.Float64:
+		return v.Float() == 0
+	case reflect.Complex64, reflect.Complex128:
+		return v.Complex() == 0
+	case reflect.Interface, reflect.Ptr:
+		return v.IsNil()
+	}
+	return false
+}
+
+// writeStructFields appends JSON key-value pairs for all exported fields of the struct value v into buf.
+//
+// The first pointer is a shared "is this the very first field written" flag that controls comma insertion; callers must initialise it to true.
+// Anonymous (embedded) struct fields are promoted recursively via [shouldPromoteAnonymousStruct].
+//
+// Parameters:
+//   - v     - a reflect.Value of kind Struct.
+//   - buf   - destination buffer; key-value pairs are appended in field order.
+//   - first - pointer to a bool tracking whether any field has been written
+//     yet (used for comma separation).
+//
+// Returns:
+//   - error - non-nil when [encodeValue] or json.Marshal (for the key) fails.
+//
+// Example:
+//
+//	var buf bytes.Buffer
+//	first := true
+//	writeStructFields(reflect.ValueOf(struct{ A int }{1}), &buf, &first)
+//	// buf.String() == `"A":1`
+func writeStructFields(v reflect.Value, buf *bytes.Buffer, first *bool) error {
+	t := v.Type()
+
+	for i := 0; i < t.NumField(); i++ {
+		sf := t.Field(i)
+		if !sf.IsExported() {
+			continue
+		}
+
+		fv := v.Field(i)
+
+		if promoted, ok := shouldPromoteAnonymousStruct(sf, fv); ok {
+			if err := writeStructFields(promoted, buf, first); err != nil {
+				return err
+			}
+			continue
+		}
+
+		name, omitempty, skip := parseJSONTag(sf)
+		if skip {
+			continue
+		}
+		if omitempty && isEmptyJSONValue(fv) {
+			continue
+		}
+
+		if !*first {
+			buf.WriteByte(',')
+		}
+		*first = false
+
+		keyBytes, err := json.Marshal(name)
+		if err != nil {
+			return err
+		}
+		buf.Write(keyBytes)
+		buf.WriteByte(':')
+
+		valueBytes, err := encodeValue(fv)
+		if err != nil {
+			return err
+		}
+		buf.Write(valueBytes)
+	}
+
+	return nil
+}
+
+// encodeStruct encodes v (which must be of kind Struct) into a JSON object.
+//
+// Exported fields are written in declaration order. Anonymous embedded fields
+// are promoted (inlined) according to standard encoding/json rules. Fields
+// tagged with `json:"-"` are omitted; fields tagged with `json:",omitempty"`
+// are omitted when their value is empty per [isEmptyJSONValue].
+//
+// Parameters:
+//   - v - a reflect.Value of kind Struct.
+//
+// Returns:
+//   - []byte - the JSON object bytes, e.g. `{"Name":"Alice","Age":30}`.
+//   - error  - non-nil when any field value cannot be encoded.
+//
+// Example:
+//
+//	type Point struct{ X, Y int }
+//	encodeStruct(reflect.ValueOf(Point{1, 2})) // []byte(`{"X":1,"Y":2}`), nil
+func encodeStruct(v reflect.Value) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+	first := true
+	if err := writeStructFields(v, &buf, &first); err != nil {
+		return nil, err
+	}
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// encodeSlice encodes v (a slice or array) into a JSON array.
+//
+// A nil slice must be detected by the caller before invoking this function;
+// by the time encodeSlice is called the value is assumed to be non-nil.
+// Each element is encoded recursively via [encodeValue].
+//
+// Parameters:
+//   - v - a reflect.Value of kind Slice or Array.
+//
+// Returns:
+//   - []byte - the JSON array bytes, e.g. `[1,2,3]`.
+//   - error  - non-nil when any element cannot be encoded.
+//
+// Example:
+//
+//	encodeSlice(reflect.ValueOf([]int{1, 2, 3}))    // []byte(`[1,2,3]`), nil
+//	encodeSlice(reflect.ValueOf([2]string{"a","b"})) // []byte(`["a","b"]`), nil
+func encodeSlice(v reflect.Value) ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('[')
+	for i := 0; i < v.Len(); i++ {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		b, err := encodeValue(v.Index(i))
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(b)
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
+}
+
+// encodeMap encodes v (a map) into a JSON object whose keys are sorted
+// lexicographically to guarantee deterministic output.
+//
+// A nil map must be detected by the caller before invoking this function.
+// Map keys are converted to strings via [mapKeyString]; values are encoded
+// recursively via [encodeValue].
+//
+// Parameters:
+//   - v - a reflect.Value of kind Map (non-nil).
+//
+// Returns:
+//   - []byte - the JSON object bytes with sorted keys, e.g. `{"a":1,"b":2}`.
+//   - error  - non-nil when a key or value cannot be encoded.
+//
+// Example:
+//
+//	m := map[string]int{"b": 2, "a": 1}
+//	encodeMap(reflect.ValueOf(m)) // []byte(`{"a":1,"b":2}`), nil  (sorted)
+func encodeMap(v reflect.Value) ([]byte, error) {
+	entries := make([]mapEntry, 0, v.Len())
+
+	for _, key := range v.MapKeys() {
+		s, err := mapKeyString(key)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, mapEntry{key: s, val: v.MapIndex(key)})
+	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].key < entries[j].key
+	})
+
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+
+	for i, entry := range entries {
+		if i > 0 {
+			buf.WriteByte(',')
+		}
+		keyBytes, err := json.Marshal(entry.key)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(keyBytes)
+		buf.WriteByte(':')
+
+		valueBytes, err := encodeValue(entry.val)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write(valueBytes)
+	}
+
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+// mapKeyString converts a map key reflect.Value to its string representation
+// for use as a JSON object key.
+//
+// Conversion priority:
+//  1. [encoding.TextMarshaler] (value or pointer receiver) - highest priority,
+//     matches stdlib behavior.
+//  2. string
+//  3. bool
+//  4. Signed integer kinds (int, int8, int16, int32, int64)
+//  5. Unsigned integer kinds (uint, uint8, uint16, uint32, uint64, uintptr)
+//  6. float32 / float64
+//  7. All other kinds → [*json.UnsupportedTypeError]
+//
+// Parameters:
+//   - v  - a reflect.Value that is a key extracted from a map.
+//
+// Returns:
+//   - string - the string form of the key.
+//   - error  - non-nil ([*json.UnsupportedTypeError]) for unsupported kinds.
+//
+// Example:
+//
+//	mapKeyString(reflect.ValueOf("name"))  // "name", nil
+//	mapKeyString(reflect.ValueOf(42))      // "42",   nil
+//	mapKeyString(reflect.ValueOf(true))    // "true", nil
+//	mapKeyString(reflect.ValueOf(3.14))    // "3.14", nil
+func mapKeyString(v reflect.Value) (string, error) {
+	// TextMarshaler has highest priority (matches stdlib behaviour).
+	if b, ok, err := marshalTextValue(v); ok {
+		return string(b), err
+	}
+
+	switch v.Kind() {
+	case reflect.String:
+		return v.String(), nil
+
+	case reflect.Bool:
+		return strconv.FormatBool(v.Bool()), nil
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return strconv.FormatInt(v.Int(), 10), nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return strconv.FormatUint(v.Uint(), 10), nil
+
+	case reflect.Float32:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 32), nil
+
+	case reflect.Float64:
+		return strconv.FormatFloat(v.Float(), 'g', -1, 64), nil
+
+	default:
+		return "", &json.UnsupportedTypeError{Type: v.Type()}
+	}
+}
+
+// marshalTextValue invokes [encoding.TextMarshaler] on v, or on &v when v is
+// addressable, and returns the raw text bytes produced by MarshalText.
+//
+// Unlike [marshalViaCustomMarshaler], this function does NOT JSON-quote the
+// result; callers that need a JSON string must quote it themselves.
+//
+// Parameters:
+//   - v - the reflect.Value to inspect.
+//
+// Returns:
+//   - []byte - the raw text bytes when the interface is satisfied.
+//   - bool   - true when [encoding.TextMarshaler] was found and invoked.
+//   - error  - non-nil when MarshalText returned an error.
+//
+// Example:
+//
+//	// net.IP implements encoding.TextMarshaler:
+//	ip := net.ParseIP("127.0.0.1")
+//	b, ok, err := marshalTextValue(reflect.ValueOf(ip)) // []byte("127.0.0.1"), true, nil
+//
+//	// Plain int does not:
+//	b, ok, err := marshalTextValue(reflect.ValueOf(42))  // nil, false, nil
+func marshalTextValue(v reflect.Value) ([]byte, bool, error) {
+	t := v.Type()
+
+	if t.Implements(textMarshalerType) {
+		b, err := v.Interface().(stdencoding.TextMarshaler).MarshalText()
+		return b, true, err
+	}
+	if v.CanAddr() && v.Addr().Type().Implements(textMarshalerType) {
+		b, err := v.Addr().Interface().(stdencoding.TextMarshaler).MarshalText()
+		return b, true, err
+	}
+
+	return nil, false, nil
+}
+
+// formatFloatToken converts a float64 value to its JSON token string.
+//
+// Special cases:
+//   - NaN or ±Inf: returns "null" when [floatsUseNullForNonFinite] is true,
+//     otherwise returns [ErrNonFiniteFloat].
+//   - is32 = true selects 32-bit shortest-representation formatting
+//     (strconv bitSize 32) to faithfully round-trip float32 values.
+//
+// Parameters:
+//   - f    - the float64 (or widened float32) value to format.
+//   - is32 - true when the original value was a float32.
+//
+// Returns:
+//   - string - the JSON number token (e.g. "3.14", "1e+100"), or "null" for
+//     non-finite values when floatsUseNullForNonFinite is true.
+//   - bool   - always true (signals to callers that the kind was handled).
+//   - error  - [ErrNonFiniteFloat] for NaN/Inf when floatsUseNullForNonFinite
+//     is false.
+//
+// Example:
+//
+//	formatFloatToken(3.14, false)        // "3.14",  true, nil
+//	formatFloatToken(1e308, false)       // "1e+308", true, nil
+//	formatFloatToken(math.NaN(), false)  // "",      true, ErrNonFiniteFloat
+//	formatFloatToken(math.NaN(), false)  // "null",  true, nil  (if floatsUseNullForNonFinite)
+func formatFloatToken(f float64, is32 bool) (string, bool, error) {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		if floatsUseNullForNonFinite {
+			return "null", true, nil
+		}
+		return "", true, ErrNonFiniteFloat
+	}
+
+	bitSize := 64
+	if is32 {
+		bitSize = 32
+	}
+	return strconv.FormatFloat(f, 'g', -1, bitSize), true, nil
+}
+
+// encodeComplexJSONToken encodes a complex reflect.Value as a JSON object of
+// the form {"real":<r>,"imag":<i>}.
+//
+// Both the real and imaginary parts are formatted via [formatFloatToken] with
+// the precision appropriate for the kind (complex64 uses 32-bit precision,
+// complex128 uses 64-bit).
+//
+// Parameters:
+//   - v - a reflect.Value of kind Complex64 or Complex128.
+//
+// Returns:
+//   - string - e.g. `{"real":1,"imag":-2.5}`.
+//   - error  - [ErrNonFiniteFloat] when either part is NaN or ±Inf and
+//     [floatsUseNullForNonFinite] is false.
+//
+// Example:
+//
+//	encodeComplexJSONToken(reflect.ValueOf(complex(1, -2)))   // `{"real":1,"imag":-2}`, nil
+//	encodeComplexJSONToken(reflect.ValueOf(complex64(0.5+1i))) // `{"real":0.5,"imag":1}`, nil
+func encodeComplexJSONToken(v reflect.Value) (string, error) {
+	r, i := complexParts(v)
+	is32 := v.Kind() == reflect.Complex64
+
+	rs, _, err := formatFloatToken(r, is32)
+	if err != nil {
+		return "", err
+	}
+	is, _, err := formatFloatToken(i, is32)
+	if err != nil {
+		return "", err
+	}
+
+	return `{"real":` + rs + `,"imag":` + is + `}`, nil
+}
+
+// encodeComplexBytes is the []byte-returning variant of [encodeComplexJSONToken].
+//
+// Parameters:
+//   - v - a reflect.Value of kind Complex64 or Complex128.
+//
+// Returns:
+//   - []byte - the JSON object bytes, e.g. []byte(`{"real":1,"imag":2}`).
+//   - error  - non-nil when [encodeComplexJSONToken] fails.
+//
+// Example:
+//
+//	encodeComplexBytes(reflect.ValueOf(complex(3, 4))) // []byte(`{"real":3,"imag":4}`), nil
+func encodeComplexBytes(v reflect.Value) ([]byte, error) {
+	token, err := encodeComplexJSONToken(v)
+	if err != nil {
+		return nil, err
+	}
+	return []byte(token), nil
+}
+
+// complexParts extracts the real and imaginary components from a complex
+// reflect.Value as float64 values.
+//
+// v.Complex() always returns complex128; for complex64 values Go widens them
+// automatically, so no separate branch is needed.
+//
+// Parameters:
+//   - v - a reflect.Value of kind Complex64 or Complex128.
+//
+// Returns:
+//   - r - the real part as float64.
+//   - i - the imaginary part as float64.
+//
+// Example:
+//
+//	complexParts(reflect.ValueOf(complex(1.5, -2.0))) // r=1.5, i=-2.0
+//	complexParts(reflect.ValueOf(complex64(0+1i)))    // r=0,   i=1
+func complexParts(v reflect.Value) (r, i float64) {
+	c := v.Complex()
+	return real(c), imag(c)
 }

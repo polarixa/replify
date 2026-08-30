@@ -275,98 +275,92 @@ func NormalizeJSON(s string) (string, error) {
 	return candidate, fmt.Errorf("%w: input could not be repaired to valid JSON", ErrInvalidJSON)
 }
 
-// JSON converts a Go value to its JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
+// JSON converts data to a compact JSON string.
+//
+// An optional pretty argument may be passed as true to produce indented
+// (4-space) output instead. Only the first element of pretty is used;
+// subsequent elements are ignored.
+//
+// On any encoding error the empty string is returned for backward
+// compatibility. Use [JSONE] when you need to distinguish an encoding
+// error from a legitimately empty result.
 //
 // Parameters:
-//   - `data`: The Go value to be converted to JSON.
+//   - data   - any value to encode; nil returns "" (compact) or "" (pretty).
+//   - pretty - optional; pass true to enable indented output.
 //
 // Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
+//   - The JSON-encoded string, or "" on error.
 //
 // Example:
 //
-//	 var myStruct = struct {
-//	 	Name string
-//	 	Age  int
-//	 }{
-//	 	Name: "John",
-//	 	Age:  30,
-//	 }
-//		jsonString, err := JSON(myStruct)
-func JSON(data any) string {
-	return marshalJSON(data, false)
+//	JSON(42)                        // "42"
+//	JSON("hello")                   // `"hello"`
+//	JSON(map[string]int{"a": 1})    // `{"a":1}`
+//	JSON(map[string]int{"a": 1}, true) // "{\n    \"a\": 1\n}"
+//	JSON(nil)                       // ""
+func JSON(data any, pretty ...bool) string {
+	s, _ := marshalJSONCommon(data, len(pretty) > 0 && pretty[0], false)
+	return s
 }
 
-// JSONE converts a Go value to its JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
+// JSONE converts data to a JSON string and returns any encoding error.
+//
+// An optional pretty argument may be passed as true to produce indented
+// (4-space) output. Only the first element of pretty is used; subsequent
+// elements are ignored.
 //
 // Parameters:
-//   - `data`: The Go value to be converted to JSON.
+//   - data   - any value to encode.
+//   - pretty - optional; pass true to enable indented output.
 //
 // Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
+//   - s   - the JSON-encoded string, or "" on error.
+//   - err - non-nil when encoding fails (e.g. [ErrNilInterface],
+//     [ErrNonFiniteFloat], [ErrInvalidRawMessage], or a wrapped panic
+//     via [ErrMarshalPanicRecovered]).
 //
 // Example:
 //
-//	 var myStruct = struct {
-//	 	Name string
-//	 	Age  int
-//	 }{
-//	 	Name: "John",
-//	 	Age:  30,
-//	 }
-//		jsonString, err := JSONE(myStruct)
-func JSONE(data any) (string, error) {
-	return marshalJSONE(data, false)
+//	s, err := JSONE(3.14)             // s=`3.14`,  err=nil
+//	s, err := JSONE(math.NaN())       // s="",      err=ErrNonFiniteFloat
+//	s, err := JSONE(nil)              // s="",      err=ErrNilInterface (errorOnNil path)
+//	s, err := JSONE(struct{ X int }{1}, true) // s="{\n    \"X\": 1\n}", err=nil
+func JSONE(data any, pretty ...bool) (string, error) {
+	return marshalJSONCommon(data, len(pretty) > 0 && pretty[0], true)
 }
 
-// JSONPretty converts a Go value to its pretty-printed JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
+// JSONPretty converts data to a pretty-printed JSON string.
+//
+// This function is a convenience wrapper around [JSON] that sets the pretty argument to true, producing indented (4-space) output. It returns the JSON-encoded string or an empty string on error.
 //
 // Parameters:
-//   - `data`: The Go value to be converted to JSON.
+//   - data: The value to encode as JSON.
 //
 // Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
+//   - A pretty-printed JSON string, or an empty string on error.
 //
 // Example:
 //
-//	 var myStruct = struct {
-//	 	Name string
-//	 	Age  int
-//	 }{
-//	 	Name: "John",
-//	 	Age:  30,
-//	 }
-//		jsonString, err := JSONPretty(myStruct)
+//	jsonPretty := JSONPretty(myStruct) // Produces indented JSON output
 func JSONPretty(data any) string {
-	return marshalJSON(data, true)
+	return JSON(data, true)
 }
 
-// JSONPrettyE converts a Go value to its pretty-printed JSON string representation or returns an error if the marshalling fails.
-// It uses a deferred function to recover from any panics that may occur during marshalling.
+// JSONPrettyE converts data to a pretty-printed JSON string and returns any encoding error.
+//
+// This function is a convenience wrapper around [JSONE] that sets the pretty argument to true, producing indented (4-space) output. It returns the JSON-encoded string and any error encountered during encoding.
 //
 // Parameters:
-//   - `data`: The Go value to be converted to JSON.
+//   - data: The value to encode as JSON.
 //
 // Returns:
-//   - A string containing the JSON representation of the input value.
-//   - An error if the marshalling fails.
+//   - s: A pretty-printed JSON string, or an empty string on error.
+//   - err: An error if encoding fails.
 //
 // Example:
 //
-//	 var myStruct = struct {
-//	 	Name string
-//	 	Age  int
-//	 }{
-//	 	Name: "John",
-//	 	Age:  30,
-//	 }
-//		jsonString, err := JSONPrettyE(myStruct)
+//	s, err := JSONPrettyE(myStruct) // Produces indented JSON output and captures any error
 func JSONPrettyE(data any) (string, error) {
-	return marshalJSONE(data, true)
+	return JSONE(data, true)
 }
