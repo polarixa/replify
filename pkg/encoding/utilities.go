@@ -818,7 +818,7 @@ func marshalJSONCommon(data any, pretty, errorOnNil bool) (string, error) {
 
 	// Scalars (bool, int*, uint*, float*, complex*, string) are handled
 	// without falling into the heavier marshal path.
-	if token, handled, err := scalarJSONToken(rv); handled {
+	if token, handled, err := scalarJSONToken(rv, errorOnNil); handled {
 		return token, err
 	}
 
@@ -967,7 +967,7 @@ func isNilValue(v reflect.Value) bool {
 //	scalarJSONToken(reflect.ValueOf(-7))          // "-7",      true,  nil
 //	scalarJSONToken(reflect.ValueOf(math.NaN()))  // "",        true,  ErrNonFiniteFloat
 //	scalarJSONToken(reflect.ValueOf([]int{1}))    // "",        false, nil
-func scalarJSONToken(v reflect.Value) (string, bool, error) {
+func scalarJSONToken(v reflect.Value, errorOnNil bool) (string, bool, error) {
 	switch v.Kind() {
 	case reflect.String:
 		b, err := json.Marshal(v.String())
@@ -987,6 +987,12 @@ func scalarJSONToken(v reflect.Value) (string, bool, error) {
 		return fmt.Sprintf("%q", fmt.Sprintf("0x%x", v.Uint())), true, nil
 
 	case reflect.Float32, reflect.Float64:
+		if errorOnNil {
+			if f := v.Float(); math.IsNaN(f) || math.IsInf(f, 0) {
+				return "", true, ErrNonFiniteFloat
+			}
+		}
+
 		token, _, err := formatFloatToken(v.Float(), v.Kind() == reflect.Float32)
 		return token, true, err
 
@@ -1097,13 +1103,13 @@ func marshalWithComplexFallback(v any, pretty bool) (string, error) {
 //
 //	_, err = json.Marshal(make(chan int))
 //	shouldFallbackToComplexEncoder(err) // false
+//
+// shouldFallbackToComplexEncoder returns true for any *json.UnsupportedTypeError.
+// This covers complex types as well as maps with bool/float32/float64 keys,
+// all of which are handled by encodeValueString but not by the stdlib encoder.
 func shouldFallbackToComplexEncoder(err error) bool {
-	ute, ok := err.(*json.UnsupportedTypeError)
-	if !ok || ute.Type == nil {
-		return false
-	}
-	t := ute.Type
-	return t.Kind() == reflect.Complex64 || t.Kind() == reflect.Complex128 || containsComplex(t)
+	_, ok := err.(*json.UnsupportedTypeError)
+	return ok
 }
 
 // encodeValueString encodes a reflect.Value using [encodeValue] and
