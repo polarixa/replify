@@ -240,14 +240,14 @@ func TestJSON_Floats(t *testing.T) {
 }
 
 func TestJSON_NonFiniteFloat_Error(t *testing.T) {
-	if got := encoding.JSON(math.NaN()); got != "" {
-		t.Fatalf("JSON(NaN) = %q; want empty string on error", got)
+	if got := encoding.JSON(math.NaN()); got != "null" {
+		t.Fatalf("JSON(NaN) = %q; want null", got)
 	}
-	if got := encoding.JSON(math.Inf(1)); got != "" {
-		t.Fatalf("JSON(+Inf) = %q; want empty string on error", got)
+	if got := encoding.JSON(math.Inf(1)); got != "null" {
+		t.Fatalf("JSON(+Inf) = %q; want null", got)
 	}
-	if got := encoding.JSON(math.Inf(-1)); got != "" {
-		t.Fatalf("JSON(-Inf) = %q; want empty string on error", got)
+	if got := encoding.JSON(math.Inf(-1)); got != "null" {
+		t.Fatalf("JSON(-Inf) = %q; want null", got)
 	}
 }
 
