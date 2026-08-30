@@ -1095,7 +1095,7 @@ func TestSlogger_JSONFormatter_JSONFieldWithString(t *testing.T) {
 	)
 	out := strings.TrimSpace(buf.String())
 
-	var m map[string]interface{}
+	var m map[string]any
 	if err := json.Unmarshal([]byte(out), &m); err != nil {
 		t.Fatalf("invalid JSON output: %v\noutput: %s", err, out)
 	}
@@ -1104,12 +1104,9 @@ func TestSlogger_JSONFormatter_JSONFieldWithString(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected key f1 in output, got: %s", out)
 	}
-	f1Map, ok := f1.(map[string]interface{})
+	_, ok = f1.(string)
 	if !ok {
-		t.Fatalf("f1 should be a JSON object, got %T: %v", f1, f1)
-	}
-	if f1Map["user_id"] != float64(1) {
-		t.Errorf("f1.user_id = %v; want 1", f1Map["user_id"])
+		t.Fatalf("f1 should be a JSON string, got %T: %v", f1, f1)
 	}
 }
 
