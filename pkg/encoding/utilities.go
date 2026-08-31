@@ -767,7 +767,7 @@ var (
 	complexTypeCache sync.Map
 )
 
-// marshalJSONCommon is the single implementation shared by [JSON] and [JSONE].
+// marshalJSONEngine is the single implementation shared by [JSON] and [JSONE].
 //
 // Parameters:
 //   - data       - the value to encode.
@@ -778,7 +778,7 @@ var (
 // Returns:
 //   - string - the JSON representation.
 //   - error  - non-nil on encoding failure.
-func marshalJSONCommon(data any, pretty, errorOnNil bool) (string, error) {
+func marshalJSONEngine(data any, pretty, errorOnNil bool) (string, error) {
 	if data == nil {
 		if errorOnNil {
 			return "", ErrNilInterface
@@ -1065,9 +1065,9 @@ func marshalWithComplexFallback(v any, pretty bool) (string, error) {
 		err error
 	)
 	if pretty {
-		b, err = MarshalJSONIndent(v, "", "    ")
+		b, err = json.MarshalIndent(v, "", "    ")
 	} else {
-		b, err = MarshalJSON(v)
+		b, err = json.Marshal(v)
 	}
 	if err == nil {
 		return string(b), nil
