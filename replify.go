@@ -3220,13 +3220,12 @@ func (r *wrapper) Binary(data any) *wrapper {
 	if !r.Available() {
 		return r
 	}
+	// nil is treated as an empty byte slice
 	if data == nil {
-		r.WithHeader(BadRequest).
-			WithMessage("failed to set binary data, data is nil").
-			BindCause()
+		r.data = []byte(nil)
 		return r
 	}
-	if !isBinaryValue(data) {
+	if _, ok := data.([]byte); !ok {
 		typename := reflect.TypeOf(data).String()
 
 		r.WithHeader(UnprocessableEntity).
