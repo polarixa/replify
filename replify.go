@@ -1174,7 +1174,7 @@ func (w *wrapper) IsJSONBody() bool {
 	if !w.Available() || !w.IsBodyPresent() {
 		return false
 	}
-	json := encoding.JSON(w.data)
+	json := jsonpass(w.data)
 	return fj.IsValidJSONString(json) && encoding.IsValidJSONString(json)
 }
 
