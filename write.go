@@ -5,7 +5,6 @@ import (
 	"reflect"
 
 	"github.com/polarixa/replify/pkg/conv"
-	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/sysx"
 )
@@ -61,13 +60,13 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	}
 
 	// Use a deferred span for logging the WriteFile operation with the file path.
-	defer New().Processing().Span("WriteFile",
-		slogger.String("request_id", r.Meta().RequestID()),
-		slogger.String("filepath", r.filepath),
-		slogger.String("filename", r.filename),
-		slogger.String("content_type", resource.ContentType()),
-		slogger.String("content_length", resource.SizeHumanReadable()),
-	)()
+	// defer New().Processing().Span("WriteFile",
+	// 	slogger.String("request_id", r.Meta().RequestID()),
+	// 	slogger.String("filepath", r.filepath),
+	// 	slogger.String("filename", r.filename),
+	// 	slogger.String("content_type", resource.ContentType()),
+	// 	slogger.String("content_length", resource.SizeHumanReadable()),
+	// )()
 
 	// Set the Content-Type header based on the resource's content type.
 	w.Header().Set(HeaderContentType.String(), resource.ContentType())
@@ -144,10 +143,10 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 		return r.WriteJSON(w)
 	}
 
-	defer New().Processing().Span("WriteBinary",
-		slogger.String("request_id", r.Meta().RequestID()),
-		slogger.String("filename", r.filename),
-	)()
+	// defer New().Processing().Span("WriteBinary",
+	// 	slogger.String("request_id", r.Meta().RequestID()),
+	// 	slogger.String("filename", r.filename),
+	// )()
 
 	// Safely cast the data to a byte slice for writing.
 	data, _ := r.data.([]byte)
@@ -210,11 +209,11 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
 	}
 
-	defer New().Processing().Span("WriteJSON",
-		slogger.String("request_id", r.Meta().RequestID()),
-		slogger.Int("status_code", r.StatusCode()),
-		slogger.String("message", r.Message()),
-	)()
+	// defer New().Processing().Span("WriteJSON",
+	// 	slogger.String("request_id", r.Meta().RequestID()),
+	// 	slogger.Int("status_code", r.StatusCode()),
+	// 	slogger.String("message", r.Message()),
+	// )()
 
 	data := r.JSONBytes()
 
