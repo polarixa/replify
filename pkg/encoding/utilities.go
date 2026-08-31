@@ -789,19 +789,13 @@ func marshalJSONCommon(data any, pretty, errorOnNil bool) (string, error) {
 	// Fast-path well-known types that do not need reflection.
 	switch v := data.(type) {
 	case string:
-		return marshalStringToken(v)
+		return marshalStringToken(&v)
 	case *string:
-		if v == nil {
-			return "null", nil
-		}
-		return marshalStringToken(*v)
+		return marshalStringToken(v)
 	case json.RawMessage:
-		return marshalRawMessageToken(v, pretty)
+		return marshalRawMessageToken(&v, pretty)
 	case *json.RawMessage:
-		if v == nil {
-			return "null", nil
-		}
-		return marshalRawMessageToken(*v, pretty)
+		return marshalRawMessageToken(v, pretty)
 	}
 
 	rv, ok := unwrapInterfaces(reflect.ValueOf(data))
@@ -842,7 +836,10 @@ func marshalJSONCommon(data any, pretty, errorOnNil bool) (string, error) {
 //	marshalStringToken("hi")        // `"hi"`, nil
 //	marshalStringToken("a\tb")      // `"a\tb"`, nil
 //	marshalStringToken("")          // `""`, nil
-func marshalStringToken(s string) (string, error) {
+func marshalStringToken(s *string) (string, error) {
+	if s == nil {
+		return "null", nil
+	}
 	b, err := json.Marshal(s)
 	if err != nil {
 		return "", err
@@ -868,19 +865,19 @@ func marshalStringToken(s string) (string, error) {
 //	marshalRawMessageToken(json.RawMessage(`{"a":1}`), true)  // "{\n    \"a\": 1\n}", nil
 //	marshalRawMessageToken(json.RawMessage(`{bad}`),  false)  // "", ErrInvalidRawMessage
 //	marshalRawMessageToken(nil, false)                        // "null", nil
-func marshalRawMessageToken(msg json.RawMessage, pretty bool) (string, error) {
+func marshalRawMessageToken(msg *json.RawMessage, pretty bool) (string, error) {
 	if msg == nil {
 		return "null", nil
 	}
-	if !json.Valid(msg) {
+	if !json.Valid(*msg) {
 		return "", ErrInvalidRawMessage
 	}
 	if !pretty {
-		return string(msg), nil
+		return string(*msg), nil
 	}
 
 	var buf bytes.Buffer
-	if err := json.Indent(&buf, msg, "", "    "); err != nil {
+	if err := json.Indent(&buf, *msg, "", "    "); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
