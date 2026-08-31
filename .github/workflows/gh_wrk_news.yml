@@ -35,21 +35,21 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
-      - name: Send Telegram Notification
-        if: steps.check.outputs.skip == 'false'
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            🚀 *AI Workflow Administrator (AWA)*
-            - *username*: `${{ github.actor }}`
-            - *message*: `${{ github.event.commits[0].message }}`
-            - *hash*: `${{ github.sha }}`
-            - *repository*: `${{ github.repository }}`
-            - *head*: `${{ github.event.head_commit.message }}`
-            🍀 *See changes*: `https://github.com/${{ github.repository }}/commit/${{github.sha}}`
+      # - name: Send Telegram Notification
+      #   if: steps.check.outputs.skip == 'false'
+      #   uses: appleboy/telegram-action@master
+      #   with:
+      #     to: ${{ secrets.TELEGRAM_CHAT_ID }}
+      #     token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      #     format: markdown
+      #     message: |
+      #       🚀 *AI Workflow Administrator (AWA)*
+      #       - *username*: `${{ github.actor }}`
+      #       - *message*: `${{ github.event.commits[0].message }}`
+      #       - *hash*: `${{ github.sha }}`
+      #       - *repository*: `${{ github.repository }}`
+      #       - *head*: `${{ github.event.head_commit.message }}`
+      #       🍀 *See changes*: `https://github.com/${{ github.repository }}/commit/${{github.sha}}`
 
   # This job is responsible for deploying the project when a tag is pushed.
   # It checks if the tag exists, generates a changelog, creates a GitHub release, and sends a notification via Telegram.
@@ -163,20 +163,20 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Send Telegram Notification
-        if: steps.check.outputs.skip == 'false'
-        uses: appleboy/telegram-action@master
-        with:
-          to: ${{ secrets.TELEGRAM_CHAT_ID }}
-          token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          format: markdown
-          message: |
-            🚀 *AI Workflow Administrator (AWA)*
-            - *latest tag*: *${{ env.TAG }}*
-            - *username*: `${{ github.actor }}`
-            - *hash*: `${{ github.sha }}`
-            - *repository*: `${{ github.repository }}`
-            - *head*: `${{ github.event.head_commit.message }}`
-            🍀 *See changes*: `https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}`
-            📜 *Changelog*:
-            `${{ steps.changelog.outputs.changelog }}`
+      # - name: Send Telegram Notification
+      #   if: steps.check.outputs.skip == 'false'
+      #   uses: appleboy/telegram-action@master
+      #   with:
+      #     to: ${{ secrets.TELEGRAM_CHAT_ID }}
+      #     token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      #     format: markdown
+      #     message: |
+      #       🚀 *AI Workflow Administrator (AWA)*
+      #       - *latest tag*: *${{ env.TAG }}*
+      #       - *username*: `${{ github.actor }}`
+      #       - *hash*: `${{ github.sha }}`
+      #       - *repository*: `${{ github.repository }}`
+      #       - *head*: `${{ github.event.head_commit.message }}`
+      #       🍀 *See changes*: `https://github.com/${{ github.repository }}/releases/tag/${{ env.TAG }}`
+      #       📜 *Changelog*:
+      #       `${{ steps.changelog.outputs.changelog }}`
