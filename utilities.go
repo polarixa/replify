@@ -146,7 +146,7 @@ func jsonpretty(data any) string {
 	if s, ok := data.(string); ok {
 		return s
 	}
-	return encoding.JSONPretty(data)
+	return encoding.JSON(data, true)
 }
 
 // httpStatusLevel maps an HTTP status code to its corresponding [slogger.Level].

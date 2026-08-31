@@ -300,7 +300,7 @@ func NormalizeJSON(s string) (string, error) {
 //	JSON(map[string]int{"a": 1}, true) // "{\n    \"a\": 1\n}"
 //	JSON(nil)                       // ""
 func JSON(data any, pretty ...bool) string {
-	s, _ := marshalJSONCommon(data, len(pretty) > 0 && pretty[0], false)
+	s, _ := marshalJSONEngine(data, len(pretty) > 0 && pretty[0], false)
 	return s
 }
 
@@ -327,40 +327,5 @@ func JSON(data any, pretty ...bool) string {
 //	s, err := JSONE(nil)              // s="",      err=ErrNilInterface (errorOnNil path)
 //	s, err := JSONE(struct{ X int }{1}, true) // s="{\n    \"X\": 1\n}", err=nil
 func JSONE(data any, pretty ...bool) (string, error) {
-	return marshalJSONCommon(data, len(pretty) > 0 && pretty[0], true)
-}
-
-// JSONPretty converts data to a pretty-printed JSON string.
-//
-// This function is a convenience wrapper around [JSON] that sets the pretty argument to true, producing indented (4-space) output. It returns the JSON-encoded string or an empty string on error.
-//
-// Parameters:
-//   - data: The value to encode as JSON.
-//
-// Returns:
-//   - A pretty-printed JSON string, or an empty string on error.
-//
-// Example:
-//
-//	jsonPretty := JSONPretty(myStruct) // Produces indented JSON output
-func JSONPretty(data any) string {
-	return JSON(data, true)
-}
-
-// JSONPrettyE converts data to a pretty-printed JSON string and returns any encoding error.
-//
-// This function is a convenience wrapper around [JSONE] that sets the pretty argument to true, producing indented (4-space) output. It returns the JSON-encoded string and any error encountered during encoding.
-//
-// Parameters:
-//   - data: The value to encode as JSON.
-//
-// Returns:
-//   - s: A pretty-printed JSON string, or an empty string on error.
-//   - err: An error if encoding fails.
-//
-// Example:
-//
-//	s, err := JSONPrettyE(myStruct) // Produces indented JSON output and captures any error
-func JSONPrettyE(data any) (string, error) {
-	return JSONE(data, true)
+	return marshalJSONEngine(data, len(pretty) > 0 && pretty[0], true)
 }
