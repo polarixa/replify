@@ -188,6 +188,21 @@ func (w *wrapper) BodyString() string {
 	return d
 }
 
+// BodyType returns the type of the body data in the [wrapper] instance as a string.
+//
+// This function checks if the [wrapper] instance is available and if the body data is present.
+// If both conditions are met, it retrieves the type of the body data using reflection and returns it as a string.
+//
+// Returns:
+//   - A string representing the type of the body data, or an empty string if the [wrapper] instance is not available or if the body data is not present.
+func (w *wrapper) BodyType() string {
+	if !w.Available() || !w.IsBodyPresent() {
+		return ""
+	}
+	typename := reflect.TypeOf(w.data).String()
+	return typename
+}
+
 // CompressSafe compresses the body data if it exceeds a specified threshold.
 //
 // This function checks if the [wrapper] instance is available and if the body data
@@ -1211,7 +1226,7 @@ func (w *wrapper) IsBinaryBody() bool {
 	if !w.Available() || !w.IsBodyPresent() {
 		return false
 	}
-	return isBinaryValue(w.data)
+	return encoding.IsBinary(w.data)
 }
 
 // IsHeaderPresent checks whether header information is present in the [wrapper] instance.
