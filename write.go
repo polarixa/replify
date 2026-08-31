@@ -2,7 +2,6 @@ package replify
 
 import (
 	"net/http"
-	"reflect"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/strutil"
@@ -46,7 +45,7 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 			WithMessage("failed to open file").
 			WithErrorAck(err).
 			WithDebuggingKV("filepath", r.filepath)
-		return r.WriteJSON(w)
+		return r
 	}
 
 	// Check if the resource is a directory. If it is, return an error response.
@@ -126,15 +125,17 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
 	}
+	// r.data is nil (unset) vs []byte(nil) stored by Binary(nil) — only the former is an error
 	if r.data == nil {
 		r.WithHeader(BadRequest).
 			WithMessage("failed to write binary data, data is nil").
 			BindCause()
 		return r.WriteJSON(w)
 	}
-	// Check if the data is binary, if not, return an error acknowledgment
-	if !r.IsBinaryBody() {
-		typename := reflect.TypeOf(r.data).String()
+	// Safely cast the data to a byte slice for writing.
+	data, ok := r.data.([]byte)
+	if !ok {
+		typename := r.BodyType()
 
 		r.WithHeader(UnprocessableEntity).
 			WithMessage("response body must be a binary byte slice").
@@ -147,9 +148,6 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	// 	slogger.String("request_id", r.Meta().RequestID()),
 	// 	slogger.String("filename", r.filename),
 	// )()
-
-	// Safely cast the data to a byte slice for writing.
-	data, _ := r.data.([]byte)
 
 	// Set the Content-Disposition header to indicate an attachment with the given filename.
 	contentType := sysx.MimeFromName(r.filename)
@@ -248,7 +246,7 @@ func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filepath) {
 		return r.WriteFile(w)
 	}
-	if r.IsBinaryBody() {
+	if _, ok := r.data.([]byte); ok {
 		return r.WriteBinary(w)
 	}
 	return r.WriteJSON(w)
