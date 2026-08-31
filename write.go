@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/polarixa/replify/pkg/conv"
+	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/sysx"
 )
@@ -59,13 +60,15 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	}
 
 	// Use a deferred span for logging the WriteFile operation with the file path.
-	// defer New().Processing().Span("WriteFile",
-	// 	slogger.String("request_id", r.Meta().RequestID()),
-	// 	slogger.String("filepath", r.filepath),
-	// 	slogger.String("filename", r.filename),
-	// 	slogger.String("content_type", resource.ContentType()),
-	// 	slogger.String("content_length", resource.SizeHumanReadable()),
-	// )()
+	if r.isSpan() {
+		defer New().Processing().Span("WriteFile",
+			slogger.String("request_id", r.Meta().RequestID()),
+			slogger.String("filepath", r.filepath),
+			slogger.String("filename", r.filename),
+			slogger.String("content_type", resource.ContentType()),
+			slogger.String("content_length", resource.SizeHumanReadable()),
+		)()
+	}
 
 	// Set the Content-Type header based on the resource's content type.
 	w.Header().Set(HeaderContentType.String(), resource.ContentType())
@@ -144,10 +147,12 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 		return r.WriteJSON(w)
 	}
 
-	// defer New().Processing().Span("WriteBinary",
-	// 	slogger.String("request_id", r.Meta().RequestID()),
-	// 	slogger.String("filename", r.filename),
-	// )()
+	if r.isSpan() {
+		defer New().Processing().Span("WriteBinary",
+			slogger.String("request_id", r.Meta().RequestID()),
+			slogger.String("filename", r.filename),
+		)()
+	}
 
 	// Set the Content-Disposition header to indicate an attachment with the given filename.
 	contentType := sysx.MimeFromName(r.filename)
@@ -207,11 +212,13 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
 	}
 
-	// defer New().Processing().Span("WriteJSON",
-	// 	slogger.String("request_id", r.Meta().RequestID()),
-	// 	slogger.Int("status_code", r.StatusCode()),
-	// 	slogger.String("message", r.Message()),
-	// )()
+	if r.isSpan() {
+		defer New().Processing().Span("WriteJSON",
+			slogger.String("request_id", r.Meta().RequestID()),
+			slogger.Int("status_code", r.StatusCode()),
+			slogger.String("message", r.Message()),
+		)()
+	}
 
 	data := r.JSONBytes()
 
@@ -246,7 +253,7 @@ func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
 	if strutil.IsNotEmpty(r.filepath) {
 		return r.WriteFile(w)
 	}
-	if _, ok := r.data.([]byte); ok {
+	if _, ok := r.data.([]byte); ok || r.IsBinaryBody() {
 		return r.WriteBinary(w)
 	}
 	return r.WriteJSON(w)
