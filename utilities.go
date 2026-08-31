@@ -1063,16 +1063,6 @@ func safeCastValueSupervised(value any) (as any) {
 	return as
 }
 
-// isBinaryValue is the recursive worker behind IsBinaryBody. It resolves
-// unambiguous types directly, falls back to content sniffing for strings,
-// byte slices, and readers, and unwraps one level of pointer indirection
-// for any other concrete type.
-//
-// The function returns true if the value is determined to be binary, and false otherwise.
-func isBinaryValue(value any) bool {
-	return encoding.IsBinary(value)
-}
-
 // IsSafeFilename checks if the provided filename is safe for use in HTTP headers.
 // It returns false if the filename is empty or contains any unsafe characters (CR, LF, or null bytes).
 // If the filename is safe, it returns true; otherwise, it returns false along with an error describing the issue.
