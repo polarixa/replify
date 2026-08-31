@@ -5,12 +5,14 @@ import (
 	stdencoding "encoding"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // compactJSON processes a source byte slice and removes unwanted characters, returning a new cleaned-up byte slice.
@@ -1899,4 +1901,69 @@ func encodeComplexBytes(v reflect.Value) ([]byte, error) {
 func complexParts(v reflect.Value) (r, i float64) {
 	c := v.Complex()
 	return real(c), imag(c)
+}
+
+// sniffBytes applies content-based binary detection to a byte slice.
+//
+// The payload is treated as binary when its leading sample (bounded by
+// binarySniffLen) contains a NUL byte or is not valid UTF-8. An empty
+// slice is treated as text.
+func sniffBytes(b []byte) bool {
+	if len(b) == 0 {
+		return false
+	}
+	sample := b
+	if len(sample) > binarySniffLen {
+		sample = sample[:binarySniffLen]
+	}
+	if bytes.IndexByte(sample, 0) >= 0 {
+		return true
+	}
+	return !utf8.Valid(sample)
+}
+
+// sniffString applies the same content-based binary detection as
+// sniffBytes without forcing a []byte allocation for the common case.
+//
+// The payload is treated as binary when its leading sample (bounded by
+// binarySniffLen) contains a NUL byte or is not valid UTF-8. An empty
+// string is treated as text.
+func sniffString(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	sample := s
+	if len(sample) > binarySniffLen {
+		sample = sample[:binarySniffLen]
+	}
+	if strings.IndexByte(sample, 0) >= 0 {
+		return true
+	}
+	return !utf8.ValidString(sample)
+}
+
+// sniffSeekableReader peeks up to binarySniffLen bytes from an
+// [io.ReadSeeker] to classify its content, then restores the original
+// stream position so the caller can still read the full payload
+// afterward. Any error while peeking or restoring the position is
+// treated conservatively as binary, since the stream can no longer be
+// trusted to replay from its original position.
+func sniffSeekableReader(rs io.ReadSeeker) bool {
+	if rs == nil {
+		return false
+	}
+	pos, err := rs.Seek(0, io.SeekCurrent)
+	if err != nil {
+		return true
+	}
+	buf := make([]byte, binarySniffLen)
+	n, readErr := io.ReadFull(rs, buf)
+	if readErr != nil && readErr != io.ErrUnexpectedEOF && readErr != io.EOF {
+		_, _ = rs.Seek(pos, io.SeekStart)
+		return true
+	}
+	if _, err := rs.Seek(pos, io.SeekStart); err != nil {
+		return true
+	}
+	return sniffBytes(buf[:n])
 }
