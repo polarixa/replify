@@ -2711,6 +2711,25 @@ func (w *wrapper) WithCursorLimit(v int) *wrapper {
 	return w
 }
 
+// WithSpan sets the span flag in the [wrapper] instance.
+//
+// This function checks if the [wrapper] instance is available. If it is, it sets the `span` field
+// to the provided boolean value `v`. The `span` field can be used to indicate whether the response
+// should include span information or not.
+//
+// Parameters:
+//   - v: A boolean value indicating whether to include span information.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithSpan(v bool) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.span = v
+	return w
+}
+
 // MustHash256 generates a hash string for the [wrapper] instance.
 //
 // This method concatenates the values of the `statusCode`, `message`, `data`, and [meta] fields
@@ -3274,6 +3293,22 @@ func (w *wrapper) autoAdjust() {
 				w.StatusText(), base.StatusText()).
 			WithHeader(base)
 	}
+}
+
+// isSpan checks whether the [wrapper] instance is available and whether the `span` field is set to true.
+//
+// This method is used to determine if the response should include span information for tracing purposes.
+// It first checks if the [wrapper] instance is available (i.e., not nil and properly initialized).
+// If the instance is available, it returns the value of the `span` field, which indicates whether
+// span information should be included in the response.
+//
+// Returns:
+//   - A boolean value indicating whether the [wrapper] instance is available and whether the `span` field is set to true.
+func (w *wrapper) isSpan() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.span // Indicates whether to include a span in the response for tracing purposes.
 }
 
 // build generates a map representation of the [wrapper] instance.

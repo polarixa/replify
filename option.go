@@ -403,3 +403,10 @@ func WithCursorLimit(limit int) ROption {
 		w.WithCursorLimit(limit)
 	}
 }
+
+// WithSpan returns an [ROption] that sets whether to include a span in the response for tracing purposes.
+func WithSpan(span bool) ROption {
+	return func(w *wrapper) {
+		w.WithSpan(span)
+	}
+}
