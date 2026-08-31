@@ -72,6 +72,15 @@ func WithBody(v any) ROption {
 	}
 }
 
+// WithBodySuppressed returns an [ROption] that sets the response body payload
+// and marks it as suppressed for logging purposes. This is useful when the
+// payload is too large or sensitive to include in logs.
+func WithBodySuppressed(v any) ROption {
+	return func(w *wrapper) {
+		w.WithBodySuppressed(v)
+	}
+}
+
 // WithSkipBody returns an [ROption] that controls whether the body payload
 // is omitted from [String], [build], and [Slogging] output.
 // Pass true to suppress the body (useful when the payload is too large or
