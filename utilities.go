@@ -196,6 +196,22 @@ func logAtLevel(l *slogger.Logger, lvl slogger.Level, msg string, f slogger.Fiel
 	}
 }
 
+// logFieldsAtLevel dispatches a log entry with multiple structured fields at the given level.
+func logFieldsAtLevel(l *slogger.Logger, lvl slogger.Level, msg string, fields []slogger.Field) {
+	switch lvl {
+	case slogger.ErrorLevel:
+		l.Error(msg, fields...)
+	case slogger.WarnLevel:
+		l.Warn(msg, fields...)
+	case slogger.InfoLevel:
+		l.Info(msg, fields...)
+	case slogger.DebugLevel:
+		l.Debug(msg, fields...)
+	default:
+		l.Trace(msg, fields...)
+	}
+}
+
 // slogAtLevel dispatches a single log entry to l at the given level without any structured fields.
 // It uses the appropriate method of the slogger.Logger based on the provided slogger.Level.
 //
