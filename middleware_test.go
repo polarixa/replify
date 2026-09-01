@@ -840,3 +840,146 @@ func BenchmarkLogger_Parallel(b *testing.B) {
 		}
 	})
 }
+
+// ============================================================================
+// Integration — Recovery + Logger stack against a real httptest.Server
+// ============================================================================
+
+// TestMiddlewareStack_Integration exercises Recovery and Logger together on a
+// real httptest.Server (full net/http stack, real TCP, actual response bodies).
+//
+// Correct ordering: Logger()(Recovery()(mux))
+// Logger is the outermost layer so Recovery writes the 500 through Logger's
+// logWriter, giving the logger an accurate view of the final status.
+//
+// NOT parallel — swaps the global logger to capture log output.
+func TestMiddlewareStack_Integration(t *testing.T) {
+	// Capture all structured log output from both middlewares.
+	var logBuf bytes.Buffer
+	orig := slogger.S()
+	slogger.SetGlobalLogger(newTestLogger(&logBuf))
+	defer slogger.SetGlobalLogger(orig)
+
+	// Build a mux with routes that represent a realistic API surface.
+	mux := http.NewServeMux()
+
+	// GET /api/v1/users → 200 JSON
+	mux.HandleFunc("/api/v1/users", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":1,"name":"Alice"}`))
+	})
+
+	// POST /api/v1/create → 201 Created
+	mux.HandleFunc("/api/v1/create", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+
+	// GET /api/v1/bad → 400 Bad Request
+	mux.HandleFunc("/api/v1/bad", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	})
+
+	// GET /api/v1/panic → handler panics; Recovery must return 500
+	mux.HandleFunc("/api/v1/panic", func(w http.ResponseWriter, r *http.Request) {
+		panic("simulated handler panic")
+	})
+
+	// GET /api/v1/partial → writes bytes then panics; Recovery must not double-write
+	mux.HandleFunc("/api/v1/partial", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("partial"))
+		panic("panic after partial write")
+	})
+
+	// Logger outer, Recovery inner: Recovery writes 500 through Logger's logWriter.
+	stack := replify.Logger()(replify.Recovery()(mux))
+	srv := httptest.NewServer(stack)
+	defer srv.Close()
+
+	client := srv.Client()
+
+	cases := []struct {
+		name           string
+		method         string
+		path           string
+		reqID          string
+		wantStatus     int
+		wantBodyPrefix string   // non-empty: response body must start with this
+		wantLogTokens  []string // all must appear somewhere in the log
+	}{
+		{
+			name:          "GET /users 200",
+			method:        http.MethodGet,
+			path:          "/api/v1/users",
+			reqID:         "integ-req-001",
+			wantStatus:    http.StatusOK,
+			wantLogTokens: []string{"method=GET", "path=/api/v1/users", "status=200", "integ-req-001"},
+		},
+		{
+			name:          "POST /create 201",
+			method:        http.MethodPost,
+			path:          "/api/v1/create",
+			wantStatus:    http.StatusCreated,
+			wantLogTokens: []string{"method=POST", "path=/api/v1/create", "status=201"},
+		},
+		{
+			name:          "GET /bad 400",
+			method:        http.MethodGet,
+			path:          "/api/v1/bad",
+			wantStatus:    http.StatusBadRequest,
+			wantLogTokens: []string{"status=400"},
+		},
+		{
+			name:          "GET /panic → Recovery 500",
+			method:        http.MethodGet,
+			path:          "/api/v1/panic",
+			reqID:         "integ-req-panic",
+			wantStatus:    http.StatusInternalServerError,
+			wantLogTokens: []string{"panic recovered", "simulated handler panic", "integ-req-panic", "status=500"},
+		},
+		{
+			name:           "GET /partial → panic after write",
+			method:         http.MethodGet,
+			path:           "/api/v1/partial",
+			wantStatus:     http.StatusOK, // first WriteHeader wins
+			wantBodyPrefix: "partial",
+			wantLogTokens:  []string{"panic recovered", "panic after partial write"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			logBuf.Reset()
+
+			req, err := http.NewRequest(tc.method, srv.URL+tc.path, nil)
+			if err != nil {
+				t.Fatalf("build request: %v", err)
+			}
+			if tc.reqID != "" {
+				req.Header.Set("X-Request-Id", tc.reqID)
+			}
+
+			resp, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("do request: %v", err)
+			}
+			body, _ := io.ReadAll(resp.Body)
+			resp.Body.Close()
+
+			if resp.StatusCode != tc.wantStatus {
+				t.Errorf("status: got %d, want %d", resp.StatusCode, tc.wantStatus)
+			}
+			if tc.wantBodyPrefix != "" && !strings.HasPrefix(string(body), tc.wantBodyPrefix) {
+				t.Errorf("body prefix: got %q, want prefix %q", string(body), tc.wantBodyPrefix)
+			}
+
+			logged := logBuf.String()
+			for _, token := range tc.wantLogTokens {
+				if !strings.Contains(logged, token) {
+					t.Errorf("log missing %q\nfull log:\n%s", token, logged)
+				}
+			}
+		})
+	}
+}
