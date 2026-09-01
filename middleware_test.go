@@ -34,7 +34,7 @@ func newTestLogger(buf *bytes.Buffer) *slogger.Logger {
 	return slogger.New(func(o *slogger.Options) {
 		o.SetLevel(slogger.TraceLevel)
 		o.SetOutput(buf)
-		o.SetFormatter(slogger.NewTextFormatter(buf).WithDisableColor())
+		o.SetFormatter(slogger.NewTextFormatter(buf).WithColorMode(slogger.ColorNever))
 	})
 }
 
@@ -812,4 +812,31 @@ func BenchmarkLogger(b *testing.B) {
 		rr := httptest.NewRecorder()
 		middleware.ServeHTTP(rr, req)
 	}
+}
+
+// BenchmarkLogger_Parallel shows the pool benefit under concurrent load:
+// goroutines return slices to the pool and other goroutines reuse them,
+// eliminating the make([]slogger.Field, 0, 9) heap allocation on hot paths.
+func BenchmarkLogger_Parallel(b *testing.B) {
+	orig := slogger.S()
+	slogger.SetGlobalLogger(slogger.New(func(o *slogger.Options) {
+		o.SetOutput(io.Discard)
+	}))
+	b.Cleanup(func() { slogger.SetGlobalLogger(orig) })
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("hello"))
+	})
+	middleware := replify.Logger()(handler)
+	req := httptest.NewRequest(http.MethodGet, "/bench", nil)
+
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			rr := httptest.NewRecorder()
+			middleware.ServeHTTP(rr, req)
+		}
+	})
 }

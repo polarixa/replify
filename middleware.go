@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/polarixa/replify/pkg/slogger"
@@ -175,7 +176,8 @@ func Logger() func(http.Handler) http.Handler {
 				return
 			}
 
-			fields := make([]slogger.Field, 0, 9)
+			fb := fieldsPool.Get().(*fieldsBuf)
+			fields := fb.v[:0]
 			if id := r.Header.Get("X-Request-Id"); id != "" {
 				fields = append(fields, slogger.String("request_id", id))
 			}
@@ -192,8 +194,20 @@ func Logger() func(http.Handler) http.Handler {
 				fields = append(fields, slogger.String("user_agent", ua))
 			}
 			logFieldsAtLevel(l, lvl, "http request", fields)
+			fb.v = fields // write back in case append grew the slice
+			fieldsPool.Put(fb)
 		})
 	}
+}
+
+// fieldsBuf holds a reusable []slogger.Field slice. Keeping it in a sync.Pool
+// avoids one heap allocation per request in the Logger hot path.
+type fieldsBuf struct{ v []slogger.Field }
+
+// fieldsPool stores fieldsBuf instances between requests.
+// Capacity 9 covers all Logger fields (8 fixed + optional user_agent).
+var fieldsPool = sync.Pool{
+	New: func() any { return &fieldsBuf{v: make([]slogger.Field, 0, 9)} },
 }
 
 // logWriter wraps [http.ResponseWriter] to capture the HTTP status code and the
