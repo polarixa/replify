@@ -51,11 +51,14 @@ func Recovery() func(http.Handler) http.Handler {
 				if p == http.ErrAbortHandler {
 					panic(p)
 				}
-				rw.logRecoveredPanic(l, r, p, debug.Stack())
+				stack := debug.Stack()
+				rw.logRecoveredPanic(l, r, p, stack)
 				if !rw.written {
 					New().
 						InternalServerError().
 						WithMessage("an unexpected error occurred").
+						WithDebuggingKV("panic", fmt.Sprintf("%v", p)).
+						WithDebuggingKV("stack", string(stack)).
 						WriteJSON(w)
 				}
 			}()

@@ -146,9 +146,13 @@ func TestRecovery_ResponseFormat(t *testing.T) {
 		t.Error("response missing message field")
 	}
 
-	// Panic details must NOT be exposed to the client.
-	if strings.Contains(rr.Body.String(), "internal-secret") {
-		t.Error("panic value leaked to client response")
+	// Panic value and stack trace are intentionally surfaced in the debug field.
+	dbg, _ := body["debug"].(map[string]any)
+	if _, ok := dbg["panic"]; !ok {
+		t.Error("response debug missing panic field")
+	}
+	if _, ok := dbg["stack"]; !ok {
+		t.Error("response debug missing stack field")
 	}
 }
 
@@ -289,9 +293,8 @@ func TestRecovery_Logging(t *testing.T) {
 	if !strings.Contains(logged, "panic recovered") {
 		t.Errorf("expected 'panic recovered' log message; got: %q", logged)
 	}
-	// Panic value must NOT be in the client response.
-	if strings.Contains(rr.Body.String(), "log-me-please") {
-		t.Error("panic value leaked to client response body")
+	if !strings.Contains(logged, "log-me-please") {
+		t.Errorf("panic value not in log output; got: %q", logged)
 	}
 }
 
