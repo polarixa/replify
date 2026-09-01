@@ -24,6 +24,12 @@ func SetGlobalLogger(l *Logger) {
 	atomic.StorePointer(&global, unsafe.Pointer(l))
 }
 
+// ResetGlobalLogger resets the package-level logger to a new default logger instance.
+// This is useful for testing or when you want to clear any custom configuration and return to the default logging behavior.
+func ResetGlobalLogger() {
+	atomic.StorePointer(&global, unsafe.Pointer(New()))
+}
+
 // GlobalLogger returns the current package-level logger.
 //
 // Returns:

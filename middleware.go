@@ -50,7 +50,7 @@ func Recovery() func(http.Handler) http.Handler {
 				if p == http.ErrAbortHandler {
 					panic(p)
 				}
-				logRecoveredPanic(l, r, p, debug.Stack())
+				rw.logRecoveredPanic(l, r, p, debug.Stack())
 				if !rw.written {
 					New().
 						InternalServerError().
@@ -105,7 +105,7 @@ func (rw *recoveryWriter) Unwrap() http.ResponseWriter {
 
 // logRecoveredPanic emits a structured error entry using the supplied logger.
 // Sensitive headers (Authorization, Cookie) are deliberately excluded.
-func logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
+func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
 	fb := fieldsPool.Get().(*fieldsBuf)
 	fields := fb.v[:0]
 	if id := r.Header.Get("X-Request-Id"); id != "" {
