@@ -106,7 +106,8 @@ func (rw *recoveryWriter) Unwrap() http.ResponseWriter {
 // logRecoveredPanic emits a structured error entry using the supplied logger.
 // Sensitive headers (Authorization, Cookie) are deliberately excluded.
 func logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
-	fields := make([]slogger.Field, 0, 6)
+	fb := fieldsPool.Get().(*fieldsBuf)
+	fields := fb.v[:0]
 	if id := r.Header.Get("X-Request-Id"); id != "" {
 		fields = append(fields, slogger.String("request_id", id))
 	}
@@ -118,6 +119,8 @@ func logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) 
 		slogger.String("stack", string(stack)),
 	)
 	l.Error("panic recovered", fields...)
+	fb.v = fields
+	fieldsPool.Put(fb)
 }
 
 // Logger returns a net/http middleware that emits one structured log entry per
