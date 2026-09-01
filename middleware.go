@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // Recovery returns a net/http middleware that catches any panic in a downstream
@@ -108,7 +109,7 @@ func (rw *recoveryWriter) Unwrap() http.ResponseWriter {
 func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
 	fb := fieldsPool.Get().(*fieldsBuf)
 	fields := fb.v[:0]
-	if id := r.Header.Get("X-Request-Id"); id != "" {
+	if id := r.Header.Get("X-Request-Id"); strutil.IsNotEmpty(id) {
 		fields = append(fields, slogger.String("request_id", id))
 	}
 	fields = append(fields,
@@ -181,8 +182,11 @@ func Logger() func(http.Handler) http.Handler {
 
 			fb := fieldsPool.Get().(*fieldsBuf)
 			fields := fb.v[:0]
-			if id := r.Header.Get("X-Request-Id"); id != "" {
+			if id := r.Header.Get("X-Request-Id"); strutil.IsNotEmpty(id) {
 				fields = append(fields, slogger.String("request_id", id))
+			}
+			if ua := r.Header.Get("User-Agent"); strutil.IsNotEmpty(ua) {
+				fields = append(fields, slogger.String("user_agent", ua))
 			}
 			fields = append(fields,
 				slogger.String("method", r.Method),
@@ -193,9 +197,6 @@ func Logger() func(http.Handler) http.Handler {
 				slogger.Duration("duration", time.Since(start)),
 				slogger.String("remote_addr", r.RemoteAddr),
 			)
-			if ua := r.Header.Get("User-Agent"); ua != "" {
-				fields = append(fields, slogger.String("user_agent", ua))
-			}
 			logFieldsAtLevel(l, lvl, "http request", fields)
 			fb.v = fields // write back in case append grew the slice
 			fieldsPool.Put(fb)
