@@ -460,13 +460,13 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 	return sw
 }
 
-// ResloveErrorOrderedDoc generates a step-by-step resolution guide for the error
+// ResolveESTOrderedDoc generates a step-by-step resolution guide for the error
 // present in the wrapper instance, ordered from the root cause outward to the
 // entry point of the call chain. It returns a [strchain.StringWeaver] instance
 // that can be used to build and format the guide content.
 //
 // Unlike [ErrorStackTraceDoc] (a raw stack trace code block) and [ErrorFlowDoc]
-// (a sequence diagram), ResloveErrorOrderedDoc produces an actionable Markdown
+// (a sequence diagram), ResolveESTOrderedDoc produces an actionable Markdown
 // checklist: one numbered, checkable item per stack frame, in the same order
 // the frames were captured (innermost/root cause first, outermost/entry point
 // last). This mirrors the order a developer would naturally investigate an
@@ -481,11 +481,11 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 //     the last as the entry point, and runtime frames are flagged as likely
 //     not actionable.
 //
-// ResloveErrorOrderedDoc is a no-op (returns an empty [strchain.StringWeaver])
+// ResolveESTOrderedDoc is a no-op (returns an empty [strchain.StringWeaver])
 // when no error is present, or when no stack trace frames are available.
 // Stack trace injection is disabled after generating the document to avoid
 // side effects on the wrapper's state.
-func (w *wrapper) ResloveErrorOrderedDoc() *strchain.StringWeaver {
+func (w *wrapper) ResolveESTOrderedDoc() *strchain.StringWeaver {
 	sw := strchain.New()
 	if !w.IsError() {
 		return sw
