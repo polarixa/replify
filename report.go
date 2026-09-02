@@ -377,3 +377,81 @@ func (w *wrapper) DumpMDDocTo(dst string) (*Dump, *wrapper) {
 			WithHeader(OK).
 			WithMessagef("DumpMDDocTo: succeeded, written to %s", dst)
 }
+
+// DumpResolveESTMDDoc serializes the [wrapper]'s diagnostic report as Markdown and writes
+// it into a self-cleaning temporary file, returning a [Dump] that owns the file.
+//
+// The serialized content matches [wrapper.ResolveErrorOrderedDoc] — the full
+// diagnostic report with summary, debug, headers, pagination, cursors, meta,
+// custom fields, and the root cause frame.
+//
+// The temporary file lives in the OS default temp directory with the pattern
+// "w_snapshot-*.md" and is removed automatically when Close is called.
+//
+// Both return values are always non-nil:
+//   - (*Dump, *wrapper) — Dump holds the seekable resource; wrapper carries
+//     the outcome for fluent chaining.
+//   - On error: Dump is nil, wrapper has the appropriate status + error detail.
+func (w *wrapper) DumpResolveESTMDDoc() (*Dump, *wrapper) {
+	if !w.Available() {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithMessage("DumpResolveESTMDDoc: wrapper is required")
+	}
+	d, err := dumpMarkdown(w.ResolveESTOrderedDoc().Bytes())
+	if err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("DumpResolveESTMDDoc: failed to create temp file")
+	}
+	return &Dump{syr: d}, New().
+		WithHeader(OK).
+		WithMessagef("DumpResolveESTMDDoc: succeeded and written to temp file %s", d.Name())
+}
+
+// DumpResolveESTMDDocTo serializes the [wrapper]'s diagnostic report as Markdown to dst and
+// simultaneously returns a [Dump] holding an in-process seekable copy for
+// streaming or re-reading.
+//
+// The serialized content matches [wrapper.ResolveErrorOrderedDoc] — the full
+// diagnostic report with summary, debug, headers, pagination, cursors, meta,
+// custom fields, and the root cause frame.
+//
+// Both return values are always non-nil:
+//   - (*Dump, *wrapper) — Dump holds the seekable copy and the dst path;
+//     wrapper carries the outcome for fluent chaining.
+//   - On error: Dump is nil, wrapper has the appropriate status + error detail.
+func (w *wrapper) DumpResolveESTMDDocTo(dst string) (*Dump, *wrapper) {
+	if !w.Available() {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithMessage("DumpResolveESTMDDocTo: wrapper is required")
+	}
+	if strutil.IsEmpty(dst) {
+		return nil, New().
+			WithHeader(BadRequest).
+			WithMessage("DumpResolveESTMDDocTo: destination path must not be empty")
+	}
+	payload := w.ResolveESTOrderedDoc().Bytes()
+
+	if err := sysx.AppendOrWriteBytes(dst, payload, []byte("\n")); err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessagef("DumpResolveESTMDDocTo: write to %s failed", dst)
+	}
+	d, err := dumpMarkdown(payload)
+	if err != nil {
+		return nil, New().
+			WithHeader(InternalServerError).
+			WithErrorAck(err).
+			WithMessage("DumpResolveESTMDDocTo: failed to create in-process temp copy")
+	}
+	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
+	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
+	return &Dump{syr: d, filepath: dst},
+		New().
+			WithHeader(OK).
+			WithMessagef("DumpResolveESTMDDocTo: succeeded, written to %s", dst)
+}
