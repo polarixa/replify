@@ -395,18 +395,18 @@ func (w *wrapper) DumpMDDocTo(dst string) (*Dump, *wrapper) {
 func (w *wrapper) DumpResolveESTMDDoc() (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithMessage("DumpResolveESTMDDoc: wrapper is required")
 	}
 	d, err := dumpMarkdown(w.ResolveESTOrderedDoc().Bytes())
 	if err != nil {
 		return nil, New().
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithErrorAck(err).
 			WithMessage("DumpResolveESTMDDoc: failed to create temp file")
 	}
 	return &Dump{syr: d}, New().
-		WithHeader(OK).
+		OK().
 		WithMessagef("DumpResolveESTMDDoc: succeeded and written to temp file %s", d.Name())
 }
 
@@ -425,26 +425,26 @@ func (w *wrapper) DumpResolveESTMDDoc() (*Dump, *wrapper) {
 func (w *wrapper) DumpResolveESTMDDocTo(dst string) (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithMessage("DumpResolveESTMDDocTo: wrapper is required")
 	}
 	if strutil.IsEmpty(dst) {
 		return nil, New().
-			WithHeader(BadRequest).
+			BadRequest().
 			WithMessage("DumpResolveESTMDDocTo: destination path must not be empty")
 	}
 	payload := w.ResolveESTOrderedDoc().Bytes()
 
 	if err := sysx.AppendOrWriteBytes(dst, payload, []byte("\n")); err != nil {
 		return nil, New().
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithErrorAck(err).
 			WithMessagef("DumpResolveESTMDDocTo: write to %s failed", dst)
 	}
 	d, err := dumpMarkdown(payload)
 	if err != nil {
 		return nil, New().
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithErrorAck(err).
 			WithMessage("DumpResolveESTMDDocTo: failed to create in-process temp copy")
 	}
@@ -452,6 +452,6 @@ func (w *wrapper) DumpResolveESTMDDocTo(dst string) (*Dump, *wrapper) {
 	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
-			WithHeader(OK).
+			OK().
 			WithMessagef("DumpResolveESTMDDocTo: succeeded, written to %s", dst)
 }
