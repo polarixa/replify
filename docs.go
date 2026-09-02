@@ -459,3 +459,79 @@ func (w *wrapper) prepareDocs() *strchain.StringWeaver {
 
 	return sw
 }
+
+// ResloveErrorOrderedDoc generates a step-by-step resolution guide for the error
+// present in the wrapper instance, ordered from the root cause outward to the
+// entry point of the call chain. It returns a [strchain.StringWeaver] instance
+// that can be used to build and format the guide content.
+//
+// Unlike [ErrorStackTraceDoc] (a raw stack trace code block) and [ErrorFlowDoc]
+// (a sequence diagram), ResloveErrorOrderedDoc produces an actionable Markdown
+// checklist: one numbered, checkable item per stack frame, in the same order
+// the frames were captured (innermost/root cause first, outermost/entry point
+// last). This mirrors the order a developer would naturally investigate an
+// error — starting where it originated and working back to where it was
+// triggered.
+//
+// The generated guide includes:
+//   - A header indicating the document purpose.
+//   - The root cause error message in a code block.
+//   - A numbered checklist of stack frames, each annotated with its display
+//     name and source location. The first entry is marked as the root cause,
+//     the last as the entry point, and runtime frames are flagged as likely
+//     not actionable.
+//
+// ResloveErrorOrderedDoc is a no-op (returns an empty [strchain.StringWeaver])
+// when no error is present, or when no stack trace frames are available.
+// Stack trace injection is disabled after generating the document to avoid
+// side effects on the wrapper's state.
+func (w *wrapper) ResloveErrorOrderedDoc() *strchain.StringWeaver {
+	sw := strchain.New()
+	if !w.IsError() {
+		return sw
+	}
+	w.autoAdjust()
+	w.InjectStackTrace()
+	defer w.DisableInjectStackTrace()
+
+	traceVal, ok := w.Debugging()["error_stack_trace"]
+	if !ok {
+		return sw
+	}
+	lines, _ := conv.StringSlice(traceVal)
+	if len(lines) == 0 {
+		return sw
+	}
+	participants := parseStackFrameParticipants(lines)
+	if len(participants) == 0 {
+		return sw
+	}
+
+	sw.Append("##").Space()
+	sw.Append("Resolve Error (Ordered)").NewLines(2)
+
+	sw.Append("👉").Space().Append("Root Cause").NewLine()
+	sw.CodeBlock("go", strchain.New().Append(escapeMarkdownPipe(w.Error()))).NewLines(2)
+
+	sw.Append("Follow these steps in order, starting from where the error originated:").NewLines(2)
+
+	last := len(participants) - 1
+	for i, p := range participants {
+		sw.AppendF("%d. [ ] ", i+1)
+		sw.InlineCode(escapeMarkdownPipe(p.displayName))
+		if strutil.IsNotEmpty(p.location) {
+			sw.Space().Append("—").Space().InlineCode(escapeMarkdownPipe(p.location))
+		}
+		switch {
+		case p.isRuntime:
+			sw.Space().Italic("(runtime frame — likely not actionable)")
+		case i == 0:
+			sw.Space().Bold("(root cause — start here)")
+		case i == last:
+			sw.Space().Bold("(entry point)")
+		}
+		sw.NewLine()
+	}
+
+	return sw
+}
