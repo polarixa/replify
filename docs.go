@@ -127,9 +127,6 @@ func (w *wrapper) ErrorFlowDoc() *strchain.StringWeaver {
 	if !w.IsError() {
 		return sw
 	}
-	if !w.IsDebuggingPresent() {
-		return sw
-	}
 	w.InjectStackTrace()
 	defer w.DisableInjectStackTrace()
 
