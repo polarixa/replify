@@ -3,14 +3,11 @@ package replify
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"reflect"
-	"runtime"
 	"strings"
 
 	"github.com/polarixa/replify/pkg/randn"
-	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // stackTracer is satisfied by any error carrying an embedded call stack, i.e.
@@ -141,114 +138,4 @@ func (w *wrapper) WithIssue() *wrapper {
 	}
 	w.issue = issue
 	return w
-}
-
-// rootCause unwraps err as far as possible using the standard errors.Unwrap
-// chain and returns the innermost error. It is used to resolve [issue.Message]
-// to the original failure rather than whatever contextual wrapping was
-// layered on top (e.g. `fmt.Errorf("query user: %w", sql.ErrNoRows)` resolves
-// to sql.ErrNoRows).
-//
-// Because Replify's own wrapping types ([underlyingStack], [underlyingMessage])
-// implement Unwrap(), this walk transparently supports both Replify-created
-// errors and errors created with the standard fmt.Errorf("...: %w", err)
-// convention — which also means errors.Is, errors.As, and errors.Unwrap all
-// work correctly against any error chain built by this package.
-func rootCause(err error) error {
-	for {
-		next := errors.Unwrap(err)
-		if next == nil {
-			return err
-		}
-		err = next
-	}
-}
-
-// shortenFile trims an absolute source path down to its last two path
-// segments (e.g. ".../service/user_service.go" -> "service/user_service.go").
-// Keeping one directory of context (rather than the bare filename) avoids
-// collapsing distinct call sites that happen to share a filename in
-// different packages (e.g. multiple "utilities.go" files) into a single
-// fingerprint bucket.
-func shortenFile(file string) string {
-	if strutil.IsEmpty(file) {
-		return "unknown"
-	}
-	idx := strings.LastIndex(file, "/")
-	if idx < 0 {
-		return file
-	}
-	idx2 := strings.LastIndex(file[:idx], "/")
-	if idx2 < 0 {
-		return file
-	}
-	return file[idx2+1:]
-}
-
-// errorOrigin extracts the (function, file, line) triple used to build a
-// fingerprint from err's own embedded stack trace, when err was created via a
-// stack-capturing constructor. It only inspects the top-level error (not the
-// full unwrap chain) because the outermost stack-aware wrapper is always the
-// one closest to the actual failure site in this package's error API.
-//
-// Returns ("unknown", "unknown", 0) when err carries no embedded stack (e.g.
-// a bare third-party error, or one created with [AppendError]/[AppendErrorf]).
-// In that case [NewFingerprint] still produces a stable, useful grouping key
-// from the error's kind alone.
-func errorOrigin(err error) (function, file string, line int) {
-	if st, ok := err.(stackTracer); ok {
-		if trace := st.StackTrace(); len(trace) > 0 {
-			f := trace[0]
-			displayName, _, isRuntime := parseStackFrame(f.name())
-			if isRuntime {
-				displayName = "runtime"
-			}
-			return displayName, shortenFile(f.file()), f.line()
-		}
-	}
-	return "unknown", "unknown", 0
-}
-
-// panicOrigin walks the goroutine's call stack, captured at the point of a
-// recovered panic, looking for the frame immediately following
-// runtime.gopanic — i.e. the actual function whose panic() call triggered
-// the recovery.
-//
-// This is more robust than skipping a fixed number of frames: Go keeps the
-// panicking function's frames on the stack until every deferred call along
-// the way returns, so a recover() handler (however many internal helper
-// calls deep it lives) can always walk back through its own frames, through
-// runtime.gopanic, and land on the original call site. Fixed frame-skip
-// counts break the moment an extra helper function is added between recover()
-// and this call; scanning for runtime.gopanic does not.
-//
-// Returns ("unknown", "unknown", 0) if no panic frame is found, which only
-// happens when this function is (incorrectly) called outside of an active
-// panic/recover.
-func panicOrigin() (function, file string, line int) {
-	const maxDepth = 64
-	pcs := make([]uintptr, maxDepth)
-	n := runtime.Callers(0, pcs)
-	if n == 0 {
-		return "unknown", "unknown", 0
-	}
-	frames := runtime.CallersFrames(pcs[:n])
-	seenPanic := false
-	for {
-		f, more := frames.Next()
-		switch {
-		case strings.HasPrefix(f.Function, "runtime.gopanic"):
-			seenPanic = true
-		case seenPanic && !strings.HasPrefix(f.Function, "runtime."):
-			displayName, _, isRuntime := parseStackFrame(f.Function)
-			if isRuntime {
-				displayName = "runtime"
-			}
-			return displayName, shortenFile(f.File), f.Line
-		}
-		if !more {
-			break
-		}
-	}
-	return "unknown", "unknown", 0
 }
