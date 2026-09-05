@@ -60,7 +60,7 @@ func Recovery() func(http.Handler) http.Handler {
 					New().
 						InternalServerError().
 						WithMessage("an unexpected error occurred").
-						WithDebuggingKV("issue", NewPanicIssue(p)).
+						WithIssue(NewPanicIssue(p)).
 						WriteJSON(w)
 				}
 			}()

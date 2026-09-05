@@ -400,18 +400,29 @@ func (w *wrapper) Issue() *issue {
 	return NewIssue(w.errors)
 }
 
-// WithIssue computes the [issue] for this [wrapper]'s current error (if any)
+// WithIssue attaches the provided [issue] instance to the [wrapper], replacing any existing issue.
+//
+// Parameters:
+//   - i: A pointer to the [issue] instance to attach.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithIssue(i *issue) *wrapper {
+	if i == nil {
+		return w
+	}
+	w.issue = i
+	return w
+}
+
+// AutoIssue computes the [issue] for this [wrapper]'s current error (if any)
 // and attaches it to the debug map under the "issue" key, ready to be
 // serialized to API consumers in place of the raw internal error. It is a
 // no-op when no error is present.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (w *wrapper) WithIssue() *wrapper {
+func (w *wrapper) AutoIssue() *wrapper {
 	issue := w.Issue()
-	if issue == nil {
-		return w
-	}
-	w.issue = issue
-	return w
+	return w.WithIssue(issue)
 }
