@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/polarixa/replify/pkg/randn"
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 // stackTracer is satisfied by any error carrying an embedded call stack, i.e.
@@ -144,6 +145,30 @@ func (i *issue) Fingerprint() string {
 //   - A string representing the root-cause message for this issue.
 func (i *issue) Message() string {
 	return i.message
+}
+
+// IsIDPresent checks if the unique identifier for this specific issue occurrence is present and non-empty.
+//
+// Returns:
+//   - A boolean indicating whether the unique identifier is present and non-empty.
+func (i *issue) IsIDPresent() bool {
+	return i.Available() && strutil.IsNotEmpty(i.id)
+}
+
+// IsFingerprintPresent checks if the fingerprint identifying the category of failure for this issue is present and non-empty.
+//
+// Returns:
+//   - A boolean indicating whether the fingerprint is present and non-empty.
+func (i *issue) IsFingerprintPresent() bool {
+	return i.Available() && strutil.IsNotEmpty(i.fingerprint)
+}
+
+// IsMessagePresent checks if the root-cause message for this issue is present and non-empty.
+//
+// Returns:
+//   - A boolean indicating whether the root-cause message is present and non-empty.
+func (i *issue) IsMessagePresent() bool {
+	return i.Available() && strutil.IsNotEmpty(i.message)
 }
 
 // WithID sets the unique identifier for this specific issue occurrence.
