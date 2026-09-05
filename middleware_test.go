@@ -146,13 +146,27 @@ func TestRecovery_ResponseFormat(t *testing.T) {
 		t.Error("response missing message field")
 	}
 
-	// Panic value and stack trace are intentionally surfaced in the debug field.
+	// The internal panic value and full stack trace are never surfaced to the
+	// client — only the minimal, public-safe Issue (id/fingerprint/message).
 	dbg, _ := body["debug"].(map[string]any)
-	if _, ok := dbg["panic"]; !ok {
-		t.Error("response debug missing panic field")
+	issue, ok := dbg["issue"].(map[string]any)
+	if !ok {
+		t.Fatalf("response debug missing issue field, got %#v", dbg)
 	}
-	if _, ok := dbg["stack"]; !ok {
-		t.Error("response debug missing stack field")
+	if _, ok := issue["id"]; !ok {
+		t.Error("issue missing id field")
+	}
+	if _, ok := issue["fingerprint"]; !ok {
+		t.Error("issue missing fingerprint field")
+	}
+	if msg, ok := issue["message"].(string); !ok || msg == "" {
+		t.Error("issue missing non-empty message field")
+	}
+	if _, ok := dbg["panic"]; ok {
+		t.Error("response debug must not expose the raw panic value")
+	}
+	if _, ok := dbg["stack"]; ok {
+		t.Error("response debug must not expose the raw stack trace")
 	}
 }
 

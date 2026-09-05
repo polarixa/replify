@@ -409,6 +409,22 @@ type cursor struct {
 	limit       int    // Limit on the number of items per page.
 }
 
+// issue is the minimal, API-facing surface of a failure. It is the public
+// counterpart to the internal `errors` field carried by [wrapper]: every
+// detail that could leak implementation internals (raw error chains, stack
+// traces, panic values) is deliberately left out, leaving only what a client
+// or support engineer needs to identify, group, and reference the failure.
+//
+//   - ID identifies this specific occurrence (one per failed request/panic).
+//   - Fingerprint identifies the category of failure (stable across
+//     occurrences originating from the same code path).
+//   - Message is the root-cause message, safe to display to a caller.
+type issue struct {
+	ID          string `json:"id,omitempty"`
+	Fingerprint string `json:"fingerprint,omitempty"`
+	Message     string `json:"message,omitempty"`
+}
+
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
 	statusCode int            // HTTP status code for the response.
@@ -420,6 +436,7 @@ type wrapper struct {
 	meta       *meta          // Metadata about the API response.
 	pagination *pagination    // Pagination details, if applicable.
 	cursor     *cursor        // Pagination cursors for navigating through results.
+	issue      *issue         // API-facing issue information derived from internal errors.
 	debug      map[string]any // Debugging information (useful for development).
 	errors     error          // Internal errors (not exposed in JSON responses).
 	skipBody   bool           // When true, the body payload is omitted from String(), build(), and Slogging() output.
