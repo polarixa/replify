@@ -416,9 +416,7 @@ func (w *wrapper) WithIssue(i *issue) *wrapper {
 }
 
 // AutoIssue computes the [issue] for this [wrapper]'s current error (if any)
-// and attaches it to the debug map under the "issue" key, ready to be
-// serialized to API consumers in place of the raw internal error. It is a
-// no-op when no error is present.
+// and attaches it to the [wrapper]. It is a no-op when no error is present.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
