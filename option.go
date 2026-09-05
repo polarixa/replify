@@ -410,3 +410,10 @@ func WithSpan(span bool) ROption {
 		w.WithSpan(span)
 	}
 }
+
+// WithIssue returns an [ROption] that attaches an issue to the wrapper.
+func WithIssue(issue *issue) ROption {
+	return func(w *wrapper) {
+		w.WithIssue(issue)
+	}
+}
