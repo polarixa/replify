@@ -54,11 +54,13 @@ func Recovery() func(http.Handler) http.Handler {
 				stack := debug.Stack()
 				rw.logRecoveredPanic(l, r, p, stack)
 				if !rw.written {
+					// Only the minimal, public-safe Issue reaches the client;
+					// the raw panic value and full stack stay server-side in
+					// the structured log emitted above.
 					New().
 						InternalServerError().
 						WithMessage("an unexpected error occurred").
-						WithDebuggingKV("panic", fmt.Sprintf("%v", p)).
-						WithDebuggingKV("stack", string(stack)).
+						WithIssue(NewPanicIssue(p)).
 						WriteJSON(w)
 				}
 			}()

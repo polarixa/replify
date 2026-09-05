@@ -306,6 +306,16 @@ The library produces responses in this standardized format:
       "origin_region": "us-east-1"
     }
   },
+  "header": {
+    "code": 500,
+    "text": "Internal Server Error",
+    "type": "Server Error"
+  },
+  "issue": {
+    "fingerprint": "IFP-77B446",
+    "id": "ISS-1A91A217",
+    "message": "panic: intentional panic - testing Recovery middleware"
+  },
   "debug": {
     // custom fields
     "trace_session_id": "4919e84fc26881e9fe790f5d07465db4",
