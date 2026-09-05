@@ -57,6 +57,13 @@ type C struct {
 	*cursor
 }
 
+// I represents a wrapper around the [issue] struct. It is used to encapsulate
+// issue details for API responses, providing a structured way to access
+// and manipulate the ID, fingerprint, and message of the issue.
+type I struct {
+	*issue
+}
+
 // ROption is a functional option for configuring a [wrapper] instance.
 // Functions of this type are passed to [Wrap] to apply settings in a
 // declarative, composable way.

@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/polarixa/replify/pkg/randn"
+	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
 )
 
@@ -183,6 +185,18 @@ func (i *issue) WithID(id string) *issue {
 	return i
 }
 
+// WithIDf sets the unique identifier for this specific issue occurrence using a formatted string.
+//
+// Parameters:
+//   - format: A format string.
+//   - args: A variadic list of arguments to be formatted according to the format string.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated unique identifier.
+func (i *issue) WithIDf(format string, args ...any) *issue {
+	return i.WithID(fmt.Sprintf(format, args...))
+}
+
 // WithFingerprint sets the fingerprint identifying the category of failure for this issue.
 //
 // Parameters:
@@ -193,6 +207,18 @@ func (i *issue) WithID(id string) *issue {
 func (i *issue) WithFingerprint(fingerprint string) *issue {
 	i.fingerprint = fingerprint
 	return i
+}
+
+// WithFingerprintf sets the fingerprint identifying the category of failure for this issue using a formatted string.
+//
+// Parameters:
+//   - format: A format string.
+//   - args: A variadic list of arguments to be formatted according to the format string.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated fingerprint.
+func (i *issue) WithFingerprintf(format string, args ...any) *issue {
+	return i.WithFingerprint(fmt.Sprintf(format, args...))
 }
 
 // WithMessage sets the root-cause message for this issue, safe to display to a caller.
@@ -217,6 +243,147 @@ func (i *issue) WithMessage(message string) *issue {
 //   - A pointer to the [issue] instance with the updated message.
 func (i *issue) WithMessagef(format string, args ...any) *issue {
 	return i.WithMessage(fmt.Sprintf(format, args...))
+}
+
+// Respond constructs a map representation of the [issue] instance, including only the fields that are present and non-empty.
+//
+// Returns:
+//   - A map with keys "id", "fingerprint", and "message" for the corresponding fields that are present and non-empty.
+func (i *issue) Respond() map[string]any {
+	m := make(map[string]any)
+	if i.IsIDPresent() {
+		m["id"] = i.id
+	}
+	if i.IsFingerprintPresent() {
+		m["fingerprint"] = i.fingerprint
+	}
+	if i.IsMessagePresent() {
+		m["message"] = i.message
+	}
+	return m
+}
+
+// JSON constructs a JSON string representation of the [issue] instance, including only the fields that are present and non-empty.
+//
+// Returns:
+//   - A JSON string representing the [issue] instance.
+func (i *issue) JSON() string {
+	return jsonpass(i.Respond())
+}
+
+// JSONPretty constructs a pretty-printed JSON string representation of the [issue] instance, including only the fields that are present and non-empty.
+//
+// Returns:
+//   - A pretty-printed JSON string representing the [issue] instance.
+func (i *issue) JSONPretty() string {
+	return jsonpretty(i.Respond())
+}
+
+// Equal compares the current [issue] instance with another [issue] instance for equality.
+//
+// Parameters:
+//   - other: A pointer to the [issue] instance to compare with.
+//
+// Returns:
+//   - A boolean value indicating whether the two [issue] instances are equal.
+func (i *issue) Equal(other *issue) bool {
+	if i == nil && other == nil {
+		return true
+	}
+	if i == nil || other == nil {
+		return false
+	}
+	if i.id != other.id {
+		return false
+	}
+	if i.fingerprint != other.fingerprint {
+		return false
+	}
+	if i.message != other.message {
+		return false
+	}
+	return true
+}
+
+// String constructs a string representation of the [issue] instance, including only the fields that are present and non-empty.
+//
+// Returns:
+//   - A string representing the [issue] instance.
+func (i *issue) String() string {
+	if i == nil {
+		return ""
+	}
+	sw := strchain.New()
+	sw.AppendF("id=%s", i.id)
+	sw.Space()
+	sw.AppendF("fingerprint=%s", i.fingerprint)
+	sw.Space()
+	sw.AppendF("message=%s", i.message)
+	return sw.String()
+}
+
+// Logging logs the current [issue] instance using the provided logger or the default logger if none is provided. It includes only the fields that are present and non-empty.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [issue] instance (enabling method chaining).
+func (i *issue) Logging(logger ...*slogger.Logger) *issue {
+	if i == nil {
+		return i
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	msg := "replify::issue::logging"
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, slogger.InfoLevel, msg, slogger.JSON("ISSUE", i.Respond()))
+	return i
+}
+
+// Slogging logs the current [issue] instance using the provided logger or the default logger if none is provided, in a structured manner. It includes only the fields that are present and non-empty.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [issue] instance (enabling method chaining).
+func (i *issue) Slogging(logger ...*slogger.Logger) *issue {
+	if i == nil {
+		return i
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, slogger.InfoLevel, i.String())
+	return i
+}
+
+// Reply constructs an [I] instance wrapping the current [issue] instance, providing a structured way to access and manipulate the issue details for API responses.
+//
+// Returns:
+//   - An [I] instance encapsulating the current [issue] instance.
+func (i *issue) Reply() I {
+	return I{issue: i}
+}
+
+// ReplyPtr constructs a pointer to an [I] instance wrapping the current [issue] instance, providing a structured way to access and manipulate the issue details for API responses.
+//
+// Returns:
+//   - A pointer to an [I] instance encapsulating the current [issue] instance.
+func (i *issue) ReplyPtr() *I {
+	return &I{issue: i}
 }
 
 // Issue returns the API-facing [issue] for this [wrapper]'s current error, or
