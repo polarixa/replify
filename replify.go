@@ -3308,6 +3308,14 @@ func (w *wrapper) autoAdjust() {
 				w.StatusText(), base.StatusText()).
 			WithHeader(base)
 	}
+
+	// If an error is present, create an issue and attach it to the wrapper.
+	if w.IsError() {
+		if !w.IsIssuePresent() {
+			issue := NewIssue(w.errors)
+			w.WithIssue(issue)
+		}
+	}
 }
 
 // isSpan checks whether the [wrapper] instance is available and whether the `span` field is set to true.

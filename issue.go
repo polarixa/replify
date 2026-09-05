@@ -421,6 +421,12 @@ func (w *wrapper) WithIssue(i *issue) *wrapper {
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
 func (w *wrapper) AutoIssue() *wrapper {
+	if !w.Available() || !w.IsError() {
+		return w
+	}
+	if w.IsIssuePresent() {
+		return w
+	}
 	issue := w.Issue()
 	return w.WithIssue(issue)
 }
