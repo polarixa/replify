@@ -77,6 +77,11 @@ func NewFingerprint(kind, function, file string, line int) string {
 	return fmt.Sprintf("IFP-%s", strings.ToUpper(hex.EncodeToString(sum[:3])))
 }
 
+// newIssue creates a new instance of [issue] with default values.
+func newIssue() *issue {
+	return &issue{}
+}
+
 // NewIssue builds an API-facing [issue] from an arbitrary error. The message
 // resolves to the root cause via [rootCause] (supporting errors.Unwrap chains
 // from both this package and the standard fmt.Errorf("...: %w", err)
@@ -90,11 +95,11 @@ func NewIssue(err error) *issue {
 	}
 	function, file, line := errorOrigin(err)
 	kind := reflect.TypeOf(rootCause(err)).String()
-	return &issue{
-		ID:          NewIssueID(),
-		Fingerprint: NewFingerprint(kind, function, file, line),
-		Message:     rootCause(err).Error(),
-	}
+	i := newIssue()
+	i.WithID(NewIssueID()).
+		WithFingerprint(NewFingerprint(kind, function, file, line)).
+		WithMessage(rootCause(err).Error())
+	return i
 }
 
 // NewPanicIssue builds an API-facing [issue] from a recovered panic value
@@ -103,11 +108,90 @@ func NewIssue(err error) *issue {
 // original panic site is located regardless of intervening helper calls.
 func NewPanicIssue(recovered any) *issue {
 	function, file, line := panicOrigin()
-	return &issue{
-		ID:          NewIssueID(),
-		Fingerprint: NewFingerprint("panic", function, file, line),
-		Message:     fmt.Sprintf("panic: %v", recovered),
-	}
+	return newIssue().
+		WithID(NewIssueID()).
+		WithFingerprint(NewFingerprint("panic", function, file, line)).
+		WithMessagef("panic: %v", recovered)
+}
+
+// Available checks if the issue instance is available (not nil).
+//
+// Returns:
+//   - A boolean indicating whether the issue instance is available.
+func (i *issue) Available() bool {
+	return i != nil
+}
+
+// ID returns the unique identifier for this specific issue occurrence.
+//
+// Returns:
+//   - A string representing the unique identifier for this issue.
+func (i *issue) ID() string {
+	return i.id
+}
+
+// Fingerprint returns the fingerprint identifying the category of failure for this issue.
+//
+// Returns:
+//   - A string representing the fingerprint for this issue.
+func (i *issue) Fingerprint() string {
+	return i.fingerprint
+}
+
+// Message returns the root-cause message for this issue, safe to display to a caller.
+//
+// Returns:
+//   - A string representing the root-cause message for this issue.
+func (i *issue) Message() string {
+	return i.message
+}
+
+// WithID sets the unique identifier for this specific issue occurrence.
+//
+// Parameters:
+//   - id: A string representing the unique identifier for this issue.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated unique identifier.
+func (i *issue) WithID(id string) *issue {
+	i.id = id
+	return i
+}
+
+// WithFingerprint sets the fingerprint identifying the category of failure for this issue.
+//
+// Parameters:
+//   - fingerprint: A string representing the fingerprint for this issue.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated fingerprint.
+func (i *issue) WithFingerprint(fingerprint string) *issue {
+	i.fingerprint = fingerprint
+	return i
+}
+
+// WithMessage sets the root-cause message for this issue, safe to display to a caller.
+//
+// Parameters:
+//   - message: A string representing the root-cause message for this issue.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated message.
+func (i *issue) WithMessage(message string) *issue {
+	i.message = message
+	return i
+}
+
+// WithMessagef sets the root-cause message for this issue using a formatted string, safe to display to a caller.
+//
+// Parameters:
+//   - format: A format string.
+//   - args: A variadic list of arguments to be formatted according to the format string.
+//
+// Returns:
+//   - A pointer to the [issue] instance with the updated message.
+func (i *issue) WithMessagef(format string, args ...any) *issue {
+	return i.WithMessage(fmt.Sprintf(format, args...))
 }
 
 // Issue returns the API-facing [issue] for this [wrapper]'s current error, or

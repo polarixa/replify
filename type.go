@@ -420,9 +420,9 @@ type cursor struct {
 //     occurrences originating from the same code path).
 //   - Message is the root-cause message, safe to display to a caller.
 type issue struct {
-	ID          string `json:"id,omitempty"`
-	Fingerprint string `json:"fingerprint,omitempty"`
-	Message     string `json:"message,omitempty"`
+	id          string // Unique identifier for this specific issue occurrence.
+	fingerprint string // Fingerprint identifying the category of failure.
+	message     string // Root-cause message, safe to display to a caller.
 }
 
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.

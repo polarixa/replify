@@ -46,14 +46,14 @@ func TestNewIssueResolvesRootCause(t *testing.T) {
 	if issue == nil {
 		t.Fatal("expected non-nil issue")
 	}
-	if issue.Message != sql.ErrNoRows.Error() {
-		t.Fatalf("expected message %q, got %q", sql.ErrNoRows.Error(), issue.Message)
+	if issue.Message() != sql.ErrNoRows.Error() {
+		t.Fatalf("expected message %q, got %q", sql.ErrNoRows.Error(), issue.Message())
 	}
-	if !issueIDPattern.MatchString(issue.ID) {
-		t.Fatalf("expected ID matching %s, got %q", issueIDPattern, issue.ID)
+	if !issueIDPattern.MatchString(issue.ID()) {
+		t.Fatalf("expected ID matching %s, got %q", issueIDPattern, issue.ID())
 	}
-	if !fingerprintPattern.MatchString(issue.Fingerprint) {
-		t.Fatalf("expected fingerprint matching %s, got %q", fingerprintPattern, issue.Fingerprint)
+	if !fingerprintPattern.MatchString(issue.Fingerprint()) {
+		t.Fatalf("expected fingerprint matching %s, got %q", fingerprintPattern, issue.Fingerprint())
 	}
 }
 
@@ -87,8 +87,8 @@ func TestWrapperIssue(t *testing.T) {
 	if issue == nil {
 		t.Fatal("expected non-nil issue from wrapper with an error")
 	}
-	if issue.Message != sql.ErrNoRows.Error() {
-		t.Fatalf("expected message %q, got %q", sql.ErrNoRows.Error(), issue.Message)
+	if issue.Message() != sql.ErrNoRows.Error() {
+		t.Fatalf("expected message %q, got %q", sql.ErrNoRows.Error(), issue.Message())
 	}
 
 	noErr := replify.New()
