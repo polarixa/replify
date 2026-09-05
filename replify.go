@@ -1277,6 +1277,18 @@ func (w *wrapper) IsCursorPresent() bool {
 	return w.Available() && w.cursor != nil
 }
 
+// IsIssuePresent checks whether an issue is present in the [wrapper] instance.
+//
+// This function checks if the `issue` field of the [wrapper] is not nil, indicating that an issue has been recorded.
+//
+// Returns:
+//   - A boolean value indicating whether an issue is present:
+//   - `true` if [issue] is not nil.
+//   - `false` if [issue] is nil.
+func (w *wrapper) IsIssuePresent() bool {
+	return w.Available() && w.issue != nil
+}
+
 // IsErrorPresent checks whether an error is present in the [wrapper] instance.
 //
 // This function checks if the `errors` field of the [wrapper] is not nil, indicating that an error has occurred.
@@ -3143,6 +3155,9 @@ func (w *wrapper) String() string {
 	if w.IsCursorPresent() {
 		sw.AppendF("cursor=%q", w.cursor.String()).Space()
 	}
+	if w.IsIssuePresent() {
+		sw.AppendF("issue=%q", w.issue.String()).Space()
+	}
 	return sw.String()
 }
 
@@ -3359,6 +3374,9 @@ func (w *wrapper) build() map[string]any {
 	}
 	if w.IsCursorPresent() {
 		m["cursor"] = w.cursor.Respond()
+	}
+	if w.IsIssuePresent() {
+		m["issue"] = w.issue.Respond()
 	}
 	return m
 }
