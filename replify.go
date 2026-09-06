@@ -1504,6 +1504,28 @@ func (w *wrapper) EqualCursor(c *cursor) bool {
 	return w.cursor.Equal(c)
 }
 
+// EqualIssue compares the issue information of the [wrapper] instance with another [issue] instance.
+//
+// This function checks if the [wrapper] is available and if the provided [issue] instance is not nil.
+// It then compares the issue details of the [wrapper] with those of the provided [issue] instance.
+//
+// Parameters:
+//   - `i`: A pointer to a [issue] instance to compare with the [wrapper]'s issue.
+//
+// Returns:
+//   - A boolean value indicating whether the issue information is equal:
+//   - `true` if both issue instances have the same issue details.
+//   - `false` if the [wrapper] is not available, the provided issue is nil, or the issue details do not match.
+func (w *wrapper) EqualIssue(i *issue) bool {
+	if !w.Available() || i == nil {
+		return false
+	}
+	if w.issue == nil {
+		return false
+	}
+	return w.issue.Equal(i)
+}
+
 // Clone creates a deep copy of the [wrapper] instance.
 //
 // This function creates a new [wrapper] instance with the same fields as the original instance.
@@ -1553,18 +1575,23 @@ func (w *wrapper) Clone() *wrapper {
 
 	// Clone pagination
 	if w.pagination != nil {
-		clone.pagination = Pages().
-			WithPage(w.pagination.page).
-			WithPerPage(w.pagination.perPage).
-			WithTotalPages(w.pagination.totalPages).
-			WithTotalItems(w.pagination.totalItems).
-			WithIsLast(w.pagination.isLast)
+		clone.pagination = w.pagination.Clone()
 	}
 
 	// Clone debug
 	if w.debug != nil {
 		clone.debug = make(map[string]any)
 		maps.Copy(clone.debug, w.debug)
+	}
+
+	// Clone issue
+	if w.issue != nil {
+		clone.issue = w.issue.Clone()
+	}
+
+	// Clone cursor
+	if w.cursor != nil {
+		clone.cursor = w.cursor.Clone()
 	}
 
 	return clone
@@ -1601,6 +1628,8 @@ func (w *wrapper) Reset() *wrapper {
 	w.errors = nil
 	w.pagination = nil
 	w.cachedWrap = nil
+	w.issue = nil
+	w.cursor = nil
 
 	// Reset meta
 	w.meta = defaultMetaValues()
@@ -3270,6 +3299,69 @@ func (r *wrapper) Binary(data any) *wrapper {
 	}
 	r.data = data
 	return r
+}
+
+// Issue returns the API-facing [issue] for this [wrapper]'s current error, or
+// nil when no error is present. Use this — never the internal `errors`
+// field — when surfacing failure details to API consumers.
+func (w *wrapper) Issue() *issue {
+	if !w.Available() || !w.IsError() {
+		return nil
+	}
+	w.autoAdjust()
+	if w.errors == nil {
+		return nil
+	}
+	return NewIssue(w.errors)
+}
+
+// WithIssue attaches the provided [issue] instance to the [wrapper], replacing any existing issue.
+//
+// Parameters:
+//   - i: A pointer to the [issue] instance to attach.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithIssue(i *issue) *wrapper {
+	if i == nil {
+		return w
+	}
+	w.issue = i
+	return w
+}
+
+// AutoIssue computes the [issue] for this [wrapper]'s current error (if any)
+// and attaches it to the [wrapper]. It is a no-op when no error is present.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) AutoIssue() *wrapper {
+	if !w.Available() || !w.IsError() {
+		return w
+	}
+	if w.IsIssuePresent() {
+		return w
+	}
+	issue := w.Issue()
+	return w.WithIssue(issue)
+}
+
+// ReleaseIssue detaches the current [issue] from the [wrapper], effectively clearing any associated issue.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseIssue() *wrapper {
+	w.issue = nil
+	return w
+}
+
+// ReleaseCursor detaches the current cursor from the [wrapper], effectively clearing any associated cursor.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseCursor() *wrapper {
+	w.cursor = nil
+	return w
 }
 
 // autoAdjust automatically synchronizes the [wrapper]'s error field with its message
