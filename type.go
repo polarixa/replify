@@ -533,7 +533,3 @@ type underlyingMessage struct {
 	cause error  // The original error being wrapped or annotated
 	msg   string // The message describing the additional context for the error
 }
-
-type tools struct{}
-
-var Toolbox tools = tools{}
