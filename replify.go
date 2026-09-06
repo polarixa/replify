@@ -3350,6 +3350,15 @@ func (w *wrapper) ReleaseCursor() *wrapper {
 	return w
 }
 
+// ReleaseDebug detaches the current debugging information from the [wrapper], effectively clearing any associated debug data.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseDebug() *wrapper {
+	w.debug = nil
+	return w
+}
+
 // autoAdjust automatically synchronizes the [wrapper]'s error field with its message
 // when the HTTP status code indicates a client (4xx) or server (5xx) error and no
 // explicit error has been set yet.
