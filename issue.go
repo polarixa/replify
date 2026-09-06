@@ -386,47 +386,19 @@ func (i *issue) ReplyPtr() *I {
 	return &I{issue: i}
 }
 
-// Issue returns the API-facing [issue] for this [wrapper]'s current error, or
-// nil when no error is present. Use this — never the internal `errors`
-// field — when surfacing failure details to API consumers.
-func (w *wrapper) Issue() *issue {
-	if !w.Available() || !w.IsError() {
-		return nil
-	}
-	w.autoAdjust()
-	if w.errors == nil {
-		return nil
-	}
-	return NewIssue(w.errors)
-}
-
-// WithIssue attaches the provided [issue] instance to the [wrapper], replacing any existing issue.
-//
-// Parameters:
-//   - i: A pointer to the [issue] instance to attach.
+// Clone creates a deep copy of the current [issue] instance.
 //
 // Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (w *wrapper) WithIssue(i *issue) *wrapper {
+//   - A pointer to the cloned [issue] instance.
+//   - `nil` if the current [issue] instance is nil.
+func (i *issue) Clone() *issue {
 	if i == nil {
-		return w
+		return nil
 	}
-	w.issue = i
-	return w
-}
-
-// AutoIssue computes the [issue] for this [wrapper]'s current error (if any)
-// and attaches it to the [wrapper]. It is a no-op when no error is present.
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (w *wrapper) AutoIssue() *wrapper {
-	if !w.Available() || !w.IsError() {
-		return w
+	clone := &issue{
+		id:          i.id,
+		fingerprint: i.fingerprint,
+		message:     i.message,
 	}
-	if w.IsIssuePresent() {
-		return w
-	}
-	issue := w.Issue()
-	return w.WithIssue(issue)
+	return clone
 }

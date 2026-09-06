@@ -336,3 +336,22 @@ func (c *cursor) Reply() C {
 func (c *cursor) ReplyPtr() *C {
 	return &C{cursor: c}
 }
+
+// Clone creates a deep copy of the current [cursor] instance.
+//
+// Returns:
+//   - A pointer to the cloned [cursor] instance.
+//   - `nil` if the current [cursor] instance is nil.
+func (c *cursor) Clone() *cursor {
+	if c == nil {
+		return nil
+	}
+	clone := &cursor{
+		next:        c.next,
+		previous:    c.previous,
+		hasNext:     c.hasNext,
+		hasPrevious: c.hasPrevious,
+		limit:       c.limit,
+	}
+	return clone
+}

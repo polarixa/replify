@@ -464,6 +464,25 @@ func (p *pagination) ReplyPtr() *P {
 	return &P{pagination: p}
 }
 
+// Clone creates a deep copy of the current [pagination] instance.
+//
+// Returns:
+//   - A pointer to the cloned [pagination] instance.
+//   - `nil` if the current [pagination] instance is nil.
+func (p *pagination) Clone() *pagination {
+	if p == nil {
+		return nil
+	}
+	clone := &pagination{
+		page:       p.page,
+		perPage:    p.perPage,
+		totalItems: p.totalItems,
+		totalPages: p.totalPages,
+		isLast:     p.isLast,
+	}
+	return clone
+}
+
 // calculate computes the total pages and determines if the current page is the last one.
 //
 // This method performs calculations based on the `totalItems` and `perPage` fields
