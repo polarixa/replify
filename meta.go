@@ -2,6 +2,7 @@ package replify
 
 import (
 	"fmt"
+	"maps"
 	"time"
 
 	"github.com/polarixa/replify/pkg/coll"
@@ -1565,6 +1566,32 @@ func (m *meta) Reply() M {
 //   - A pointer to a new [M] instance containing the current [meta] instance.
 func (m *meta) ReplyPtr() *M {
 	return &M{meta: m}
+}
+
+// Clone creates a deep copy of the current [meta] instance.
+//
+// Returns:
+//   - A pointer to the cloned [meta] instance.
+//   - `nil` if the current [meta] instance is nil.
+func (m *meta) Clone() *meta {
+	if m == nil {
+		return nil
+	}
+	clone := &meta{
+		apiVersion:    m.apiVersion,
+		requestID:     m.requestID,
+		locale:        m.locale,
+		requestedTime: m.requestedTime,
+		deltaValue:    m.deltaValue,
+		deltaCnt:      m.deltaCnt,
+	}
+
+	if m.customFields != nil {
+		customFieldsCopy := make(map[string]any)
+		maps.Copy(customFieldsCopy, m.customFields)
+		clone.customFields = customFieldsCopy
+	}
+	return clone
 }
 
 // autoRequestID generates and sets a random request ID for the [meta] instance if it is not already present.

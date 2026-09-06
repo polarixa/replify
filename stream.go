@@ -10296,7 +10296,7 @@ func (sw *StreamingWrapper) recordError(err error) {
 // returning a new wrapper with a bad request header and an error message.
 func respondStreamBadRequestDefault() *wrapper {
 	return New().
-		WithHeader(BadRequest).
-		WithMessage("Invalid streaming wrapper: nil reference provided.").
+		BadRequest().
+		WithMessage("invalid streaming wrapper: nil reference provided.").
 		BindCause()
 }
