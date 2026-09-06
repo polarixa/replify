@@ -1551,26 +1551,12 @@ func (w *wrapper) Clone() *wrapper {
 
 	// Clone header
 	if w.header != nil {
-		clone.header = Header().
-			WithCode(w.header.code).
-			WithText(w.header.text).
-			WithType(w.header.typez).
-			WithDescription(w.header.description)
+		clone.header = w.header.Clone()
 	}
 
 	// Clone meta
 	if w.meta != nil {
-		clone.meta = Meta().
-			WithApiVersion(w.meta.apiVersion).
-			WithRequestID(w.meta.requestID).
-			WithLocale(w.meta.locale).
-			WithRequestedTime(w.meta.requestedTime)
-
-		if w.meta.customFields != nil {
-			customFieldsCopy := make(map[string]any)
-			maps.Copy(customFieldsCopy, w.meta.customFields)
-			clone.meta.WithCustomFields(customFieldsCopy)
-		}
+		clone.meta = w.meta.Clone()
 	}
 
 	// Clone pagination

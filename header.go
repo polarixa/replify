@@ -457,6 +457,24 @@ func (h *header) ReplyPtr() *H {
 	return &H{header: h}
 }
 
+// Clone creates a deep copy of the current [header] instance.
+//
+// Returns:
+//   - A pointer to the cloned [header] instance.
+//   - `nil` if the current [header] instance is nil.
+func (h *header) Clone() *header {
+	if h == nil {
+		return nil
+	}
+	clone := &header{
+		code:        h.code,
+		text:        h.text,
+		typez:       h.typez,
+		description: h.description,
+	}
+	return clone
+}
+
 // String returns the string representation of the [HeaderType].
 func (h HeaderType) String() string {
 	return string(h)
