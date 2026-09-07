@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"mime"
+	"net/http"
+	"net/url"
 	"runtime"
 	"strings"
 	"time"
@@ -1215,4 +1217,102 @@ func panicOrigin() (function, file string, line int) {
 		}
 	}
 	return "unknown", "unknown", 0
+}
+
+// ResolveURL resolves a relative URL against the base URL derived from an
+// [http.Request]. Useful for generating absolute URLs in HATEOAS links.
+//
+// It determines scheme and host from the request, honoring X-Forwarded-Proto
+// and X-Forwarded-Host when present (reverse proxy environments). When either
+// header carries a comma-separated chain (multiple proxies), the first value
+// is used, per convention.
+//
+// SECURITY: X-Forwarded-* headers are attacker-controlled unless your
+// reverse proxy is configured to overwrite (not append to) them before
+// forwarding. Only call this on requests that pass through a trusted proxy;
+// otherwise an attacker can poison generated links (e.g. via a crafted Host
+// header used for cache poisoning or phishing links).
+//
+// Parameters:
+//   - r: The [http.Request] to extract base URL from
+//   - relativePath: The relative path to resolve
+//
+// Returns:
+//   - The resolved absolute URL string, or relativePath unchanged if r is
+//     nil or relativePath is empty.
+func ResolveURL(r *http.Request, relativePath string) string {
+	if r == nil || strutil.IsEmpty(relativePath) {
+		return relativePath
+	}
+
+	u := &url.URL{
+		Scheme: resolveScheme(r),
+		Host:   resolveHost(r),
+	}
+
+	if !strings.HasPrefix(relativePath, "/") {
+		relativePath = fmt.Sprintf("/%s", relativePath)
+	}
+
+	// Split off query/fragment so path segments aren't mangled, and let
+	// url.URL handle correct escaping/joining.
+	rel, err := url.Parse(relativePath)
+	if err != nil {
+		return fmt.Sprintf("%s://%s%s", u.Scheme, u.Host, relativePath)
+	}
+
+	return u.ResolveReference(rel).String()
+}
+
+// resolveScheme determines the scheme (http or https) for the given request,
+// honoring the X-Forwarded-Proto header if present.
+//
+// Parameters:
+//   - r: The [http.Request] to extract scheme from
+//
+// Returns:
+//   - The scheme as a string ("http" or "https").
+func resolveScheme(r *http.Request) string {
+	key := "X-Forwarded-Proto"
+	if proto := firstForwardedValue(r.Header.Get(key)); strutil.IsNotEmpty(proto) {
+		return proto
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	return "http"
+}
+
+// resolveHost determines the host for the given request, honoring the
+// X-Forwarded-Host header if present.
+//
+// Parameters:
+//   - r: The [http.Request] to extract host from
+//
+// Returns:
+//   - The host as a string.
+func resolveHost(r *http.Request) string {
+	key := "X-Forwarded-Host"
+	if host := firstForwardedValue(r.Header.Get(key)); strutil.IsNotEmpty(host) {
+		return host
+	}
+	return r.Host
+}
+
+// firstForwardedValue returns the first comma-separated value in a
+// X-Forwarded-* header, trimmed of surrounding whitespace.
+//
+// Parameters:
+//   - v: The header value to parse
+//
+// Returns:
+//   - The first comma-separated value, trimmed of whitespace.
+func firstForwardedValue(v string) string {
+	if strutil.IsEmpty(v) {
+		return ""
+	}
+	if i := strings.IndexByte(v, ','); i >= 0 {
+		v = v[:i]
+	}
+	return strings.TrimSpace(v)
 }
