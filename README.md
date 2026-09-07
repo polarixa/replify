@@ -320,6 +320,16 @@ The library produces responses in this standardized format:
     // custom fields
     "trace_session_id": "4919e84fc26881e9fe790f5d07465db4",
     "execution_time_ms": 42
+  },
+  "_links": {
+    "next": {
+      "href": "/api/v1/users?page=2",
+      "method": "GET"
+    },
+    "self": {
+      "href": "http://localhost:8080/api/v1/users",
+      "method": "GET"
+    }
   }
 }
 ```
