@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/polarixa/replify/pkg/coll"
@@ -1079,6 +1080,25 @@ func (w *wrapper) JSONDebuggingDuration(path string, defaultValue time.Duration)
 	return defaultValue
 }
 
+// Link retrieves a specific HATEOAS link by its relation type from the [wrapper] instance.
+//
+// This function checks if HATEOAS links are present in the [wrapper] and returns the link
+// corresponding to the specified relation type. If the link is not available or the [wrapper]
+// does not contain links, it returns `nil`.
+//
+// Parameters:
+//   - `rel`: A string representing the relation type of the link to retrieve.
+//
+// Returns:
+//   - A pointer to the [link] instance if available.
+//   - `nil` if the link is not present or the [wrapper] does not contain links.
+func (w *wrapper) Link(rel string) *link {
+	if !w.IsLinksPresent() {
+		return nil
+	}
+	return w.links.Link(rel)
+}
+
 // Pagination retrieves the [pagination] instance associated with the [wrapper].
 //
 // This function returns the [pagination] field of the [wrapper], allowing access to
@@ -1129,6 +1149,22 @@ func (w *wrapper) Meta() *meta {
 //   - `nil` if the [header] is not set or the [wrapper] is uninitialized.
 func (w *wrapper) Header() *header {
 	return w.header
+}
+
+// Links retrieves the [links] collection associated with the [wrapper] instance.
+//
+// This function returns the [links] field from the [wrapper] instance, which contains
+// HATEOAS links keyed by relation type. If no links are available or the [wrapper] is
+// not available, it returns `nil`.
+//
+// Returns:
+//   - A pointer to the [links] instance if available.
+//   - `nil` if the [links] field is not set or the [wrapper] is not available.
+func (w *wrapper) Links() *links {
+	if !w.Available() {
+		return nil
+	}
+	return w.links
 }
 
 // IsDebuggingPresent checks whether debugging information is present in the [wrapper] instance.
@@ -1287,6 +1323,69 @@ func (w *wrapper) IsCursorPresent() bool {
 //   - `false` if [issue] is nil.
 func (w *wrapper) IsIssuePresent() bool {
 	return w.Available() && w.issue != nil
+}
+
+// IsLinksPresent checks whether HATEOAS links are present in the [wrapper] instance.
+//
+// This function checks if the `links` field of the [wrapper] is not nil and contains available links.
+//
+// Returns:
+//   - A boolean value indicating whether HATEOAS links are present:
+//   - `true` if `links` is not nil and contains available links.
+//   - `false` if `links` is nil or contains no available links.
+func (w *wrapper) IsLinksPresent() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.links != nil && w.links.Available()
+}
+
+// IsSelfLinkPresent checks whether a "self" link is present in the [wrapper] instance.
+//
+// This function checks if the `links` field of the [wrapper] contains a "self" link.
+//
+// Returns:
+//   - A boolean value indicating whether a "self" link is present:
+//   - `true` if a "self" link is present.
+//   - `false` if a "self" link is not present.
+func (w *wrapper) IsSelfLinkPresent() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.links != nil && w.links.Has("self")
+}
+
+// IsLinkPresent checks whether a link with the specified relation is present in the [wrapper] instance.
+//
+// This function checks if the `links` field of the [wrapper] contains a link with the given relation.
+//
+// Parameters:
+//   - rel: The relation of the link to check for.
+//
+// Returns:
+//   - A boolean value indicating whether the link is present:
+//   - `true` if a link with the specified relation is present.
+//   - `false` if a link with the specified relation is not present.
+func (w *wrapper) IsLinkPresent(rel string) bool {
+	if !w.Available() {
+		return false
+	}
+	return w.links != nil && w.links.Has(rel)
+}
+
+// IsHTTPRequestPresent checks whether an HTTP request is present in the [wrapper] instance.
+//
+// This function checks if the `request` field of the [wrapper] is not nil, indicating that an HTTP request has been set.
+//
+// Returns:
+//   - A boolean value indicating whether an HTTP request is present:
+//   - `true` if `request` is not nil.
+//   - `false` if `request` is nil.
+func (w *wrapper) IsHTTPRequestPresent() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.request != nil
 }
 
 // IsErrorPresent checks whether an error is present in the [wrapper] instance.
@@ -3173,6 +3272,9 @@ func (w *wrapper) String() string {
 	if w.IsIssuePresent() {
 		sw.AppendF("issue=%q", w.issue.String()).Space()
 	}
+	if w.IsLinksPresent() {
+		sw.AppendF("links=%q", w.links.String()).Space()
+	}
 	return sw.String()
 }
 
@@ -3332,12 +3434,151 @@ func (w *wrapper) AutoIssue() *wrapper {
 	return w.WithIssue(issue)
 }
 
+// WithLinks attaches the provided [links] collection to the [wrapper], replacing any existing links.
+// It also resets the cached response data to ensure consistency.
+//
+// Parameters:
+//   - ls: A pointer to the [links] instance to attach.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithLinks(ls *links) *wrapper {
+	if !w.Available() || ls == nil {
+		return w
+	}
+	w.links = ls
+	w.resetCache()
+	return w
+}
+
+// WithLink attaches a single link to the [wrapper]'s [links] collection, resolving the URL against the stored HTTP request if available.
+// It also resets the cached response data to ensure consistency.
+//
+// Parameters:
+//   - rel: The relation type of the link (e.g., "self", "next").
+//   - href: The URL of the link, which will be resolved to an absolute URL if a stored HTTP request is present.
+//   - method: Optional HTTP method(s) associated with the link.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithLink(rel string, href string, method ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if !w.IsLinksPresent() {
+		w.links = Links()
+	}
+
+	// If we have a stored request, resolve to absolute URL
+	resolvedHref := href
+	if w.request != nil {
+		resolvedHref = resolveURL(w.request, href)
+	}
+	w.links.WithLink(rel, resolvedHref, method...)
+	w.resetCache()
+	return w
+}
+
+// WithLinkObject attaches a single [link] object to the [wrapper]'s [links] collection under the specified relation type.
+// It also resets the cached response data to ensure consistency.
+//
+// Parameters:
+//   - rel: The relation type of the link (e.g., "self", "next").
+//   - lnk: A pointer to the [link] instance to attach.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithLinkObject(rel string, lnk *link) *wrapper {
+	if !w.Available() || lnk == nil {
+		return w
+	}
+	if !w.IsLinksPresent() {
+		w.links = Links()
+	}
+	w.links.WithLinkObject(rel, lnk)
+	w.resetCache()
+	return w
+}
+
+// WithRequest stores the [http.Request] for automatic URL resolution in links.
+// This is useful for generating absolute URLs in HATEOAS links.
+//
+// Parameters:
+//   - r: The [http.Request] to store for URL resolution
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+//
+// Example:
+//
+//	func GetOrder(w http.ResponseWriter, r *http.Request) {
+//	    replify.New().
+//	        WithRequest(r).
+//	        WithLink("self", r.URL.Path).
+//	        Write(w)
+//	}
+func (w *wrapper) WithRequest(r *http.Request) *wrapper {
+	if !w.Available() || r == nil {
+		return w
+	}
+	w.request = r
+
+	// If we already have a "self" link with relative path, resolve it
+	// Attempt to resolve the "self" link to an absolute URL if it is currently relative.
+	// This ensures that the "self" link always points to an absolute URL based on the stored request.
+	if w.IsLinksPresent() {
+		if selfLink := w.links.Link("self"); selfLink != nil {
+			// If the "self" link is relative, resolve it to an absolute URL using the stored request.
+			if !strings.HasPrefix(selfLink.Href(), "http://") && !strings.HasPrefix(selfLink.Href(), "https://") {
+				selfLink.WithHref(resolveURL(r, selfLink.Href()))
+			}
+		}
+	}
+	return w
+}
+
+// WithSelf attaches a "self" link to the [wrapper]'s [links] collection.
+// It attempts to resolve the URL using the provided [http.Request] or the stored request.
+// If no request is available, it falls back to the [wrapper]'s path field.
+//
+// Parameters:
+//   - r: Optional [http.Request] to use for URL resolution.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithSelf(r ...*http.Request) *wrapper {
+	if !w.Available() {
+		return w
+	}
+
+	var request *http.Request
+	if len(r) > 0 && r[0] != nil {
+		request = r[0]
+	} else {
+		request = w.request
+	}
+
+	if request != nil {
+		return w.WithLink("self", request.URL.Path)
+	}
+
+	// Fallback to path field if set
+	if strutil.IsNotEmpty(w.path) {
+		return w.WithLink("self", w.path)
+	}
+	return w
+}
+
 // ReleaseIssue detaches the current [issue] from the [wrapper], effectively clearing any associated issue.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
 func (w *wrapper) ReleaseIssue() *wrapper {
+	if !w.Available() {
+		return w
+	}
 	w.issue = nil
+	w.resetCache()
 	return w
 }
 
@@ -3346,7 +3587,11 @@ func (w *wrapper) ReleaseIssue() *wrapper {
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
 func (w *wrapper) ReleaseCursor() *wrapper {
+	if !w.Available() {
+		return w
+	}
 	w.cursor = nil
+	w.resetCache()
 	return w
 }
 
@@ -3355,7 +3600,24 @@ func (w *wrapper) ReleaseCursor() *wrapper {
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
 func (w *wrapper) ReleaseDebug() *wrapper {
+	if !w.Available() {
+		return w
+	}
 	w.debug = nil
+	w.resetCache()
+	return w
+}
+
+// ReleaseLinks detaches all links from the [wrapper], effectively clearing the [links] collection.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseLinks() *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.links = nil
+	w.resetCache()
 	return w
 }
 
@@ -3473,7 +3735,28 @@ func (w *wrapper) build() map[string]any {
 	if w.IsIssuePresent() {
 		m["issue"] = w.issue.Respond()
 	}
+	if w.IsLinksPresent() {
+		m["_links"] = w.links.Respond()
+	}
 	return m
+}
+
+// resetCache clears the cached response data and resets the cache hash for the [wrapper] instance.
+//
+// This method is useful when the underlying data of the [wrapper] has changed, and the cached
+// representation is no longer valid. It ensures that subsequent calls to retrieve the cached
+// response will generate a fresh representation.
+//
+// Returns:
+//   - None. The cache is invalidated in-place.
+func (w *wrapper) resetCache() {
+	if w == nil {
+		return
+	}
+	w.cacheMutex.Lock()
+	defer w.cacheMutex.Unlock()
+	w.cachedWrap = nil
+	w.cacheHash = ""
 }
 
 // Value returns the integer value of the StatusCode.
