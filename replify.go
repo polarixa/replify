@@ -3530,7 +3530,9 @@ func (w *wrapper) WithRequest(r *http.Request) *wrapper {
 		if selfLink := w.links.Link("self"); selfLink != nil {
 			// If the "self" link is relative, resolve it to an absolute URL using the stored request.
 			if !strings.HasPrefix(selfLink.Href(), "http://") && !strings.HasPrefix(selfLink.Href(), "https://") {
-				selfLink.WithHref(resolveURL(r, selfLink.Href()))
+				selfLink.
+					WithHref(resolveURL(r, selfLink.Href())). // Resolve the "self" link to an absolute URL based on the stored request
+					WithMethod(r.Method)                      // Set the method to the request's method
 			}
 		}
 	}
