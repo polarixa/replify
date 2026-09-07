@@ -1219,7 +1219,7 @@ func panicOrigin() (function, file string, line int) {
 	return "unknown", "unknown", 0
 }
 
-// ResolveURL resolves a relative URL against the base URL derived from an
+// resolveURL resolves a relative URL against the base URL derived from an
 // [http.Request]. Useful for generating absolute URLs in HATEOAS links.
 //
 // It determines scheme and host from the request, honoring X-Forwarded-Proto
@@ -1240,7 +1240,7 @@ func panicOrigin() (function, file string, line int) {
 // Returns:
 //   - The resolved absolute URL string, or relativePath unchanged if r is
 //     nil or relativePath is empty.
-func ResolveURL(r *http.Request, relativePath string) string {
+func resolveURL(r *http.Request, relativePath string) string {
 	if r == nil || strutil.IsEmpty(relativePath) {
 		return relativePath
 	}

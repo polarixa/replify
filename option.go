@@ -2,6 +2,7 @@ package replify
 
 import (
 	"fmt"
+	"net/http"
 	"time"
 )
 
@@ -415,5 +416,40 @@ func WithSpan(span bool) ROption {
 func WithIssue(issue *issue) ROption {
 	return func(w *wrapper) {
 		w.WithIssue(issue)
+	}
+}
+
+// WithLinks returns an [ROption] that sets the HATEOAS links collection.
+func WithLinks(ls *links) ROption {
+	return func(w *wrapper) {
+		w.WithLinks(ls)
+	}
+}
+
+// WithLink returns an [ROption] that adds a single HATEOAS link to the wrapper.
+//
+// Parameters:
+//   - `rel`: A string representing the relationship type of the link (e.g., "self", "next", "prev").
+//   - `href`: A string representing the URL of the link.
+//   - `method`: An optional variadic parameter specifying the HTTP method(s) for the link (e.g., "GET", "POST").
+//
+// Returns:
+//   - An [ROption] that adds the specified HATEOAS link to the wrapper.
+func WithLink(rel string, href string, method ...string) ROption {
+	return func(w *wrapper) {
+		w.WithLink(rel, href, method...)
+	}
+}
+
+// WithRequest returns an [ROption] that sets the HTTP request associated with the wrapper.
+//
+// Parameters:
+//   - `r`: A pointer to the [http.Request] to associate with the wrapper.
+//
+// Returns:
+//   - An [ROption] that sets the specified HTTP request in the wrapper.
+func WithRequest(r *http.Request) ROption {
+	return func(w *wrapper) {
+		w.WithRequest(r)
 	}
 }

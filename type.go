@@ -3,6 +3,7 @@ package replify
 import (
 	"context"
 	"io"
+	"net/http"
 	"sync"
 	"time"
 
@@ -62,6 +63,11 @@ type C struct {
 // and manipulate the ID, fingerprint, and message of the issue.
 type I struct {
 	*issue
+}
+
+// L represents a wrapper around the [links] struct for HATEOAS support.
+type L struct {
+	*links
 }
 
 // ROption is a functional option for configuring a [wrapper] instance.
@@ -432,6 +438,24 @@ type issue struct {
 	message     string // Root-cause message, safe to display to a caller.
 }
 
+// link represents a single HATEOAS link following HAL specification.
+type link struct {
+	href        string // URI or URI template (required)
+	method      string // HTTP method (optional, defaults to "GET")
+	title       string // Human-readable identifier (optional)
+	typez       string // Media type of resource representation (optional)
+	templated   bool   // Whether href is a URI template (optional)
+	name        string // Secondary key for disambiguation (optional)
+	deprecation string // URL providing deprecation information (optional)
+	profile     string // URI that hints about the profile (optional)
+	hreflang    string // Language of the linked resource (optional)
+}
+
+// links represents a collection of HATEOAS links keyed by relation type.
+type links struct {
+	items map[string]*link
+}
+
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
 	statusCode int            // HTTP status code for the response.
@@ -453,6 +477,8 @@ type wrapper struct {
 	filepath   string         // Filesystem path of a file to serve via WriteFile or Write.
 	filename   string         // Download filename for Content-Disposition in file and binary responses.
 	span       bool           // Indicates whether to include a span in the response for tracing purposes.
+	links      *links         // HATEOAS links associated with the response.
+	request    *http.Request  // Stored HTTP request associated with the response, used for resolving relative URLs.
 }
 
 // sequenceParticipant represents a participant in a sequence diagram, typically used for visualizing interactions between different components or services in a system.
