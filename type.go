@@ -479,6 +479,7 @@ type wrapper struct {
 	span       bool           // Indicates whether to include a span in the response for tracing purposes.
 	links      *links         // HATEOAS links associated with the response.
 	request    *http.Request  // Stored HTTP request associated with the response, used for resolving relative URLs.
+	bodyBase64 bool           // Indicates whether the body is Base64-encoded.
 }
 
 // sequenceParticipant represents a participant in a sequence diagram, typically used for visualizing interactions between different components or services in a system.
