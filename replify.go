@@ -2856,43 +2856,6 @@ func (w *wrapper) WithSpan(v bool) *wrapper {
 	return w
 }
 
-// MustHash256 generates a hash string for the [wrapper] instance.
-//
-// This method concatenates the values of the `statusCode`, `message`, `data`, and [meta] fields
-// into a single string and then computes a hash of that string using the `strutil.MustHash256` function.
-// The resulting hash string can be used for various purposes, such as caching or integrity checks.
-func (w *wrapper) MustHash256() (string, *wrapper) {
-	if !w.Available() {
-		return "", w
-	}
-	h, err := hashy.Hash256(w.StatusCode(), w.message, w.data, w.meta.Respond())
-	if err != nil {
-		return "", New().
-			WithHeader(InternalServerError).
-			WithErrorAck(err).
-			WithMessage("Failed to generate hash")
-	}
-	return h, New().
-		WithHeader(OK).
-		WithMessage("Successfully generated hash")
-}
-
-// Hash256 generates a hash string for the [wrapper] instance.
-//
-// This method generates a hash string for the [wrapper] instance using the `Hash256` method.
-// If the [wrapper] instance is not available or the hash generation fails, it returns an empty string.
-//
-// Returns:
-//   - A string representing the hash value.
-//   - An empty string if the [wrapper] instance is not available or the hash generation fails.
-func (w *wrapper) Hash256() string {
-	hash, _w := w.MustHash256()
-	if _w.IsError() {
-		return ""
-	}
-	return hash
-}
-
 // MustHash generates a hash value for the [wrapper] instance.
 //
 // This method generates a hash value for the [wrapper] instance using the `MustHash` method.
@@ -2917,6 +2880,75 @@ func (w *wrapper) MustHash() (uint64, *wrapper) {
 		WithMessage("Successfully generated hash")
 }
 
+// MustHashBody generates a hash value for the body of the [wrapper] instance.
+//
+// This method generates a hash value for the body of the [wrapper] instance using the `Hash` method.
+// If the [wrapper] instance is not available or the hash generation fails, it returns an error.
+//
+// Returns:
+//   - A uint64 representing the hash value of the body.
+//   - An error if the [wrapper] instance is not available or the hash generation fails.
+func (w *wrapper) MustHashBody() (uint64, *wrapper) {
+	if !w.Available() {
+		return 0, w
+	}
+	h, err := hashy.Hash(w.Body())
+	if err != nil {
+		return 0, New().
+			InternalServerError().
+			WithErrorAck(err).
+			WithMessage("Failed to generate body hash")
+	}
+	return h, New().
+		OK().
+		WithMessage("Successfully generated body hash")
+}
+
+// MustHash256 generates a hash string for the [wrapper] instance.
+//
+// This method concatenates the values of the `statusCode`, `message`, `data`, and [meta] fields
+// into a single string and then computes a hash of that string using the `strutil.MustHash256` function.
+// The resulting hash string can be used for various purposes, such as caching or integrity checks.
+func (w *wrapper) MustHash256() (string, *wrapper) {
+	if !w.Available() {
+		return "", w
+	}
+	h, err := hashy.Hash256(w.StatusCode(), w.message, w.data, w.meta.Respond())
+	if err != nil {
+		return "", New().
+			InternalServerError().
+			WithErrorAck(err).
+			WithMessage("Failed to generate hash")
+	}
+	return h, New().
+		OK().
+		WithMessage("Successfully generated hash")
+}
+
+// MustHash256Body generates a SHA-256 hash string for the body of the [wrapper] instance.
+//
+// This method computes a SHA-256 hash of the body content of the [wrapper] instance.
+// If the [wrapper] instance is not available or the hash generation fails, it returns an empty string and an error wrapper.
+//
+// Returns:
+//   - A string representing the SHA-256 hash of the body.
+//   - A pointer to the [wrapper] instance indicating success or failure.
+func (w *wrapper) MustHash256Body() (string, *wrapper) {
+	if !w.Available() {
+		return "", w
+	}
+	h, err := hashy.Hash256(w.Body())
+	if err != nil {
+		return "", New().
+			InternalServerError().
+			WithErrorAck(err).
+			WithMessage("Failed to generate body hash 256")
+	}
+	return h, New().
+		OK().
+		WithMessage("Successfully generated body hash 256")
+}
+
 // This method generates a hash value for the [wrapper] instance using the `Hash` method.
 // If the [wrapper] instance is not available or the hash generation fails, it returns an empty string.
 //
@@ -2929,6 +2961,54 @@ func (w *wrapper) Hash() uint64 {
 		return 0
 	}
 	return hash
+}
+
+// HashBody generates a hash value for the body of the [wrapper] instance.
+//
+// This method generates a hash value for the body of the [wrapper] instance using the `MustHashBody` method.
+// If the [wrapper] instance is not available or the hash generation fails, it returns 0.
+//
+// Returns:
+//   - A uint64 representing the hash value of the body.
+//   - 0 if the [wrapper] instance is not available or the hash generation fails.
+func (w *wrapper) HashBody() uint64 {
+	h, _w := w.MustHashBody()
+	if _w.IsError() {
+		return 0
+	}
+	return h
+}
+
+// Hash256 generates a hash string for the [wrapper] instance.
+//
+// This method generates a hash string for the [wrapper] instance using the `Hash256` method.
+// If the [wrapper] instance is not available or the hash generation fails, it returns an empty string.
+//
+// Returns:
+//   - A string representing the hash value.
+//   - An empty string if the [wrapper] instance is not available or the hash generation fails.
+func (w *wrapper) Hash256() string {
+	hash, _w := w.MustHash256()
+	if _w.IsError() {
+		return ""
+	}
+	return hash
+}
+
+// Hash256Body generates a SHA-256 hash string for the body of the [wrapper] instance.
+//
+// This method computes a SHA-256 hash of the body content of the [wrapper] instance.
+// If the [wrapper] instance is not available or the hash generation fails, it returns an empty string.
+//
+// Returns:
+//   - A string representing the SHA-256 hash of the body.
+//   - An empty string if the [wrapper] instance is not available or the hash generation fails.
+func (w *wrapper) Hash256Body() string {
+	h, _w := w.MustHash256Body()
+	if _w.IsError() {
+		return ""
+	}
+	return h
 }
 
 // WithStreaming enables streaming mode for the wrapper and returns a streaming wrapper for enhanced data transfer capabilities.
@@ -3129,6 +3209,7 @@ func (w *wrapper) Respond() map[string]any {
 	// Fields are immutable after construction, so this concurrent read is safe.
 	// Keeping the potentially-expensive hash computation outside the lock
 	// prevents readers from blocking each other.
+	w.autoAdjust()
 	hash := w.hashFor()
 
 	// Fast path: check cache under read lock.
