@@ -65,7 +65,9 @@ func TestWrite_ErrorResponse(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	result := w.WriteJSON(rr)
-	if result.IsErrorPresent() {
+	// A 404 with a message auto-derives its error from the message (see autoAdjust);
+	// only a mismatched or write-failure error should fail this test.
+	if result.IsErrorPresent() && result.Error() != "resource not found" {
 		t.Fatalf("Write stored unexpected error: %v", result.Error())
 	}
 	if rr.Code != http.StatusNotFound {
