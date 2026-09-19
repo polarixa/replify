@@ -1284,6 +1284,18 @@ func (w *wrapper) IsBinaryBody() bool {
 	return encoding.IsBinary(w.data)
 }
 
+// IsBodyBase64 checks whether the body data is Base64-encoded in the [wrapper] instance.
+//
+// This function checks the `bodyBase64` field of the [wrapper] to determine if the body data is marked as Base64-encoded.
+//
+// Returns:
+//   - A boolean value indicating whether the body data is Base64-encoded:
+//   - `true` if the body data is marked as Base64-encoded.
+//   - `false` if the body data is not marked as Base64-encoded.
+func (w *wrapper) IsBodyBase64() bool {
+	return w.Available() && w.bodyBase64
+}
+
 // IsHeaderPresent checks whether header information is present in the [wrapper] instance.
 //
 // This function checks if the [header] field of the [wrapper] is not nil, indicating that header information is included.
@@ -1644,6 +1656,28 @@ func (w *wrapper) EqualIssue(i *issue) bool {
 	return w.issue.Equal(i)
 }
 
+// EqualLinks compares the links information of the [wrapper] instance with another [links] instance.
+//
+// This function checks if the [wrapper] is available and if the provided [links] instance is not nil.
+// It then compares the links details of the [wrapper] with those of the provided [links] instance.
+//
+// Parameters:
+//   - `l`: A pointer to a [links] instance to compare with the [wrapper]'s links.
+//
+// Returns:
+//   - A boolean value indicating whether the links information is equal:
+//   - `true` if both links instances have the same links details.
+//   - `false` if the [wrapper] is not available, the provided links is nil, or the links details do not match.
+func (w *wrapper) EqualLinks(l *links) bool {
+	if !w.Available() || l == nil {
+		return false
+	}
+	if w.links == nil {
+		return false
+	}
+	return w.links.Equal(l)
+}
+
 // Clone creates a deep copy of the [wrapper] instance.
 //
 // This function creates a new [wrapper] instance with the same fields as the original instance.
@@ -1696,6 +1730,11 @@ func (w *wrapper) Clone() *wrapper {
 	// Clone cursor
 	if w.cursor != nil {
 		clone.cursor = w.cursor.Clone()
+	}
+
+	// Clone links
+	if w.links != nil {
+		clone.links = w.links.Clone()
 	}
 
 	return clone
