@@ -455,3 +455,24 @@ func (w *wrapper) DumpResolveESTMDDocTo(dst string) (*Dump, *wrapper) {
 			OK().
 			WithMessagef("DumpResolveESTMDDocTo: succeeded, written to %s", dst)
 }
+
+// Dump creates a [Dump] for the given [sysx.Resource] and returns it along with a [wrapper] for fluent chaining.
+// If the resource is nil, it returns an appropriate error in the [wrapper].
+//
+// Typical usage:
+//
+//	dump, w := w.Dump(resource)
+//	if w.IsError() {
+//	    log.Fatal(w.Error())
+//	}
+//	defer dump.Close()
+func (w *wrapper) Dump(s *sysx.Resource) (*Dump, *wrapper) {
+	if s == nil {
+		return nil, New().
+			BadRequest().
+			WithMessage("Dump: resource is required")
+	}
+	return &Dump{syr: s}, New().
+		OK().
+		WithMessage("added dump for resource successfully")
+}

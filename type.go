@@ -348,14 +348,14 @@ type StreamingMetadata struct {
 	IsResumable bool `json:"is_resumable"`
 }
 
-// Dump is the thread-safe result returned by [wrapper.Dump] and
-// [wrapper.DumpTo]. It owns the serialized response payload as a
+// Dump is the thread-safe result returned by [wrapper.DumpJSON] and
+// [wrapper.DumpJSONTo], [wrapper.DumpBody], [wrapper.DumpBodyTo]... . It owns the serialized response payload as a
 // seekable, re-readable stream and guarantees that the backing temporary
 // file is removed exactly once — even when Close is called concurrently.
 //
 // Typical usage:
 //
-//	dump, w := w.Dump()
+//	dump, w := w.DumpJSON()
 //	if w.IsError() {
 //	    log.Fatal(w.Error())
 //	}

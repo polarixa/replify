@@ -8,6 +8,7 @@ import (
 	"github.com/polarixa/replify/pkg/encoding"
 	"github.com/polarixa/replify/pkg/fj"
 	"github.com/polarixa/replify/pkg/strutil"
+	"github.com/polarixa/replify/pkg/sysx"
 )
 
 // UnwrapJSON parses a raw JSON string and maps it into a [wrapper] struct.
@@ -789,4 +790,10 @@ func WrapBadGateway(message string, data any) *wrapper {
 		WithMessage(message).
 		WithBody(data)
 	return w
+}
+
+// NewDump creates a new [Dump] for the given [sysx.Resource] and returns it along with a [wrapper] for fluent chaining.
+// If the resource is nil, it returns an appropriate error in the [wrapper].
+func NewDump(s *sysx.Resource) (*Dump, *wrapper) {
+	return New().Dump(s)
 }
