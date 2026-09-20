@@ -230,7 +230,7 @@ func (w *wrapper) BodyType() string {
 // compressed data. It also adds debugging information about the compression process,
 // including the original and compressed sizes.
 // If the threshold is not specified or is less than or equal to zero, it defaults to 1024 bytes (1KB).
-// It also removes any empty debugging fields to clean up the response.
+//
 // Parameters:
 //   - `threshold`: An integer representing the size threshold for compression.
 //     If the body data size exceeds this threshold, it will be compressed.
@@ -239,6 +239,7 @@ func (w *wrapper) BodyType() string {
 //   - A pointer to the [wrapper] instance, allowing for method chaining.
 //
 // If the [wrapper] is not available, it returns the original instance without modifications.
+// It also skips compression if the compressed data ends up being larger than or equal to the original size.
 func (w *wrapper) CompressSafe(threshold int) *wrapper {
 	if !w.Available() {
 		return w
@@ -255,7 +256,6 @@ func (w *wrapper) CompressSafe(threshold int) *wrapper {
 	}
 
 	// If the body data size is less than or equal to the threshold, return the original instance.
-	// Otherwise, compress the body data and update the instance with the compressed data.
 	if originalSize <= threshold {
 		return w
 	}
@@ -265,6 +265,12 @@ func (w *wrapper) CompressSafe(threshold int) *wrapper {
 	compressed := compress(w.data)
 	if strutil.IsEmpty(compressed) {
 		return w // compression failed, leave body unchanged
+	}
+
+	// "Safe" check: If the compressed size is not smaller than the original size,
+	// compression is counterproductive (due to gzip headers + base64 overhead), so we skip it.
+	if len(compressed) >= originalSize {
+		return w
 	}
 
 	// Update the instance with the compressed data and debugging information.
@@ -293,15 +299,32 @@ func (w *wrapper) DecompressSafe() *wrapper {
 		return w
 	}
 	if s, ok := w.data.(string); ok {
+		decompressedData := decompress(s)
+
+		// Check if data was actually compressed.
+		// If decompress returns nil, it means 's' is just a regular string (not base64+gzip encoded).
+		// Leave the body completely unchanged to avoid data corruption.
+		if decompressedData == nil {
+			return w
+		}
+
 		originalSize := len(s)
-		w.data = decompress(s)
-		decompressed, _ := w.data.(string)
+
+		// Calculate the true decompressed size depending on the underlying type
+		// (handles strings, maps, slices, etc. seamlessly).
+		var decompressedSize int
+		if ds, ok := decompressedData.(string); ok {
+			decompressedSize = len(ds)
+		} else {
+			decompressedSize = calculateSize(decompressedData)
+		}
+
 		// Update the instance with the decompressed data and debugging information.
 		w.
-			WithBody(w.data).
+			WithBody(decompressedData).
 			WithDebuggingKV("decompression", "gzip").
 			WithDebuggingKV("original_size", originalSize).
-			WithDebuggingKV("decompressed_size", len(decompressed))
+			WithDebuggingKV("decompressed_size", decompressedSize)
 	}
 
 	return w
