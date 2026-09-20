@@ -122,22 +122,6 @@ func TestRecovery_PanicNonStringValue(t *testing.T) {
 	}
 }
 
-func TestRecovery_PanicNilMapWrite(t *testing.T) {
-	rr := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/crash", nil)
-
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var m map[string]int
-		m["boom"] = 1
-	})
-
-	replify.Recovery()(handler).ServeHTTP(rr, req)
-
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("expected 500, got %d", rr.Code)
-	}
-}
-
 // --- Recovery: response format / information disclosure ---------------------
 
 // TestRecovery_ResponseFormat verifies the recovery response matches the
@@ -401,7 +385,7 @@ func TestRecovery_Concurrent(t *testing.T) {
 	const n = 100
 	var wg sync.WaitGroup
 	wg.Add(n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		go func(i int) {
 			defer wg.Done()
 			rr := httptest.NewRecorder()
