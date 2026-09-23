@@ -70,6 +70,14 @@ type L struct {
 	*links
 }
 
+// S represents a wrapper around the [signature] struct. It is used to encapsulate
+// signature details for API responses, providing a structured way to access
+// and manipulate the signature information. The "S" type allows for easier handling
+// of signature data while maintaining the flexibility of the underlying [signature] structure.
+type S struct {
+	*signature
+}
+
 // ROption is a functional option for configuring a [wrapper] instance.
 // Functions of this type are passed to [Wrap] to apply settings in a
 // declarative, composable way.
@@ -381,6 +389,11 @@ type HeaderType string
 // It is used to specify the format of the data being sent or received, such as "application/json", "text/html", or "image/png".
 type MediaType string
 
+// SignatureAlgorithm represents the hashing algorithm for signature generation
+// It is used to specify the algorithm employed for generating cryptographic signatures.
+// Examples include "HMAC-SHA256", "SHA256", "SHA512", etc.
+type SignatureAlgorithm string
+
 // ///////////////////////////
 // Section unexported types
 // ///////////////////////////
@@ -456,6 +469,14 @@ type links struct {
 	items map[string]*link
 }
 
+// signature represents a cryptographic signature, including the algorithm used, the signature value, and the timestamp of creation.
+// It is used to verify the authenticity and integrity of data.
+type signature struct {
+	algorithm SignatureAlgorithm // The cryptographic algorithm used for the signature.
+	value     string             // The actual signature value.
+	timestamp int64              // The timestamp indicating when the signature was created.
+}
+
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
 	statusCode int            // HTTP status code for the response.
@@ -468,6 +489,7 @@ type wrapper struct {
 	pagination *pagination    // Pagination details, if applicable.
 	cursor     *cursor        // Pagination cursors for navigating through results.
 	issue      *issue         // API-facing issue information derived from internal errors.
+	signature  *signature     // Cryptographic signature information for the response.
 	debug      map[string]any // Debugging information (useful for development).
 	errors     error          // Internal errors (not exposed in JSON responses).
 	skipBody   bool           // When true, the body payload is omitted from String(), build(), and Slogging() output.
