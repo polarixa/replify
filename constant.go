@@ -1055,7 +1055,13 @@ const (
 	LocaleFiFI Locale = "fi_FI"
 )
 
-// binarySniffLen is the number of leading bytes inspected when performing
-// content-based binary detection. This mirrors the sample size used by
-// net/http.DetectContentType and common gitattributes-style heuristics.
-const binarySniffLen = 512
+// SignatureAlgorithm constants for common cryptographic algorithms used in signatures.
+const (
+	// HMACSHA256 is widely supported and provides a good balance between security and performance.
+	// It is suitable for most applications where both security and performance are important.
+	HMACSHA256 SignatureAlgorithm = "HMAC-SHA256"
+
+	// HMACSHA512 provides stronger security than HMACSHA256 but results in larger signatures.
+	// It is suitable for applications where security is a higher priority than performance.
+	HMACSHA512 SignatureAlgorithm = "HMAC-SHA512"
+)
