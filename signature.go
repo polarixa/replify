@@ -194,7 +194,7 @@ func (s *signature) WithValuef(format string, args ...any) *signature {
 	return s
 }
 
-// WithValueAny sets the value for the [signature] instance using a generic type.
+// WithTextValue sets the value for the [signature] instance using a generic type.
 //
 // This function assigns the provided `value` to the `value` field of the [signature] instance.
 // If the value is nil, the instance remains unchanged. The value is converted to a string
@@ -205,7 +205,7 @@ func (s *signature) WithValuef(format string, args ...any) *signature {
 //
 // Returns:
 //   - The updated [signature] instance with the new value.
-func (s *signature) WithValueAny(value any) *signature {
+func (s *signature) WithTextValue(value any) *signature {
 	if value == nil {
 		return s
 	}
