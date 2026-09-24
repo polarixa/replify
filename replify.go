@@ -3293,19 +3293,19 @@ func (w *wrapper) Respond() map[string]any {
 	hash := w.hashFor()
 
 	// Fast path: check cache under read lock.
-	w.cacheMutex.RLock()
+	w.mu.RLock()
 	if w.cacheHash == hash && w.cachedWrap != nil {
 		cached := w.cachedWrap
-		w.cacheMutex.RUnlock()
+		w.mu.RUnlock()
 		return cached
 	}
-	w.cacheMutex.RUnlock()
+	w.mu.RUnlock()
 
 	// Slow path: acquire write lock, double-check, then rebuild.
 	// The hash was computed from immutable fields, so it is stable across the
 	// gap between the two lock acquisitions; no recomputation is needed.
-	w.cacheMutex.Lock()
-	defer w.cacheMutex.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 
 	if w.cacheHash == hash && w.cachedWrap != nil {
 		return w.cachedWrap
@@ -3315,6 +3315,30 @@ func (w *wrapper) Respond() map[string]any {
 	w.cachedWrap = response
 	w.cacheHash = hash
 	return response
+}
+
+// RespondIgnoring returns the structured response data while ignoring the specified top-level fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of pointers to strings representing the top-level fields to ignore in the response.
+//
+// Returns:
+//   - A [map[string]interface{}] containing the structured response data with the specified fields removed.
+func (w *wrapper) RespondIgnoring(level1fields ...*string) map[string]any {
+	if len(level1fields) == 0 {
+		return w.Respond()
+	}
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	m := w.Respond()
+	for _, field := range level1fields {
+		if strutil.IsEmptyPtr(field) {
+			continue
+		}
+		delete(m, *field)
+	}
+	return m
 }
 
 // R represents a wrapper around the main [wrapper] struct. It is used as a high-level
@@ -3916,8 +3940,8 @@ func (w *wrapper) resetCache() {
 	if w == nil {
 		return
 	}
-	w.cacheMutex.Lock()
-	defer w.cacheMutex.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.cachedWrap = nil
 	w.cacheHash = ""
 }

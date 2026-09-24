@@ -179,9 +179,9 @@ func (w *wrapper) DumpBody() (*Dump, *wrapper) {
 			WithHeader(NotFound).
 			WithMessage("DumpBody: body is not present")
 	}
-	w.cacheMutex.RLock()
+	w.mu.RLock()
 	body := w.data
-	w.cacheMutex.RUnlock()
+	w.mu.RUnlock()
 
 	d, err := dumpAny(body)
 	if err != nil {
@@ -267,9 +267,9 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 			WithHeader(NotFound).
 			WithMessage("DumpBodyTo: body is not present")
 	}
-	w.cacheMutex.RLock()
+	w.mu.RLock()
 	body := w.data
-	w.cacheMutex.RUnlock()
+	w.mu.RUnlock()
 
 	d, err := dumpAny(body)
 	if err != nil {
