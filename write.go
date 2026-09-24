@@ -197,10 +197,11 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 //
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the JSON response will be written.
+//   - ignoringfields: A variadic list of field names to be ignored when serializing the [wrapper] to JSON.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance, allowing for method chaining.
-func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
+func (r *wrapper) WriteJSON(w http.ResponseWriter, ignoringfields ...string) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -220,7 +221,7 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 		)()
 	}
 
-	data := r.JSONBytes()
+	data := r.JSONBytesIgnoring(ignoringfields...)
 
 	// Set the Content-Type header to indicate that the response is JSON with UTF-8 encoding.
 	w.Header().Set(HeaderContentType.String(), MediaTypeApplicationJSONUTF8.String())
@@ -243,10 +244,11 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter) *wrapper {
 //
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the response will be written.
+//   - ignoringJSONfields: A variadic list of JSON field names to be ignored when writing the JSON response.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
+func (r *wrapper) Write(w http.ResponseWriter, ignoringJSONfields ...string) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -256,5 +258,5 @@ func (r *wrapper) Write(w http.ResponseWriter) *wrapper {
 	if _, ok := r.data.([]byte); ok || r.IsBinaryBody() {
 		return r.WriteBinary(w)
 	}
-	return r.WriteJSON(w)
+	return r.WriteJSON(w, ignoringJSONfields...)
 }
