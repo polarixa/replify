@@ -3324,7 +3324,7 @@ func (w *wrapper) Respond() map[string]any {
 //
 // Returns:
 //   - A [map[string]interface{}] containing the structured response data with the specified fields removed.
-func (w *wrapper) RespondIgnoring(level1fields ...*string) map[string]any {
+func (w *wrapper) RespondIgnoring(level1fields ...string) map[string]any {
 	if len(level1fields) == 0 {
 		return w.Respond()
 	}
@@ -3333,10 +3333,10 @@ func (w *wrapper) RespondIgnoring(level1fields ...*string) map[string]any {
 
 	m := w.Respond()
 	for _, field := range level1fields {
-		if strutil.IsEmptyPtr(field) {
+		if strutil.IsEmpty(field) {
 			continue
 		}
-		delete(m, *field)
+		delete(m, field)
 	}
 	return m
 }
@@ -3385,6 +3385,17 @@ func (w *wrapper) JSON() string {
 	return jsonpass(w.Respond())
 }
 
+// JSONIgnoring serializes the [wrapper] instance into a JSON string while ignoring the specified fields at the given top-level.
+//
+// Parameters:
+//   - level1fields: A variadic list of pointers to strings representing the fields to be ignored at specific top-levels in the JSON structure.
+//
+// Returns:
+//   - A JSON string representation of the [wrapper] instance with the specified fields ignored.
+func (w *wrapper) JSONIgnoring(level1fields ...string) string {
+	return jsonpass(w.RespondIgnoring(level1fields...))
+}
+
 // JSONPretty serializes the [wrapper] instance into a prettified JSON string.
 //
 // This function uses the `encoding.JSONPretty` utility to generate a JSON representation
@@ -3397,6 +3408,17 @@ func (w *wrapper) JSONPretty() string {
 	return jsonpretty(w.Respond())
 }
 
+// JSONPrettyIgnoring serializes the [wrapper] instance into a prettified JSON string while ignoring the specified fields at the given top-level.
+//
+// Parameters:
+//   - level1fields: A variadic list of strings representing the fields to be ignored at specific top-levels in the JSON structure.
+//
+// Returns:
+//   - A prettified JSON string representation of the [wrapper] instance with the specified fields ignored.
+func (w *wrapper) JSONPrettyIgnoring(level1fields ...string) string {
+	return jsonpretty(w.RespondIgnoring(level1fields...))
+}
+
 // JSONBytes serializes the [wrapper] instance into a JSON byte slice.
 //
 // This function first checks if the [wrapper] is available and if the body data is a valid JSON string using `IsJSONBody()`.
@@ -3407,6 +3429,17 @@ func (w *wrapper) JSONPretty() string {
 //   - An empty byte slice if the [wrapper] is not available or the body data is not a valid JSON string.
 func (w *wrapper) JSONBytes() []byte {
 	return []byte(w.JSON())
+}
+
+// JSONBytesIgnoring serializes the [wrapper] instance into a JSON byte slice while ignoring the specified fields at the given top-level.
+//
+// Parameters:
+//   - level1fields: A variadic list of strings representing the fields to be ignored at specific top-levels in the JSON structure.
+//
+// Returns:
+//   - A byte slice containing the JSON representation of the [wrapper] instance with the specified fields ignored.
+func (w *wrapper) JSONBytesIgnoring(level1fields ...string) []byte {
+	return []byte(w.JSONIgnoring(level1fields...))
 }
 
 // String returns a string representation of the [wrapper] instance.
