@@ -479,6 +479,11 @@ type signature struct {
 
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
+	mu sync.RWMutex // Mutex for synchronizing access to the wrapper's fields.
+
+	cachedWrap map[string]any // Cached response data for performance optimization.
+	cacheHash  string         // Hash of the cached response, used for cache validation.
+
 	statusCode int            // HTTP status code for the response.
 	total      int            // Total number of items (used in non-paginated responses).
 	message    string         // A message providing additional context about the response.
@@ -493,9 +498,6 @@ type wrapper struct {
 	debug      map[string]any // Debugging information (useful for development).
 	errors     error          // Internal errors (not exposed in JSON responses).
 	skipBody   bool           // When true, the body payload is omitted from String(), build(), and Slogging() output.
-	cachedWrap map[string]any // Cached response data for performance optimization.
-	cacheHash  string         // Hash of the cached response, used for cache validation.
-	cacheMutex sync.RWMutex   // Mutex for synchronizing access to the cached response data.
 	filepath   string         // Filesystem path of a file to serve via WriteFile or Write.
 	filename   string         // Download filename for Content-Disposition in file and binary responses.
 	span       bool           // Indicates whether to include a span in the response for tracing purposes.
