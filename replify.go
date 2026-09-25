@@ -3328,9 +3328,6 @@ func (w *wrapper) RespondIgnoring(level1fields ...string) map[string]any {
 	if len(level1fields) == 0 {
 		return w.Respond()
 	}
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-
 	m := w.Respond()
 	for _, field := range level1fields {
 		if strutil.IsEmpty(field) {
