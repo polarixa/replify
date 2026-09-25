@@ -79,6 +79,7 @@ func (w *wrapper) DumpJSON(ignoringJSONfields ...string) (*Dump, *wrapper) {
 //
 // Parameters:
 //   - dst: destination file path; must not be empty.
+//   - ignoringJSONfields: top-level JSON fields to ignore in the output.
 //
 // Both return values are always non-nil:
 //   - (*Dump, *wrapper) — Dump holds the streamable copy and the dst path;
@@ -88,6 +89,8 @@ func (w *wrapper) DumpJSON(ignoringJSONfields ...string) (*Dump, *wrapper) {
 // Example:
 //
 //	// Each call appends a new JSON entry to the same daily log file:
+//	// To ignore specific JSON fields:
+//	// dump, w := w.DumpJSONTo("/var/log/app/responses-20260613.jsonl", "field1", "field2")
 //	dump, w := w.DumpJSONTo("/var/log/app/responses-20260613.jsonl")
 //	if w.IsError() {
 //	    log.Fatal(w.Error())
@@ -96,7 +99,7 @@ func (w *wrapper) DumpJSON(ignoringJSONfields ...string) (*Dump, *wrapper) {
 //
 //	// re-read from the in-process temp copy:
 //	io.Copy(os.Stdout, dump.Resource().Content())
-func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
+func (w *wrapper) DumpJSONTo(dst string, ignoringJSONfields ...string) (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
@@ -107,7 +110,7 @@ func (w *wrapper) DumpJSONTo(dst string) (*Dump, *wrapper) {
 			WithHeader(BadRequest).
 			WithMessage("DumpJSONTo: destination path must not be empty")
 	}
-	payload := w.JSONBytes()
+	payload := w.JSONBytesIgnoring(ignoringJSONfields...)
 
 	// Write to dst: append (with newline separator) when the file already has
 	// content, write atomically when the file is new or empty.
