@@ -368,6 +368,28 @@ func (w *wrapper) Logging(logger ...*slogger.Logger) *wrapper {
 	return w
 }
 
+// LoggingIgnoring dispatches a structured log entry for this response using [slogger], ignoring the specified top-level fields in the response body.
+// The log message is set to the wrapper's string representation.
+//
+// Parameters:
+//   - level1fields: top-level fields in the response body to ignore.
+//
+// Returns:
+//
+// the receiver *wrapper unchanged, enabling method chaining.
+func (w *wrapper) LoggingIgnoring(level1fields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.autoAdjust()
+	l := slogger.S()
+
+	lvl := httpStatusLevel(w.StatusCode())
+	msg := strutil.DefaultIfEmpty(w.message, "replify::logging")
+	w.log(l, lvl, msg, slogger.JSON(keyReply, w.RespondIgnoring(level1fields...)))
+	return w
+}
+
 // Slogging dispatches a structured log entry for this response using [slogger], with the log message set to the wrapper's string representation.
 // The log level is automatically selected based on the HTTP status code range:
 //
