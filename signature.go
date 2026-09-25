@@ -30,6 +30,16 @@ func (s SignatureAlgorithm) String() string {
 	return string(s)
 }
 
+// IsValid checks whether the [SignatureAlgorithm] instance represents a valid, non-empty algorithm.
+//
+// Returns:
+//   - A boolean value indicating whether the [SignatureAlgorithm] instance is valid:
+//   - `true` if the algorithm is non-empty.
+//   - `false` if the algorithm is empty.
+func (s SignatureAlgorithm) IsValid() bool {
+	return strutil.IsNotEmpty(string(s))
+}
+
 // Equals checks whether the [SignatureAlgorithm] instance matches any of the provided algorithms.
 //
 // Parameters:
@@ -664,4 +674,227 @@ func (s *signature) Clone() *signature {
 		headers:   s.headers,
 	}
 	return clone
+}
+
+// NewSignatureConfig creates a new instance of [SignatureConfig] with default values.
+// It sets the default algorithm to HMAC-SHA256 ([HMACSHA256]), includes the timestamp by default,
+// initializes an empty list of headers to sign, and sets the maximum age to 5 minutes.
+//
+// Parameters:
+//   - secretKey: The secret key to be used for signature generation.
+func NewSignatureConfig(secretKey string) *SignatureConfig {
+	return &SignatureConfig{
+		algorithm:        HMACSHA256,      // Default algorithm for signature generation
+		secretKey:        secretKey,       // Set the provided secret key
+		includeTimestamp: true,            // Include timestamp in the signature by default
+		headersToSign:    []string{},      // Headers to include in the signature (optional)
+		maxAge:           5 * time.Minute, // Maximum age for the signature to be considered valid (optional)
+	}
+}
+
+// Available checks if the current [SignatureConfig] instance is non-nil.
+//
+// Returns:
+//   - true if the [SignatureConfig] instance is non-nil, false otherwise.
+func (s *SignatureConfig) Available() bool {
+	return s != nil
+}
+
+// IsValid checks if the current [SignatureConfig] instance has valid configuration.
+//
+// Returns:
+//   - true if the [SignatureConfig] instance is non-nil and has both algorithm and secret key set, false otherwise.
+func (s *SignatureConfig) IsValid() bool {
+	if s == nil {
+		return false
+	}
+	if !s.algorithm.IsValid() || strutil.IsEmpty(s.secretKey) {
+		return false
+	}
+	return true
+}
+
+// Algorithm returns the signature algorithm configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The [SignatureAlgorithm] of the current [SignatureConfig] instance, or an empty string if the instance is not available.
+func (s *SignatureConfig) Algorithm() SignatureAlgorithm {
+	if !s.Available() {
+		return ""
+	}
+	return s.algorithm
+}
+
+// SecretKey returns the secret key configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The secret key of the current [SignatureConfig] instance, or an empty string if the instance is not available.
+func (s *SignatureConfig) SecretKey() string {
+	if !s.Available() {
+		return ""
+	}
+	return s.secretKey
+}
+
+// IsIncludeTimestamp returns whether the timestamp is included in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if the timestamp is included, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsIncludeTimestamp() bool {
+	if !s.Available() {
+		return false
+	}
+	return s.includeTimestamp
+}
+
+// MaxAge returns the maximum age configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The maximum age of the current [SignatureConfig] instance, or 0 if the instance is not available.
+func (s *SignatureConfig) MaxAge() time.Duration {
+	if !s.Available() {
+		return 0
+	}
+	return s.maxAge
+}
+
+// HeadersToSign returns the list of headers configured to be included in the signature for the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The list of headers to sign of the current [SignatureConfig] instance, or an empty list if the instance is not available.
+func (s *SignatureConfig) HeadersToSign() []string {
+	if !s.Available() {
+		return []string{}
+	}
+	return s.headersToSign
+}
+
+// IsAlgorithmPresent checks if a valid signature algorithm is configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if a valid signature algorithm is configured, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsAlgorithmPresent() bool {
+	if !s.Available() {
+		return false
+	}
+	return s.algorithm.IsValid()
+}
+
+// IsSecretKeyPresent checks if a secret key is configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if a secret key is configured, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsSecretKeyPresent() bool {
+	if !s.Available() {
+		return false
+	}
+	return strutil.IsNotEmpty(s.secretKey)
+}
+
+// IsHeadersToSignPresent checks if there are headers configured to be included in the signature for the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if there are headers to sign, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsHeadersToSignPresent() bool {
+	if !s.Available() {
+		return false
+	}
+	return len(s.headersToSign) > 0
+}
+
+// IsHeaderToSignPresent checks if a specific header is configured to be included in the signature for the current [SignatureConfig] instance.
+//
+// Parameters:
+//   - header: The header name to check.
+//
+// Returns:
+//   - true if the specified header is configured to be included in the signature, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsHeaderToSignPresent(header string) bool {
+	if !s.Available() {
+		return false
+	}
+	if strutil.IsEmpty(header) {
+		return false
+	}
+	return slices.Contains(s.headersToSign, header)
+}
+
+// IsMaxAgePresent checks if a maximum age is configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if a maximum age is configured, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsMaxAgePresent() bool {
+	if !s.Available() {
+		return false
+	}
+	return s.maxAge > 0
+}
+
+// IsExpiredUnix checks if a given Unix timestamp is considered expired based on
+// the maximum age configured in the current [SignatureConfig] instance.
+//
+// Parameters:
+//   - timestamp: The Unix timestamp to check.
+//
+// Returns:
+//   - true if the timestamp is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
+func (s *SignatureConfig) IsExpiredUnix(timestamp int64) bool {
+	if !s.Available() {
+		return false
+	}
+	if s.maxAge <= 0 {
+		return false
+	}
+	return time.Since(time.Unix(timestamp, 0)) > s.maxAge
+}
+
+// IsExpiredTime checks if a given [time.Time] value is considered expired based on
+// the maximum age configured in the current [SignatureConfig] instance.
+//
+// Parameters:
+//   - t: The [time.Time] value to check.
+//
+// Returns:
+//   - true if the time is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
+func (s *SignatureConfig) IsExpiredTime(t time.Time) bool {
+	if !s.Available() {
+		return false
+	}
+	if s.maxAge <= 0 {
+		return false
+	}
+	return time.Since(t) > s.maxAge
+}
+
+// IsExpiredDuration checks if a given [time.Duration] value is considered expired based on
+// the maximum age configured in the current [SignatureConfig] instance.
+//
+// Parameters:
+//   - d: The [time.Duration] value to check.
+//
+// Returns:
+//   - true if the duration is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
+func (s *SignatureConfig) IsExpiredDuration(d time.Duration) bool {
+	if !s.Available() {
+		return false
+	}
+	if s.maxAge <= 0 {
+		return false
+	}
+	return d > s.maxAge
+}
+
+// IsExpired checks if the current time is considered expired based on
+// the maximum age configured in the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if the current time is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
+func (s *SignatureConfig) IsExpired() bool {
+	if !s.Available() {
+		return false
+	}
+	if s.maxAge <= 0 {
+		return false
+	}
+	return s.IsExpiredDuration(time.Since(time.Now()))
 }
