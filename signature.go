@@ -2,6 +2,7 @@ package replify
 
 import (
 	"fmt"
+	"reflect"
 	"slices"
 	"time"
 
@@ -100,6 +101,37 @@ func (s *signature) Timestamp() int64 {
 	return s.timestamp
 }
 
+// Headers retrieves the headers associated with the [signature] instance.
+//
+// This function returns the `headers` field of the [signature], which typically
+// contains optional headers included in the signature.
+//
+// Returns:
+//   - A map of header names to their corresponding values. Returns `nil` if the [signature] instance is nil.
+func (s *signature) Headers() map[string]string {
+	if !s.Available() {
+		return nil
+	}
+	return s.headers
+}
+
+// LenHeaders retrieves the number of headers associated with the [signature] instance.
+//
+// This function returns the length of the `headers` map of the [signature].
+// If the instance is nil or the headers map is nil, it returns 0.
+//
+// Returns:
+//   - An integer representing the number of headers. Returns 0 if the [signature] instance is nil or has no headers.
+func (s *signature) LenHeaders() int {
+	if !s.Available() {
+		return 0
+	}
+	if s.headers == nil {
+		return 0
+	}
+	return len(s.headers)
+}
+
 // IsTimestampPresent checks whether the timestamp is present in the [signature] instance.
 //
 // This function returns `true` if the `timestamp` field is non-zero, indicating that
@@ -146,6 +178,48 @@ func (s *signature) IsAlgorithmPresent() bool {
 		return false
 	}
 	return strutil.IsNotEmpty(s.algorithm.String())
+}
+
+// IsHeadersPresent checks whether the headers are present in the [signature] instance.
+//
+// This function returns `true` if the `headers` field is non-nil and contains at least one header,
+// indicating that optional headers are associated with the signature.
+//
+// Returns:
+//   - A boolean value indicating whether the headers are present:
+//   - `true` if the headers are non-nil and contain at least one entry.
+//   - `false` if the headers are nil, empty, or the [signature] instance is nil.
+func (s *signature) IsHeadersPresent() bool {
+	if !s.Available() {
+		return false
+	}
+	if s.headers == nil {
+		return false
+	}
+	return len(s.headers) > 0
+}
+
+// HasHeaderKey checks whether a specific header key is present in the [signature] instance.
+//
+// This function returns `true` if the `headers` field contains the specified key,
+// indicating that the corresponding header is associated with the signature.
+//
+// Parameters:
+//   - key: The header key to check for presence.
+//
+// Returns:
+//   - A boolean value indicating whether the specified header key is present:
+//   - `true` if the key exists in the headers.
+//   - `false` if the key does not exist, the headers are nil, or the [signature] instance is nil.
+func (s *signature) HasHeaderKey(key string) bool {
+	if !s.IsHeadersPresent() {
+		return false
+	}
+	if strutil.IsEmpty(key) {
+		return false
+	}
+	_, exists := s.headers[key]
+	return exists
 }
 
 // WithAlgorithm sets the algorithm for the [signature] instance.
@@ -261,6 +335,46 @@ func (s *signature) WithNow() *signature {
 	return s.WithTimestamp(time.Now())
 }
 
+// WithHeaders sets the headers for the [signature] instance.
+//
+// This function assigns the provided `headers` map to the `headers` field of the [signature] instance.
+// If the map is empty, the instance remains unchanged.
+//
+// Parameters:
+//   - headers: A map containing the headers to be set.
+//
+// Returns:
+//   - The updated [signature] instance with the new headers.
+func (s *signature) WithHeaders(headers map[string]string) *signature {
+	if len(headers) == 0 {
+		return s
+	}
+	s.headers = headers
+	return s
+}
+
+// WithHeader sets a single header for the [signature] instance.
+//
+// This function assigns the provided `key` and `value` to the `headers` field of the [signature] instance.
+// If the key or value is empty, the instance remains unchanged.
+//
+// Parameters:
+//   - key: The header key to be set.
+//   - value: The header value to be set.
+//
+// Returns:
+//   - The updated [signature] instance with the new header.
+func (s *signature) WithHeader(key, value string) *signature {
+	if strutil.IsEmpty(key) || strutil.IsEmpty(value) {
+		return s
+	}
+	if s.headers == nil {
+		s.headers = make(map[string]string)
+	}
+	s.headers[key] = value
+	return s
+}
+
 // Respond generates a map representation of the [signature] instance.
 //
 // This function creates a map containing the fields of the [signature] instance that are present.
@@ -278,6 +392,9 @@ func (s *signature) Respond() map[string]any {
 	}
 	if s.IsTimestampPresent() {
 		m["timestamp"] = s.timestamp
+	}
+	if s.IsHeadersPresent() {
+		m["headers"] = s.headers
 	}
 	return m
 }
@@ -391,6 +508,12 @@ func (s *signature) Equal(other *signature) bool {
 	if s.IsTimestampPresent() && s.timestamp != other.timestamp {
 		return false
 	}
+	if s.IsHeadersPresent() != other.IsHeadersPresent() {
+		return false
+	}
+	if s.IsHeadersPresent() && !reflect.DeepEqual(s.headers, other.headers) {
+		return false
+	}
 	return true
 }
 
@@ -425,6 +548,10 @@ func (s *signature) String() string {
 	sw.AppendF("value=%s", s.value)
 	sw.Space()
 	sw.AppendF("timestamp=%d", s.timestamp)
+	if s.IsHeadersPresent() {
+		sw.Space()
+		sw.AppendF("headers=%v", conv.StringOrEmpty(s.headers))
+	}
 	return sw.String()
 }
 
@@ -534,6 +661,7 @@ func (s *signature) Clone() *signature {
 		algorithm: s.algorithm,
 		value:     s.value,
 		timestamp: s.timestamp,
+		headers:   s.headers,
 	}
 	return clone
 }
