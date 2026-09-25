@@ -23,9 +23,14 @@ import (
 //     the caller can continue a fluent chain.
 //   - On error: DumpJSON is nil, wrapper has InternalServerError + error detail.
 //
+// Parameters:
+//   - ignoringJSONfields: top-level JSON fields to ignore in the output.
+//
 // Example:
 //
 //	dump, w := w.DumpJSON()
+//	// To ignore specific JSON fields:
+//	dump, w := w.DumpJSON("field1", "field2")
 //	if w.IsError() {
 //	    log.Fatal(w.Error())
 //	}
@@ -33,13 +38,13 @@ import (
 //
 //	// pipe the JSON into an HTTP response writer:
 //	io.Copy(rw, dump.Resource().Content())
-func (w *wrapper) DumpJSON() (*Dump, *wrapper) {
+func (w *wrapper) DumpJSON(ignoringJSONfields ...string) (*Dump, *wrapper) {
 	if !w.Available() {
 		return nil, New().
 			WithHeader(InternalServerError).
 			WithMessage("DumpJSON: wrapper is required")
 	}
-	d, err := dumpJSON(w.JSONBytes())
+	d, err := dumpJSON(w.JSONBytesIgnoring(ignoringJSONfields...))
 	if err != nil {
 		return nil, New().
 			WithHeader(InternalServerError).
