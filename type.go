@@ -475,6 +475,7 @@ type signature struct {
 	algorithm SignatureAlgorithm // The cryptographic algorithm used for the signature.
 	value     string             // The actual signature value.
 	timestamp int64              // The timestamp indicating when the signature was created.
+	headers   map[string]string  // Optional headers included in the signature.
 }
 
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
