@@ -282,6 +282,30 @@ func (s *signature) Respond() map[string]any {
 	return m
 }
 
+// RespondIgnoring generates a map representation of the [signature] instance, ignoring the specified top-level fields.
+//
+// This function creates a map containing the fields of the [signature] instance that are present,
+// excluding the fields specified in the `level1fields` parameter.
+//
+// Parameters:
+//   - level1fields: top-level fields in the response body to ignore.
+//
+// Returns:
+//   - A map with the present fields of the [signature] instance, excluding the ignored fields.
+func (s *signature) RespondIgnoring(level1fields ...string) map[string]any {
+	if len(level1fields) == 0 {
+		return s.Respond()
+	}
+	m := s.Respond()
+	for _, field := range level1fields {
+		if strutil.IsEmpty(field) {
+			continue
+		}
+		delete(m, field)
+	}
+	return m
+}
+
 // JSON generates a JSON string representation of the [signature] instance.
 //
 // This function creates a JSON-formatted string containing the fields of the [signature] instance that are present.
@@ -293,6 +317,20 @@ func (s *signature) JSON() string {
 	return jsonpass(s.Respond())
 }
 
+// JSONIgnoring generates a JSON string representation of the [signature] instance, ignoring the specified top-level fields.
+//
+// This function creates a JSON-formatted string containing the fields of the [signature] instance that are present,
+// excluding the fields specified in the `level1fields` parameter.
+//
+// Parameters:
+//   - level1fields: top-level fields in the response body to ignore.
+//
+// Returns:
+//   - A JSON string with the present fields of the [signature] instance, excluding the ignored fields.
+func (s *signature) JSONIgnoring(level1fields ...string) string {
+	return jsonpass(s.RespondIgnoring(level1fields...))
+}
+
 // JSONPretty generates a pretty-printed JSON string representation of the [signature] instance.
 //
 // This function creates a JSON-formatted string containing the fields of the [signature] instance that are present.
@@ -302,6 +340,20 @@ func (s *signature) JSON() string {
 //   - A pretty-printed JSON string with the present fields of the [signature] instance.
 func (s *signature) JSONPretty() string {
 	return jsonpretty(s.Respond())
+}
+
+// JSONPrettyIgnoring generates a pretty-printed JSON string representation of the [signature] instance, ignoring the specified top-level fields.
+//
+// This function creates a JSON-formatted string containing the fields of the [signature] instance that are present,
+// excluding the fields specified in the `level1fields` parameter.
+//
+// Parameters:
+//   - level1fields: top-level fields in the response body to ignore.
+//
+// Returns:
+//   - A pretty-printed JSON string with the present fields of the [signature] instance, excluding the ignored fields.
+func (s *signature) JSONPrettyIgnoring(level1fields ...string) string {
+	return jsonpretty(s.RespondIgnoring(level1fields...))
 }
 
 // Equal compares the current [signature] instance with another [signature] instance.
@@ -401,6 +453,30 @@ func (s *signature) Logging(logger ...*slogger.Logger) *signature {
 	child.WithCaller(true).WithCallerSkip(3)
 
 	logAtLevel(child, slogger.InfoLevel, msg, slogger.JSON("SIGNATURE", s.Respond()))
+	return s
+}
+
+// LoggingIgnoring logs the current [signature] instance using the provided logger(s) or the default logger, ignoring the specified top-level fields in the response body.
+//
+// This function creates a log entry containing the fields of the [signature] instance that are present,
+// excluding the fields specified in the `level1fields` parameter.
+//
+// Parameters:
+//   - level1fields: top-level fields in the response body to ignore.
+//
+// Returns:
+//   - The current [signature] instance.
+func (s *signature) LoggingIgnoring(level1fields ...string) *signature {
+	if s == nil {
+		return s
+	}
+	l := slogger.S()
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	msg := "replify::signature::logging_ignoring"
+
+	logAtLevel(child, slogger.InfoLevel, msg, slogger.JSON("SIGNATURE", s.RespondIgnoring(level1fields...)))
 	return s
 }
 

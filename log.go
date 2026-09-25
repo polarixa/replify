@@ -385,7 +385,7 @@ func (w *wrapper) LoggingIgnoring(level1fields ...string) *wrapper {
 	l := slogger.S()
 
 	lvl := httpStatusLevel(w.StatusCode())
-	msg := strutil.DefaultIfEmpty(w.message, "replify::logging")
+	msg := strutil.DefaultIfEmpty(w.message, "replify::logging_ignoring")
 	w.log(l, lvl, msg, slogger.JSON(keyReply, w.RespondIgnoring(level1fields...)))
 	return w
 }
