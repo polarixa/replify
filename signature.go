@@ -12,13 +12,16 @@ import (
 	"github.com/polarixa/replify/pkg/strutil"
 )
 
-// newSignature creates and returns a new instance of the [signature] struct.
+// NewSignature creates and returns a new instance of the [signature] struct.
 // This function initializes the [signature] object with default values.
+// The default algorithm is set to [HMACSHA256].
 //
 // Returns:
 //   - A pointer to a newly created [signature] instance.
-func newSignature() *signature {
-	s := &signature{}
+func NewSignature() *signature {
+	s := &signature{
+		algorithm: HMACSHA256,
+	}
 	return s
 }
 
