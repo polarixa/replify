@@ -1247,3 +1247,72 @@ func (s *SignatureConfig) String() string {
 	sw.AppendF("include_timestamp=%t", s.includeTimestamp)
 	return sw.String()
 }
+
+// Logging logs the current [SignatureConfig] instance using the provided logger or the default logger if none is provided.
+//
+// Parameters:
+//   - logger: An optional [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - The current [SignatureConfig] instance.
+func (s *SignatureConfig) Logging(logger ...*slogger.Logger) *SignatureConfig {
+	if s == nil {
+		return s
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	msg := "replify::signature_config::logging"
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, slogger.InfoLevel, msg, slogger.JSON("SIGNATURE_CONFIG", s.Respond()))
+	return s
+}
+
+// LoggingIgnoring logs the current [SignatureConfig] instance while ignoring the specified fields using the default logger.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to ignore in the log output.
+//
+// Returns:
+//   - The current [SignatureConfig] instance.
+func (s *SignatureConfig) LoggingIgnoring(level1fields ...string) *SignatureConfig {
+	if s == nil {
+		return s
+	}
+	l := slogger.S()
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	msg := "replify::signature_config::logging_ignoring"
+
+	logAtLevel(child, slogger.InfoLevel, msg, slogger.JSON("SIGNATURE_CONFIG", s.RespondIgnoring(level1fields...)))
+	return s
+}
+
+// Slogging logs the string representation of the current [SignatureConfig] instance using the provided logger or the default logger if none is provided.
+//
+// Parameters:
+//   - logger: An optional [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - The current [SignatureConfig] instance.
+func (s *SignatureConfig) Slogging(logger ...*slogger.Logger) *SignatureConfig {
+	if s == nil {
+		return s
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, slogger.InfoLevel, s.String())
+	return s
+}
