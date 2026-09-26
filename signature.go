@@ -833,22 +833,26 @@ func (s *SignatureConfig) IsMaxAgePresent() bool {
 	return s.maxAge > 0
 }
 
-// IsExpiredUnix checks if a given Unix timestamp is considered expired based on
-// the maximum age configured in the current [SignatureConfig] instance.
+// RemainingMaxAge calculates the remaining duration before the current [SignatureConfig] instance is considered expired based on a given start time.
 //
 // Parameters:
-//   - timestamp: The Unix timestamp to check.
+//   - t: The start time from which to calculate the remaining duration.
 //
 // Returns:
-//   - true if the timestamp is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
-func (s *SignatureConfig) IsExpiredUnix(timestamp int64) bool {
-	if !s.Available() {
-		return false
+//   - the remaining duration if the instance is available and the maximum age is configured, or 0 otherwise.
+func (s *SignatureConfig) RemainingMaxAge(t time.Time) time.Duration {
+	if !s.Available() || s.maxAge <= 0 || t.IsZero() {
+		return 0
 	}
-	if s.maxAge <= 0 {
-		return false
+
+	elapsed := time.Since(t)
+	if elapsed <= 0 {
+		return s.maxAge
 	}
-	return time.Since(time.Unix(timestamp, 0)) > s.maxAge
+	if elapsed >= s.maxAge {
+		return 0
+	}
+	return s.maxAge - elapsed
 }
 
 // IsExpiredTime checks if a given [time.Time] value is considered expired based on
@@ -860,13 +864,19 @@ func (s *SignatureConfig) IsExpiredUnix(timestamp int64) bool {
 // Returns:
 //   - true if the time is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
 func (s *SignatureConfig) IsExpiredTime(t time.Time) bool {
-	if !s.Available() {
-		return false
-	}
-	if s.maxAge <= 0 {
-		return false
-	}
-	return time.Since(t) > s.maxAge
+	return s.RemainingMaxAge(t) <= 0
+}
+
+// IsExpiredUnix checks if a given Unix timestamp is considered expired based on
+// the maximum age configured in the current [SignatureConfig] instance.
+//
+// Parameters:
+//   - timestamp: The Unix timestamp to check.
+//
+// Returns:
+//   - true if the timestamp is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
+func (s *SignatureConfig) IsExpiredUnix(timestamp int64) bool {
+	return s.IsExpiredTime(time.Unix(timestamp, 0))
 }
 
 // IsExpiredDuration checks if a given [time.Duration] value is considered expired based on
