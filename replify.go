@@ -3806,6 +3806,22 @@ func (w *wrapper) WithSelf(r ...*http.Request) *wrapper {
 	return w
 }
 
+// WithSignature attaches a [signature] to the [wrapper].
+// If the provided [signature] is nil or the [wrapper] is not available, it returns the [wrapper] unchanged.
+//
+// Parameters:
+//   - signature: The [signature] instance to attach to the [wrapper].
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithSignature(signature *signature) *wrapper {
+	if !w.Available() || signature == nil {
+		return w
+	}
+	w.signature = signature
+	return w
+}
+
 // ReleaseIssue detaches the current [issue] from the [wrapper], effectively clearing any associated issue.
 //
 // Returns:
