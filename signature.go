@@ -1417,33 +1417,3 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 		WithBody(s.Respond()).
 		WithMessagef("generated signature for algorithm %s successfully", config.Algorithm().String())
 }
-
-// ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
-// and applies it to the wrapper. If any errors occur during signature generation, the wrapper remains unchanged.
-//
-// Parameters:
-//   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - ignoringJSONfields: Optional list of JSON fields to ignore when generating the signature.
-//
-// Returns:
-//   - The current [wrapper] instance with the applied signature, if successful.
-func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
-	if !w.Available() {
-		return w
-	}
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
-	signature, wv := GenerateSignature(config, body)
-
-	// Apply the headers and message from the signature generation wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If there was an error during signature generation, return the current wrapper without applying the signature.
-	// This prevents the application of an invalid or incomplete signature to the current wrapper.
-	if wv.IsError() {
-		return w
-	}
-	w.signature = signature
-	return w
-}
