@@ -1054,6 +1054,7 @@ func (s *SignatureConfig) RemoveHeaderIgnorecase(header string) *SignatureConfig
 //   - A map containing the present fields and their corresponding values.
 func (s *SignatureConfig) Respond() map[string]any {
 	m := make(map[string]any)
+	m["include_timestamp"] = s.includeTimestamp
 	if s.IsSecretKeyPresent() {
 		m["secret_key"] = "******"
 	}
@@ -1062,9 +1063,6 @@ func (s *SignatureConfig) Respond() map[string]any {
 	}
 	if s.IsHeadersToSignPresent() {
 		m["headers_to_sign"] = s.headersToSign
-	}
-	if s.IsIncludeTimestamp() {
-		m["include_timestamp"] = s.includeTimestamp
 	}
 	if s.IsMaxAgePresent() {
 		m["max_age"] = s.maxAge.String()
