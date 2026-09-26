@@ -3265,32 +3265,6 @@ func (w *wrapper) AsStreaming(reader io.Reader) *StreamingWrapper {
 	return w.WithStreaming(reader, NewStreamConfig())
 }
 
-// hashFor computes a fast, allocation-free cache key over every field that
-// build() serializes. It must be called without any mutex held; wrapper fields
-// are expected to be stable (immutable after Wrap-time construction via With*
-// options), so concurrent reads are safe.
-//
-// Unlike Hash256(), this helper avoids the *wrapper allocation that
-// MustHash256() introduces on every call, and it covers ALL nine fields that
-// build() writes to the response map—the public Hash256() only covers four.
-func (w *wrapper) hashFor() string {
-	h, err := hashy.Hash256(
-		w.StatusCode(),
-		w.message,
-		w.data,
-		w.header.Respond(),
-		w.meta.Respond(),
-		w.pagination.Respond(),
-		w.debug,
-		w.total,
-		w.path,
-	)
-	if err != nil {
-		return ""
-	}
-	return h
-}
-
 // Respond generates a map representation of the [wrapper] instance.
 //
 // This method collects various fields of the [wrapper] (e.g., `data`, [header], [meta], etc.)
@@ -3333,7 +3307,7 @@ func (w *wrapper) Respond() map[string]any {
 	// Keeping the potentially-expensive hash computation outside the lock
 	// prevents readers from blocking each other.
 	w.autoAdjust()
-	hash := w.hashFor()
+	hash := w.hash256Complex()
 
 	// Fast path: check cache under read lock.
 	w.mu.RLock()
@@ -3897,6 +3871,115 @@ func (w *wrapper) ReleaseSignature() *wrapper {
 	return w
 }
 
+// ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
+// and applies it to the wrapper. If any errors occur during signature generation, the wrapper remains unchanged.
+//
+// Parameters:
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when generating the signature.
+//
+// Returns:
+//   - The current [wrapper] instance with the applied signature, if successful.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	w1.ApplySignature(signatureConfig, "signature")
+//	w1.Logging()
+func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("ApplySignature can not be executed, caused by an error in the chaining process before this point, so the signature will not be applied")
+		return w
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	signature, wv := GenerateSignature(config, body)
+
+	// Apply the headers and message from the signature generation wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If there was an error during signature generation, return the current wrapper without applying the signature.
+	// This prevents the application of an invalid or incomplete signature to the current wrapper.
+	if wv.IsError() {
+		return w
+	}
+	w.signature = signature
+	return w
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+//
+// Unexported helper methods for internal use within the [wrapper] type.
+// These methods are intended for internal use and are not part of the public API of the [wrapper] type.
+//
+/////////////////////////////////////////////////////////////////////////////////
+
+// resetCache clears the cached response data and resets the cache hash for the [wrapper] instance.
+//
+// This method is useful when the underlying data of the [wrapper] has changed, and the cached
+// representation is no longer valid. It ensures that subsequent calls to retrieve the cached
+// response will generate a fresh representation.
+//
+// Returns:
+//   - None. The cache is invalidated in-place.
+func (w *wrapper) resetCache() {
+	if w == nil {
+		return
+	}
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.cachedWrap = nil
+	w.cacheHash = ""
+}
+
+// isSpan checks whether the [wrapper] instance is available and whether the `span` field is set to true.
+//
+// This method is used to determine if the response should include span information for tracing purposes.
+// It first checks if the [wrapper] instance is available (i.e., not nil and properly initialized).
+// If the instance is available, it returns the value of the `span` field, which indicates whether
+// span information should be included in the response.
+//
+// Returns:
+//   - A boolean value indicating whether the [wrapper] instance is available and whether the `span` field is set to true.
+func (w *wrapper) isSpan() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.span // Indicates whether to include a span in the response for tracing purposes.
+}
+
+// hash256Complex computes a fast, allocation-free cache key over every field that
+// build() serializes. It must be called without any mutex held; wrapper fields
+// are expected to be stable (immutable after Wrap-time construction via With*
+// options), so concurrent reads are safe.
+//
+// Unlike Hash256(), this helper avoids the *wrapper allocation that
+// MustHash256() introduces on every call, and it covers ALL nine fields that
+// build() writes to the response map—the public Hash256() only covers four.
+func (w *wrapper) hash256Complex() string {
+	h, err := hashy.Hash256(
+		w.StatusCode(),
+		w.message,
+		w.data,
+		w.header.Respond(),
+		w.meta.Respond(),
+		w.pagination.Respond(),
+		w.debug,
+		w.total,
+		w.path,
+	)
+	if err != nil {
+		return ""
+	}
+	return h
+}
+
 // autoAdjust automatically synchronizes the [wrapper]'s error field with its message
 // when the HTTP status code indicates a client (4xx) or server (5xx) error and no
 // explicit error has been set yet.
@@ -3941,22 +4024,6 @@ func (w *wrapper) autoAdjust() {
 			w.WithIssue(issue)
 		}
 	}
-}
-
-// isSpan checks whether the [wrapper] instance is available and whether the `span` field is set to true.
-//
-// This method is used to determine if the response should include span information for tracing purposes.
-// It first checks if the [wrapper] instance is available (i.e., not nil and properly initialized).
-// If the instance is available, it returns the value of the `span` field, which indicates whether
-// span information should be included in the response.
-//
-// Returns:
-//   - A boolean value indicating whether the [wrapper] instance is available and whether the `span` field is set to true.
-func (w *wrapper) isSpan() bool {
-	if !w.Available() {
-		return false
-	}
-	return w.span // Indicates whether to include a span in the response for tracing purposes.
 }
 
 // build generates a map representation of the [wrapper] instance.
@@ -4020,23 +4087,14 @@ func (w *wrapper) build() map[string]any {
 	return m
 }
 
-// resetCache clears the cached response data and resets the cache hash for the [wrapper] instance.
+/////////////////////////////////////////////////////////////////////////////////
+// StatusCode represents the HTTP status code associated with the response.
 //
-// This method is useful when the underlying data of the [wrapper] has changed, and the cached
-// representation is no longer valid. It ensures that subsequent calls to retrieve the cached
-// response will generate a fresh representation.
+// It is typically used to indicate the outcome of an HTTP request, such as success (200 OK),
+// client errors (4xx), or server errors (5xx). The StatusCode type provides methods to retrieve
+// the numeric value and the standard HTTP status text for the code.
 //
-// Returns:
-//   - None. The cache is invalidated in-place.
-func (w *wrapper) resetCache() {
-	if w == nil {
-		return
-	}
-	w.mu.Lock()
-	defer w.mu.Unlock()
-	w.cachedWrap = nil
-	w.cacheHash = ""
-}
+/////////////////////////////////////////////////////////////////////////////////
 
 // Value returns the integer value of the StatusCode.
 //
