@@ -1237,7 +1237,7 @@ func (s *SignatureConfig) String() string {
 		sw.Space()
 	}
 	if s.IsHeadersToSignPresent() {
-		sw.AppendF("headers_to_sign=%v", conv.StringOrEmpty(s.headersToSign))
+		sw.AppendF("headers_to_sign=%v", strings.Join(s.headersToSign, ","))
 		sw.Space()
 	}
 	sw.AppendF("max_age=%s", s.maxAge.String())
