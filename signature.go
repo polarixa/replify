@@ -1316,3 +1316,21 @@ func (s *SignatureConfig) Slogging(logger ...*slogger.Logger) *SignatureConfig {
 	slogAtLevel(child, slogger.InfoLevel, s.String())
 	return s
 }
+
+// Clone creates a deep copy of the current [SignatureConfig] instance.
+//
+// Returns:
+//   - A new [SignatureConfig] instance that is a copy of the current instance.
+func (s *SignatureConfig) Clone() *SignatureConfig {
+	if s == nil {
+		return nil
+	}
+	clone := &SignatureConfig{
+		secretKey:        s.secretKey,
+		algorithm:        s.algorithm,
+		headersToSign:    s.headersToSign,
+		maxAge:           s.maxAge,
+		includeTimestamp: s.includeTimestamp,
+	}
+	return clone
+}
