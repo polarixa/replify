@@ -325,7 +325,7 @@ func (s *signature) WithJSONValue(value any) *signature {
 	return s
 }
 
-// WithTimestamp sets the timestamp for the [signature] instance.
+// WithTime sets the timestamp for the [signature] instance.
 //
 // This function assigns the provided `timestamp` value to the `timestamp` field
 // of the [signature] instance and returns the updated instance.
@@ -335,11 +335,47 @@ func (s *signature) WithJSONValue(value any) *signature {
 //
 // Returns:
 //   - The updated [signature] instance with the new timestamp.
-func (s *signature) WithTimestamp(t time.Time) *signature {
+func (s *signature) WithTime(t time.Time) *signature {
 	if t.IsZero() {
 		return s
 	}
 	s.timestamp = t.Unix()
+	return s
+}
+
+// WithTimeUnix sets the timestamp for the [signature] instance using a Unix timestamp.
+//
+// This function assigns the provided `timestamp` value to the `timestamp` field
+// of the [signature] instance and returns the updated instance.
+//
+// Parameters:
+//   - timestamp: An int64 representing the Unix timestamp to be set.
+//
+// Returns:
+//   - The updated [signature] instance with the new Unix timestamp.
+func (s *signature) WithTimeUnix(timestamp int64) *signature {
+	if timestamp <= 0 {
+		return s
+	}
+	s.timestamp = timestamp
+	return s
+}
+
+// WithTimeDuration sets the timestamp for the [signature] instance using a duration from the current time.
+//
+// This function assigns the current time plus the provided `duration` value to the `timestamp` field
+// of the [signature] instance and returns the updated instance.
+//
+// Parameters:
+//   - duration: A [time.Duration] representing the duration to be added to the current time.
+//
+// Returns:
+//   - The updated [signature] instance with the new timestamp.
+func (s *signature) WithTimeDuration(d time.Duration) *signature {
+	if d <= 0 {
+		return s
+	}
+	s.timestamp = time.Now().Add(d).Unix()
 	return s
 }
 
@@ -351,7 +387,7 @@ func (s *signature) WithTimestamp(t time.Time) *signature {
 // Returns:
 //   - The updated [signature] instance with the current timestamp.
 func (s *signature) WithNow() *signature {
-	return s.WithTimestamp(time.Now())
+	return s.WithTime(time.Now())
 }
 
 // WithHeaders sets the headers for the [signature] instance.
@@ -1408,8 +1444,11 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 	s = NewSignature().
 		WithAlgorithm(config.Algorithm()).
 		WithTextValue(signature)
+
+	// Include the timestamp in the signature if the configuration specifies it.
+	// This ensures that the signature includes a timestamp based on the maximum age specified in the configuration.
 	if config.IsIncludeTimestamp() {
-		s.WithNow()
+		s.WithTimeDuration(config.MaxAge())
 	}
 
 	return s, New().
