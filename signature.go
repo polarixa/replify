@@ -1,7 +1,12 @@
 package replify
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"crypto/sha512"
+	"encoding/base64"
 	"fmt"
+	"hash"
 	"reflect"
 	"slices"
 	"strings"
@@ -1331,4 +1336,114 @@ func (s *SignatureConfig) Clone() *SignatureConfig {
 		includeTimestamp: s.includeTimestamp,
 	}
 	return clone
+}
+
+// getHashSignature returns the hash function corresponding to the given signature algorithm.
+//
+// Parameters:
+//   - algorithm: The signature algorithm [SignatureAlgorithm] for which to retrieve the hash function.
+//
+// Returns:
+//   - A function that creates a new [hash.Hash] instance for the specified algorithm.
+//   - A [wrapper] instance indicating success or failure.
+func getHashSignature(algorithm SignatureAlgorithm) (func() hash.Hash, *wrapper) {
+	switch algorithm {
+	case HMACSHA256:
+		return sha256.New, New().OK()
+	case HMACSHA512:
+		return sha512.New, New().OK()
+	default:
+		return nil, New().
+			BadRequest().
+			WithMessagef("unsupported signature algorithm: %s", algorithm.String())
+	}
+}
+
+// ValidateSignature checks the validity of the provided [SignatureConfig] instance and returns a [wrapper] containing the validation result.
+//
+// Parameters:
+//   - config: The [SignatureConfig] instance to validate.
+//
+// Returns:
+//   - A [wrapper] instance containing the validation result.
+func ValidateSignature(config *SignatureConfig) *wrapper {
+	if config == nil {
+		return New().BadRequest().WithMessage("signature configuration is missing")
+	}
+	if !config.IsValid() {
+		if !config.IsAlgorithmPresent() {
+			return New().BadRequest().WithMessage("signature algorithm is missing")
+		}
+		if !config.IsSecretKeyPresent() {
+			return New().BadRequest().WithMessage("signature secret key is missing")
+		}
+	}
+	return New().OK().WithMessage("validated signature configuration successfully")
+}
+
+// GenerateSignature generates a signature for the given [SignatureConfig] and request body.
+//
+// Parameters:
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - body: The request body to be signed.
+//
+// Returns:
+//   - A [signature] instance containing the generated signature.
+//   - A [wrapper] instance indicating success or failure.
+func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *wrapper) {
+	v := ValidateSignature(config)
+	if v.IsError() {
+		return nil, v
+	}
+	var h func() hash.Hash
+	h, w = getHashSignature(config.Algorithm())
+	if w.IsError() {
+		return nil, w
+	}
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(body)
+	sum := mac.Sum(nil)
+	signature := base64.StdEncoding.EncodeToString(sum)
+
+	s = NewSignature().
+		WithAlgorithm(config.Algorithm()).
+		WithTextValue(signature)
+	if config.IsIncludeTimestamp() {
+		s.WithNow()
+	}
+
+	return s, New().
+		OK().
+		WithBody(s.Respond()).
+		WithMessagef("generated signature for algorithm %s successfully", config.Algorithm().String())
+}
+
+// ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
+// and applies it to the wrapper. If any errors occur during signature generation, the wrapper remains unchanged.
+//
+// Parameters:
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when generating the signature.
+//
+// Returns:
+//   - The current [wrapper] instance with the applied signature, if successful.
+func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	signature, wv := GenerateSignature(config, body)
+
+	// Apply the headers and message from the signature generation wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If there was an error during signature generation, return the current wrapper without applying the signature.
+	// This prevents the application of an invalid or incomplete signature to the current wrapper.
+	if wv.IsError() {
+		return w
+	}
+	w.signature = signature
+	return w
 }
