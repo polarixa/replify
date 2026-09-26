@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/polarixa/replify/pkg/conv"
@@ -1025,4 +1026,24 @@ func (s *SignatureConfig) ReleaseHeaders() *SignatureConfig {
 //   - A boolean value indicating whether the specified header is included in the signature.
 func (s *SignatureConfig) HasHeader(header string) bool {
 	return slices.Contains(s.headersToSign, header)
+}
+
+// RemoveHeaderIgnorecase removes a specific header from the list of headers to be included in the signature for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - header: The name of the header to remove (case-insensitive).
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) RemoveHeaderIgnorecase(header string) *SignatureConfig {
+	if strutil.IsEmpty(header) {
+		return s
+	}
+	for i, h := range s.headersToSign {
+		if strings.EqualFold(h, header) {
+			s.headersToSign = append(s.headersToSign[:i], s.headersToSign[i+1:]...)
+			break
+		}
+	}
+	return s
 }
