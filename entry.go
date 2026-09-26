@@ -136,6 +136,12 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 				meta.requestedTime = conv.TimeOrDefault(value, time.Time{})
 			}
 		}
+		if value, exists := values["delta_cnt"].(float64); exists {
+			meta.deltaCnt = int(value)
+		}
+		if value, exists := values["delta_value"].(float64); exists {
+			meta.deltaValue = value
+		}
 		w.meta = meta
 	}
 	if values, exists := data["header"].(map[string]any); exists {
@@ -191,6 +197,79 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 			cursor.limit = int(value)
 		}
 		w.cursor = cursor
+	}
+	if values, exists := data["issue"].(map[string]any); exists {
+		issue := &issue{}
+		if value, exists := values["id"].(string); exists {
+			issue.id = value
+		}
+		if value, exists := values["fingerprint"].(string); exists {
+			issue.fingerprint = value
+		}
+		if value, exists := values["message"].(string); exists {
+			issue.message = value
+		}
+		w.issue = issue
+	}
+	if values, exists := data["_links"].(map[string]any); exists {
+		links := Links()
+		for rel, raw := range values {
+			linkMap, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			link := &link{}
+			if value, exists := linkMap["href"].(string); exists {
+				link.href = value
+			}
+			if value, exists := linkMap["method"].(string); exists {
+				link.method = value
+			}
+			if value, exists := linkMap["title"].(string); exists {
+				link.title = value
+			}
+			if value, exists := linkMap["type"].(string); exists {
+				link.typez = value
+			}
+			if value, exists := linkMap["templated"].(bool); exists {
+				link.templated = value
+			}
+			if value, exists := linkMap["name"].(string); exists {
+				link.name = value
+			}
+			if value, exists := linkMap["deprecation"].(string); exists {
+				link.deprecation = value
+			}
+			if value, exists := linkMap["profile"].(string); exists {
+				link.profile = value
+			}
+			if value, exists := linkMap["hreflang"].(string); exists {
+				link.hreflang = value
+			}
+			links.items[rel] = link
+		}
+		w.links = links
+	}
+	if values, exists := data["signature"].(map[string]any); exists {
+		signature := &signature{}
+		if value, exists := values["algorithm"].(string); exists {
+			signature.algorithm = SignatureAlgorithm(value)
+		}
+		if value, exists := values["value"].(string); exists {
+			signature.value = value
+		}
+		if value, exists := values["timestamp"].(float64); exists {
+			signature.timestamp = int64(value)
+		}
+		if headers, exists := values["headers"].(map[string]any); exists {
+			signature.headers = make(map[string]string, len(headers))
+			for k, v := range headers {
+				if s, ok := v.(string); ok {
+					signature.headers[k] = s
+				}
+			}
+		}
+		w.signature = signature
 	}
 	if value, exists := data["data"]; exists {
 		w.data = safeCastValue(value)
