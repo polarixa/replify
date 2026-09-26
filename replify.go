@@ -1208,6 +1208,19 @@ func (w *wrapper) Links() *links {
 	return w.links
 }
 
+// Signature retrieves the [signature] associated with the [wrapper] instance.
+//
+// This function returns the [signature] field from the [wrapper] instance, which contains
+// the signature configuration. If the [wrapper] instance is correctly initialized, it will return the [signature];
+// otherwise, it may return `nil` if the [signature] has not been set.
+//
+// Returns:
+//   - A pointer to the [signature] instance associated with the [wrapper].
+//   - `nil` if the [signature] is not set or the [wrapper] is uninitialized.
+func (w *wrapper) Signature() *signature {
+	return w.signature
+}
+
 // IsDebuggingPresent checks whether debugging information is present in the [wrapper] instance.
 //
 // This function verifies if the `debug` field of the [wrapper] is not nil and contains at least one entry.
@@ -1424,6 +1437,21 @@ func (w *wrapper) IsLinkPresent(rel string) bool {
 		return false
 	}
 	return w.links != nil && w.links.Has(rel)
+}
+
+// IsSignaturePresent checks whether a signature is present in the [wrapper] instance.
+//
+// This function checks if the `signature` field of the [wrapper] is not nil, indicating that a signature has been set.
+//
+// Returns:
+//   - A boolean value indicating whether a signature is present:
+//   - `true` if `signature` is not nil.
+//   - `false` if `signature` is nil.
+func (w *wrapper) IsSignaturePresent() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.signature != nil
 }
 
 // IsHTTPRequestPresent checks whether an HTTP request is present in the [wrapper] instance.
@@ -1700,6 +1728,28 @@ func (w *wrapper) EqualLinks(l *links) bool {
 	return w.links.Equal(l)
 }
 
+// EqualSignature compares the signature information of the [wrapper] instance with another [signature] instance.
+//
+// This function checks if the [wrapper] is available and if the provided [signature] instance is not nil.
+// It then compares the signature details of the [wrapper] with those of the provided [signature] instance.
+//
+// Parameters:
+//   - `s`: A pointer to a [signature] instance to compare with the [wrapper]'s signature.
+//
+// Returns:
+//   - A boolean value indicating whether the signature information is equal:
+//   - `true` if both signature instances have the same signature details.
+//   - `false` if the [wrapper] is not available, the provided signature is nil, or the signature details do not match.
+func (w *wrapper) EqualSignature(s *signature) bool {
+	if !w.Available() || s == nil {
+		return false
+	}
+	if w.signature == nil {
+		return false
+	}
+	return w.signature.Equal(s)
+}
+
 // Clone creates a deep copy of the [wrapper] instance.
 //
 // This function creates a new [wrapper] instance with the same fields as the original instance.
@@ -1759,6 +1809,11 @@ func (w *wrapper) Clone() *wrapper {
 		clone.links = w.links.Clone()
 	}
 
+	// Clone signature
+	if w.signature != nil {
+		clone.signature = w.signature.Clone()
+	}
+
 	return clone
 }
 
@@ -1795,6 +1850,9 @@ func (w *wrapper) Reset() *wrapper {
 	w.cachedWrap = nil
 	w.issue = nil
 	w.cursor = nil
+	w.request = nil
+	w.links = nil
+	w.signature = nil
 
 	// Reset meta
 	w.meta = defaultMetaValues()
@@ -2083,21 +2141,6 @@ func (w *wrapper) WithDebugging(v map[string]any) *wrapper {
 	w.debug = v
 	return w
 }
-
-// WithError sets an error for the [wrapper] instance.
-//
-// This function updates the `errors` field of the [wrapper] with the provided error
-// and returns the modified [wrapper] instance to allow method chaining.
-//
-// Parameters:
-//   - `err`: An error object to be set in the [wrapper].
-//
-// Returns:
-//   - A pointer to the modified [wrapper] instance (enabling method chaining).
-// func (w *wrapper) WithError(err error) *wrapper {
-// 	w.errors = err
-// 	return w
-// }
 
 // WithError sets an error for the [wrapper] instance using a plain error message.
 //
@@ -3490,6 +3533,9 @@ func (w *wrapper) String() string {
 	if w.IsLinksPresent() {
 		sw.AppendF("links=%q", w.links.String()).Space()
 	}
+	if w.IsSignaturePresent() {
+		sw.AppendF("signature=%q", w.signature.String()).Space()
+	}
 	return sw.String()
 }
 
@@ -3838,6 +3884,19 @@ func (w *wrapper) ReleaseLinks() *wrapper {
 	return w
 }
 
+// ReleaseSignature detaches the current signature from the [wrapper], effectively clearing any associated signature.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseSignature() *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.signature = nil
+	w.resetCache()
+	return w
+}
+
 // autoAdjust automatically synchronizes the [wrapper]'s error field with its message
 // when the HTTP status code indicates a client (4xx) or server (5xx) error and no
 // explicit error has been set yet.
@@ -3954,6 +4013,9 @@ func (w *wrapper) build() map[string]any {
 	}
 	if w.IsLinksPresent() {
 		m["_links"] = w.links.Respond()
+	}
+	if w.IsSignaturePresent() {
+		m["signature"] = w.signature.Respond()
 	}
 	return m
 }
