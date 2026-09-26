@@ -1047,3 +1047,203 @@ func (s *SignatureConfig) RemoveHeaderIgnorecase(header string) *SignatureConfig
 	}
 	return s
 }
+
+// Respond generates a map representation of the current [SignatureConfig] instance, including only the fields that are present.
+//
+// Returns:
+//   - A map containing the present fields and their corresponding values.
+func (s *SignatureConfig) Respond() map[string]any {
+	m := make(map[string]any)
+	if s.IsSecretKeyPresent() {
+		m["secret_key"] = "******"
+	}
+	if s.IsAlgorithmPresent() {
+		m["algorithm"] = s.algorithm.String()
+	}
+	if s.IsHeadersToSignPresent() {
+		m["headers_to_sign"] = s.headersToSign
+	}
+	if s.IsIncludeTimestamp() {
+		m["include_timestamp"] = s.includeTimestamp
+	}
+	if s.IsMaxAgePresent() {
+		m["max_age"] = s.maxAge.String()
+	}
+	return m
+}
+
+// RespondIgnoring generates a map representation of the current [SignatureConfig] instance, excluding the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to exclude from the resulting map.
+//
+// Returns:
+//   - A map containing the present fields and their corresponding values, excluding the specified fields.
+func (s *SignatureConfig) RespondIgnoring(level1fields ...string) map[string]any {
+	if len(level1fields) == 0 {
+		return s.Respond()
+	}
+	m := s.Respond()
+	for _, field := range level1fields {
+		if strutil.IsEmpty(field) {
+			continue
+		}
+		delete(m, field)
+	}
+	return m
+}
+
+// RespondOnly generates a map representation of the current [SignatureConfig] instance, including only the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to include in the resulting map.
+//
+// Returns:
+//   - A map containing only the specified fields and their corresponding values.
+func (s *SignatureConfig) RespondOnly(level1fields ...string) map[string]any {
+	if len(level1fields) == 0 {
+		return s.Respond()
+	}
+	m := s.Respond()
+	for key := range m {
+		found := false
+		for _, field := range level1fields {
+			if strutil.IsEmpty(field) {
+				continue
+			}
+			if key == field {
+				found = true
+				break
+			}
+		}
+		if !found {
+			delete(m, key)
+		}
+	}
+	return m
+}
+
+// JSON generates a JSON string representation of the current [SignatureConfig] instance, including only the fields that are present.
+//
+// Returns:
+//   - A JSON string containing the present fields and their corresponding values.
+func (s *SignatureConfig) JSON() string {
+	return jsonpass(s.Respond())
+}
+
+// JSONOnly generates a JSON string representation of the current [SignatureConfig] instance, including only the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to include in the resulting JSON string.
+//
+// Returns:
+//   - A JSON string containing only the specified fields and their corresponding values.
+func (s *SignatureConfig) JSONOnly(level1fields ...string) string {
+	return jsonpass(s.RespondOnly(level1fields...))
+}
+
+// JSONIgnoring generates a JSON string representation of the current [SignatureConfig] instance, excluding the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to exclude from the resulting JSON string.
+//
+// Returns:
+//   - A JSON string containing the present fields and their corresponding values, excluding the specified fields.
+func (s *SignatureConfig) JSONIgnoring(level1fields ...string) string {
+	return jsonpass(s.RespondIgnoring(level1fields...))
+}
+
+// JSONPretty generates a pretty-printed JSON string representation of the current [SignatureConfig] instance, including only the fields that are present.
+//
+// Returns:
+//   - A pretty-printed JSON string containing the present fields and their corresponding values.
+func (s *SignatureConfig) JSONPretty() string {
+	return jsonpretty(s.Respond())
+}
+
+// JSONPrettyOnly generates a pretty-printed JSON string representation of the current [SignatureConfig] instance, including only the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to include in the resulting pretty-printed JSON string.
+//
+// Returns:
+//   - A pretty-printed JSON string containing only the specified fields and their corresponding values.
+func (s *SignatureConfig) JSONPrettyOnly(level1fields ...string) string {
+	return jsonpretty(s.RespondOnly(level1fields...))
+}
+
+// JSONPrettyIgnoring generates a pretty-printed JSON string representation of the current [SignatureConfig] instance, excluding the specified level 1 fields.
+//
+// Parameters:
+//   - level1fields: A variadic list of field names to exclude from the resulting pretty-printed JSON string.
+//
+// Returns:
+//   - A pretty-printed JSON string containing the present fields and their corresponding values, excluding the specified fields.
+func (s *SignatureConfig) JSONPrettyIgnoring(level1fields ...string) string {
+	return jsonpretty(s.RespondIgnoring(level1fields...))
+}
+
+// Equal compares the current [SignatureConfig] instance with another [SignatureConfig] instance for equality.
+//
+// Parameters:
+//   - other: The other [SignatureConfig] instance to compare against.
+//
+// Returns:
+//   - A boolean value indicating whether the two [SignatureConfig] instances are equal.
+func (s *SignatureConfig) Equal(other *SignatureConfig) bool {
+	if s == nil && other == nil {
+		return true
+	}
+	if s == nil || other == nil {
+		return false
+	}
+	if s.IsAlgorithmPresent() && other.IsAlgorithmPresent() {
+		if s.algorithm.String() != other.algorithm.String() {
+			return false
+		}
+	}
+	if s.IsSecretKeyPresent() && other.IsSecretKeyPresent() {
+		if s.secretKey != other.secretKey {
+			return false
+		}
+	}
+	if s.IsHeadersToSignPresent() && other.IsHeadersToSignPresent() {
+		if !reflect.DeepEqual(s.headersToSign, other.headersToSign) {
+			return false
+		}
+	}
+	if s.IsMaxAgePresent() && other.IsMaxAgePresent() {
+		if s.maxAge != other.maxAge {
+			return false
+		}
+	}
+	if s.includeTimestamp != other.includeTimestamp {
+		return false
+	}
+	return true
+}
+
+// String generates a string representation of the current [SignatureConfig] instance.
+//
+// Returns:
+//   - A string containing the present fields and their corresponding values. Sensitive fields like the secret key are masked.
+func (s *SignatureConfig) String() string {
+	if s == nil {
+		return ""
+	}
+	sw := strchain.New()
+	sw.AppendF("algorithm=%s", s.algorithm.String())
+	sw.Space()
+	if s.IsSecretKeyPresent() {
+		sw.AppendF("secret_key=%s", "******")
+		sw.Space()
+	}
+	if s.IsHeadersToSignPresent() {
+		sw.AppendF("headers_to_sign=%v", conv.StringOrEmpty(s.headersToSign))
+		sw.Space()
+	}
+	sw.AppendF("max_age=%s", s.maxAge.String())
+	sw.Space()
+	sw.AppendF("include_timestamp=%t", s.includeTimestamp)
+	return sw.String()
+}
