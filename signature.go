@@ -911,3 +911,118 @@ func (s *SignatureConfig) IsExpired() bool {
 	}
 	return s.IsExpiredDuration(time.Since(time.Now()))
 }
+
+// WithSecretKey sets the secret key for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - secret: The secret key to set.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithSecretKey(secret string) *SignatureConfig {
+	s.secretKey = secret
+	return s
+}
+
+// WithAlgorithm sets the signature algorithm for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - algorithm: The signature algorithm to set.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithAlgorithm(algorithm SignatureAlgorithm) *SignatureConfig {
+	s.algorithm = algorithm
+	return s
+}
+
+// EnableIncludeTimestamp enables the inclusion of the timestamp in the current [SignatureConfig] instance and returns the updated instance.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) EnableIncludeTimestamp() *SignatureConfig {
+	s.includeTimestamp = true
+	return s
+}
+
+// DisableIncludeTimestamp disables the inclusion of the timestamp in the current [SignatureConfig] instance and returns the updated instance.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) DisableIncludeTimestamp() *SignatureConfig {
+	s.includeTimestamp = false
+	return s
+}
+
+// WithIncludeTimestamp sets the inclusion of the timestamp in the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - include: A boolean value indicating whether to include the timestamp.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithIncludeTimestamp(include bool) *SignatureConfig {
+	s.includeTimestamp = include
+	return s
+}
+
+// WithMaxAge sets the maximum age for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - age: The maximum age to set.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithMaxAge(age time.Duration) *SignatureConfig {
+	s.maxAge = age
+	return s
+}
+
+// WithHeader adds a single header to be included in the signature for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - key: The name of the header to include in the signature.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithHeader(header string) *SignatureConfig {
+	if strutil.IsEmpty(header) {
+		return s
+	}
+	s.headersToSign = append(s.headersToSign, header)
+	return s
+}
+
+// WithHeaders adds multiple headers to be included in the signature for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - headers: A variadic list of header names to include in the signature. Each header will be added using the [WithHeader] method.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithHeaders(headers ...string) *SignatureConfig {
+	for _, header := range headers {
+		s.WithHeader(header)
+	}
+	return s
+}
+
+// ReleaseHeaders clears all headers to be included in the signature for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) ReleaseHeaders() *SignatureConfig {
+	s.headersToSign = []string{}
+	return s
+}
+
+// HasHeader checks if a specific header is included in the signature for the current [SignatureConfig] instance and returns a boolean result.
+//
+// Parameters:
+//   - header: The name of the header to check.
+//
+// Returns:
+//   - A boolean value indicating whether the specified header is included in the signature.
+func (s *SignatureConfig) HasHeader(header string) bool {
+	return slices.Contains(s.headersToSign, header)
+}
