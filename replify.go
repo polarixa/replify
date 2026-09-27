@@ -3978,6 +3978,55 @@ func (w *wrapper) ApplySignatureFromRequest(r *http.Request, config *SignatureCo
 	return w
 }
 
+// ApplySignatureHeader applies the generated signature to the HTTP response headers.
+// It generates the signature based on the current wrapper's JSON body, ignoring the specified JSON fields.
+//
+// Parameters:
+//   - rw: The HTTP response writer to which the signature headers will be added.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when generating the signature.
+//
+// Returns:
+//   - The current [wrapper] instance with the applied signature, if successful.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	w1.ApplySignatureHeader(rw, signatureConfig, "fieldToIgnore")
+//	w1.Logging()
+func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("ApplySignatureHeader can not be executed, caused by an error in the chaining process before this point, so the signature will not be applied")
+		return w
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	signature, wv := GenerateSignatureFromRequest(&http.Request{Header: rw.Header()}, config, body)
+
+	// Apply the headers and message from the signature generation wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If there was an error during signature generation, do not apply the signature.
+	if wv.IsError() {
+		return w
+	}
+	w.signature = signature
+
+	// Apply the signature to the response headers.
+	rw.Header().Add(HeaderXSignature.String(), signature.Value())
+	rw.Header().Add(HeaderXSignatureAlgorithm.String(), signature.Algorithm().String())
+	if signature.IsTimestampPresent() {
+		rw.Header().Add(HeaderXSignatureTimestamp.String(), conv.StringOrEmpty(signature.Timestamp()))
+	}
+	return w
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 //
 // Unexported helper methods for internal use within the [wrapper] type.

@@ -265,6 +265,18 @@ const (
 	// UpgradeInsecureRequests requests the browser to upgrade any insecure requests to secure HTTPS requests.
 	// 	Example: "1"
 	HeaderUpgradeInsecureRequests HeaderType = "Upgrade-Insecure-Requests"
+
+	// X-Signature contains the signature of the request, often used for verifying the integrity and authenticity of the request.
+	// 	Example: "HMAC-SHA256=base64encodedhash"
+	HeaderXSignature HeaderType = "X-Signature"
+
+	// X-Signature-Algorithm specifies the algorithm used to generate the signature in the X-Signature header.
+	// 	Example: "HMAC-SHA256"
+	HeaderXSignatureAlgorithm HeaderType = "X-Signature-Algorithm"
+
+	// X-Signature-Timestamp specifies the timestamp when the signature was generated.
+	// 	Example: "1790442053"
+	HeaderXSignatureTimestamp HeaderType = "X-Signature-Timestamp"
 )
 
 // Media Type constants define commonly used MIME types for different content types in HTTP requests and responses.
