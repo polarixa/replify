@@ -267,20 +267,34 @@ func (r *wrapper) Write(w http.ResponseWriter, ignoringJSONfields ...string) *wr
 // These methods combine signature generation ([ApplySignature], [ApplySignatureFromRequest],
 // [ApplySignatureHeader]) with [WriteJSON] so the signed response can be written in one call.
 //
+// The fields ignored when computing the signature and the fields ignored when serializing the
+// JSON sent to the client are independently configurable via [SignatureConfig.WithIgnoringSignatureFields]
+// and [SignatureConfig.WithIgnoringResponseFields] — sharing a single ignore-list between the two
+// would otherwise strip the freshly generated "signature" field from the client response.
+//
 /////////////////////////////////////////////////////////////////////////////////
 
 // WriteJSONSignature generates a signature for the wrapper's JSON body using the provided
 // [SignatureConfig], applies it to the wrapper via [ApplySignature], and writes the resulting
 // JSON response to the [http.ResponseWriter].
 //
+// Fields ignored when computing the signature are taken from [SignatureConfig.IgnoringSignatureFields];
+// fields ignored when serializing the response are taken from [SignatureConfig.IgnoringResponseFields].
+//
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the JSON response will be written.
 //   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - ignoringJSONfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+//
+// Example:
+//
+//	config := replify.NewSignatureConfig("abc@123").
+//	    WithIgnoringSignatureFields("signature").
+//	    WithIgnoringResponseFields("debug")
+//	w.WriteJSONSignature(rw, config)
+func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureConfig) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -290,8 +304,8 @@ func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureCon
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignature called with nil http.ResponseWriter"))
 	}
-	r.ApplySignature(config, ignoringJSONfields...)
-	return r.WriteJSON(w, ignoringJSONfields...)
+	r.ApplySignature(config, config.IgnoringSignatureFields()...)
+	return r.WriteJSON(w, config.IgnoringResponseFields()...)
 }
 
 // WriteJSONSignatureHeader generates a signature for the wrapper's JSON body using the provided
@@ -299,14 +313,16 @@ func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureCon
 // present, X-Signature-Timestamp) to the [http.ResponseWriter] via [ApplySignatureHeader], and
 // writes the resulting JSON response.
 //
+// Fields ignored when computing the signature are taken from [SignatureConfig.IgnoringSignatureFields];
+// fields ignored when serializing the response are taken from [SignatureConfig.IgnoringResponseFields].
+//
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the signature headers and JSON response will be written.
 //   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - ignoringJSONfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *SignatureConfig) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -316,23 +332,25 @@ func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *Signat
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignatureHeader called with nil http.ResponseWriter"))
 	}
-	r.ApplySignatureHeader(w, config, ignoringJSONfields...)
-	return r.WriteJSON(w, ignoringJSONfields...)
+	r.ApplySignatureHeader(w, config, config.IgnoringSignatureFields()...)
+	return r.WriteJSON(w, config.IgnoringResponseFields()...)
 }
 
 // WriteJSONSignatureFromRequest generates a signature for the wrapper's JSON body based on the
 // provided HTTP request and [SignatureConfig] via [ApplySignatureFromRequest], then writes the
 // resulting JSON response to the [http.ResponseWriter].
 //
+// Fields ignored when computing the signature are taken from [SignatureConfig.IgnoringSignatureFields];
+// fields ignored when serializing the response are taken from [SignatureConfig.IgnoringResponseFields].
+//
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the JSON response will be written.
 //   - request: The HTTP request containing the headers to be signed.
 //   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - ignoringJSONfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).
-func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *http.Request, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *http.Request, config *SignatureConfig) *wrapper {
 	if !r.Available() {
 		return r
 	}
@@ -342,6 +360,6 @@ func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignatureFromRequest called with nil http.ResponseWriter"))
 	}
-	r.ApplySignatureFromRequest(request, config, ignoringJSONfields...)
-	return r.WriteJSON(w, ignoringJSONfields...)
+	r.ApplySignatureFromRequest(request, config, config.IgnoringSignatureFields()...)
+	return r.WriteJSON(w, config.IgnoringResponseFields()...)
 }
