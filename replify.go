@@ -3905,41 +3905,14 @@ func (w *wrapper) ReleaseSignature() *wrapper {
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-// SignaturePayload returns the JSON bytes of the wrapper's body payload ([Body]) alone, excluding
-// the enveloping metadata (header, message, meta, signature, etc.) built by [Respond]. The
-// Apply/Verify signature family signs and verifies this payload rather than the full envelope,
-// because the envelope is mutated by [ApplySignature] itself (it sets header/message from the
-// signing outcome after computing the body) and by unrelated metadata such as meta.requested_time —
-// signing it would make verification fail even when the actual payload never changed.
+// signatureEnvelopeFields returns ignoringJSONfields with "signature" guaranteed to be present.
 //
-// This method is exported so that a receiver (e.g. a client verifying a signature carried in a
-// response) can reproduce the exact bytes that were signed: unmarshal the received envelope's
-// "data" field into a value of the same shape, call [WithBody] with it, then [SignaturePayload]
-// with matching ignoringJSONfields — this is unrelated to, and must not be confused with, [JSON],
-// [JSONBytes], or [JSONBytesIgnoring], which serialize the full response envelope instead.
-//
-// When the payload is a JSON object, the field names in ignoringJSONfields are removed from a
-// shallow copy before serialization; ignoringJSONfields has no effect on non-object payloads.
-//
-// Returns:
-//   - The JSON-encoded body payload, or the literal bytes "null" if no body is present.
-func (w *wrapper) SignaturePayload(ignoringJSONfields ...string) []byte {
-	if !w.IsBodyPresent() {
-		return []byte("null")
-	}
-	data := safeCastValueSupervised(w.data)
-	if m, ok := data.(map[string]any); ok && len(ignoringJSONfields) > 0 {
-		clone := make(map[string]any, len(m))
-		maps.Copy(clone, m)
-		for _, field := range ignoringJSONfields {
-			if strutil.IsEmpty(field) {
-				continue
-			}
-			delete(clone, field)
-		}
-		data = clone
-	}
-	return []byte(jsonpass(data))
+// The "signature" envelope field does not exist yet at signing time and is self-referential (it
+// cannot cover itself), so it must always be excluded from the signed bytes regardless of what the
+// caller passes — otherwise a signature attached between Apply and a later Verify call would make
+// the recomputed body diverge from what was actually signed.
+func signatureEnvelopeFields(ignoringJSONfields []string) []string {
+	return append(append([]string{}, ignoringJSONfields...), "signature")
 }
 
 // ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
@@ -3967,20 +3940,18 @@ func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...
 		return w
 	}
 
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	signature, wv := GenerateSignature(config, body)
 
-	// Apply the headers and message from the signature generation wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If there was an error during signature generation, return the current wrapper without applying the signature.
-	// This prevents the application of an invalid or incomplete signature to the current wrapper.
+	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
+	// header/message untouched — mutating them here would change the envelope after it was
+	// signed, making the next Verify call recompute different bytes than what was actually signed.
 	if wv.IsError() {
+		w.WithHeader(wv.Header()).WithMessage(wv.Message())
 		return w
 	}
 	w.signature = signature
+	w.resetCache() // Reset the cached JSON representation to reflect the updated signature.
 	return w
 }
 
@@ -4009,20 +3980,18 @@ func (w *wrapper) ApplySignatureFromRequest(r *http.Request, config *SignatureCo
 		return w
 	}
 
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	signature, wv := GenerateSignatureFromRequest(r, config, body)
 
-	// Apply the headers and message from the signature generation wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If there was an error during signature generation, return the current wrapper without applying the signature.
-	// This prevents the application of an invalid or incomplete signature to the current wrapper.
+	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
+	// header/message untouched — mutating them here would change the envelope after it was
+	// signed, making the next Verify call recompute different bytes than what was actually signed.
 	if wv.IsError() {
+		w.WithHeader(wv.Header()).WithMessage(wv.Message())
 		return w
 	}
 	w.signature = signature
+	w.resetCache() // Reset the cached JSON representation to reflect the updated signature.
 	return w
 }
 
@@ -4052,19 +4021,18 @@ func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *Signature
 		return w
 	}
 
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	signature, wv := GenerateSignatureFromRequest(&http.Request{Header: rw.Header()}, config, body)
 
-	// Apply the headers and message from the signature generation wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If there was an error during signature generation, do not apply the signature.
+	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
+	// header/message untouched — mutating them here would change the envelope after it was
+	// signed, making the next Verify call recompute different bytes than what was actually signed.
 	if wv.IsError() {
+		w.WithHeader(wv.Header()).WithMessage(wv.Message())
 		return w
 	}
 	w.signature = signature
+	w.resetCache() // Reset the cached JSON representation to reflect the updated signature.
 
 	// Apply the signature to the response headers.
 	rw.Header().Add(HeaderXSignature.String(), signature.Value())
@@ -4119,7 +4087,7 @@ func (w *wrapper) VerifySignature(config *SignatureConfig, ignoringJSONfields ..
 		return false
 	}
 
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	valid, wv := VerifySignature(config, body, w.signature)
 
 	if !valid {
@@ -4169,7 +4137,7 @@ func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureC
 	}
 
 	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	valid, wv := VerifySignatureFromRequest(r, config, body, w.signature)
 
 	if !valid {
@@ -4228,7 +4196,7 @@ func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig
 	}
 
 	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
-	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
 	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
 
 	if !valid {
