@@ -453,3 +453,16 @@ func WithRequest(r *http.Request) ROption {
 		w.WithRequest(r)
 	}
 }
+
+// WithSignature returns an [ROption] that sets the signature for the wrapper.
+//
+// Parameters:
+//   - `signature`: A pointer to the [signature] instance to associate with the wrapper.
+//
+// Returns:
+//   - An [ROption] that sets the specified signature in the wrapper.
+func WithSignature(signature *signature) ROption {
+	return func(w *wrapper) {
+		w.WithSignature(signature)
+	}
+}
