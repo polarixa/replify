@@ -3393,6 +3393,10 @@ func (w *wrapper) ReplyPtr() *R {
 // of the [wrapper] instance. The output is a compact JSON string with no additional
 // whitespace or formatting.
 //
+// Note: this is the full response envelope (data, header, message, meta, signature, etc.),
+// not the value signed/verified by the Apply/Verify signature family — see [SignaturePayload]
+// for that.
+//
 // Returns:
 //   - A compact JSON string representation of the [wrapper] instance.
 func (w *wrapper) JSON() string {
@@ -3438,6 +3442,9 @@ func (w *wrapper) JSONPrettyIgnoring(level1fields ...string) string {
 // This function first checks if the [wrapper] is available and if the body data is a valid JSON string using `IsJSONBody()`.
 // If both conditions are met, it returns the JSON byte slice. Otherwise, it returns an empty byte slice.
 //
+// Note: this is the full response envelope, not the value signed/verified by the Apply/Verify
+// signature family — see [SignaturePayload] for that.
+//
 // Returns:
 //   - A byte slice containing the JSON representation of the [wrapper] instance.
 //   - An empty byte slice if the [wrapper] is not available or the body data is not a valid JSON string.
@@ -3446,6 +3453,10 @@ func (w *wrapper) JSONBytes() []byte {
 }
 
 // JSONBytesIgnoring serializes the [wrapper] instance into a JSON byte slice while ignoring the specified fields at the given top-level.
+//
+// Note: this ignores top-level envelope fields (e.g. "signature", "header") for the full response
+// output; it is unrelated to the ignoringJSONfields accepted by the Apply/Verify signature family,
+// which instead ignore fields inside the body payload itself — see [SignaturePayload].
 //
 // Parameters:
 //   - level1fields: A variadic list of strings representing the fields to be ignored at specific top-levels in the JSON structure.
@@ -3894,6 +3905,43 @@ func (w *wrapper) ReleaseSignature() *wrapper {
 //
 /////////////////////////////////////////////////////////////////////////////////
 
+// SignaturePayload returns the JSON bytes of the wrapper's body payload ([Body]) alone, excluding
+// the enveloping metadata (header, message, meta, signature, etc.) built by [Respond]. The
+// Apply/Verify signature family signs and verifies this payload rather than the full envelope,
+// because the envelope is mutated by [ApplySignature] itself (it sets header/message from the
+// signing outcome after computing the body) and by unrelated metadata such as meta.requested_time —
+// signing it would make verification fail even when the actual payload never changed.
+//
+// This method is exported so that a receiver (e.g. a client verifying a signature carried in a
+// response) can reproduce the exact bytes that were signed: unmarshal the received envelope's
+// "data" field into a value of the same shape, call [WithBody] with it, then [SignaturePayload]
+// with matching ignoringJSONfields — this is unrelated to, and must not be confused with, [JSON],
+// [JSONBytes], or [JSONBytesIgnoring], which serialize the full response envelope instead.
+//
+// When the payload is a JSON object, the field names in ignoringJSONfields are removed from a
+// shallow copy before serialization; ignoringJSONfields has no effect on non-object payloads.
+//
+// Returns:
+//   - The JSON-encoded body payload, or the literal bytes "null" if no body is present.
+func (w *wrapper) SignaturePayload(ignoringJSONfields ...string) []byte {
+	if !w.IsBodyPresent() {
+		return []byte("null")
+	}
+	data := safeCastValueSupervised(w.data)
+	if m, ok := data.(map[string]any); ok && len(ignoringJSONfields) > 0 {
+		clone := make(map[string]any, len(m))
+		maps.Copy(clone, m)
+		for _, field := range ignoringJSONfields {
+			if strutil.IsEmpty(field) {
+				continue
+			}
+			delete(clone, field)
+		}
+		data = clone
+	}
+	return []byte(jsonpass(data))
+}
+
 // ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
 // and applies it to the wrapper. If any errors occur during signature generation, the wrapper remains unchanged.
 //
@@ -4120,7 +4168,7 @@ func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureC
 		return false
 	}
 
-	// Extract the body from the wrapper, ignoring the specified JSON fields, to use for signature verification.
+	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
 	valid, wv := VerifySignatureFromRequest(r, config, body, w.signature)
 
@@ -4179,7 +4227,7 @@ func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig
 		provided = SignatureFromHeader(r.Header)
 	}
 
-	// Extract the body from the wrapper, ignoring the specified JSON fields, to use for signature verification.
+	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
 	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
 
