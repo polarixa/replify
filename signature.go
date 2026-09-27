@@ -815,6 +815,28 @@ func (s *SignatureConfig) HeadersToSign() []string {
 	return s.headersToSign
 }
 
+// IgnoringSignatureFields returns the JSON field names excluded when computing the signature for the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The list of ignored signature fields of the current [SignatureConfig] instance, or an empty list if the instance is not available.
+func (s *SignatureConfig) IgnoringSignatureFields() []string {
+	if !s.Available() {
+		return []string{}
+	}
+	return s.ignoringSignatureFields
+}
+
+// IgnoringResponseFields returns the JSON field names excluded from the response written to the client for the current [SignatureConfig] instance.
+//
+// Returns:
+//   - The list of ignored response fields of the current [SignatureConfig] instance, or an empty list if the instance is not available.
+func (s *SignatureConfig) IgnoringResponseFields() []string {
+	if !s.Available() {
+		return []string{}
+	}
+	return s.ignoringResponseFields
+}
+
 // IsAlgorithmPresent checks if a valid signature algorithm is configured in the current [SignatureConfig] instance.
 //
 // Returns:
@@ -1056,6 +1078,39 @@ func (s *SignatureConfig) WithHeaders(headers ...string) *SignatureConfig {
 //   - The updated [SignatureConfig] instance.
 func (s *SignatureConfig) ReleaseHeaders() *SignatureConfig {
 	s.headersToSign = []string{}
+	return s
+}
+
+// WithIgnoringSignatureFields sets the JSON field names excluded when computing the signature
+// for the current [SignatureConfig] instance and returns the updated instance.
+//
+// This is distinct from [WithIgnoringResponseFields]: it only affects the body used to compute
+// the signature (e.g. via [ApplySignature]) and has no effect on the JSON ultimately written to
+// the client.
+//
+// Parameters:
+//   - fields: A variadic list of JSON field names to exclude when computing the signature.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithIgnoringSignatureFields(fields ...string) *SignatureConfig {
+	s.ignoringSignatureFields = fields
+	return s
+}
+
+// WithIgnoringResponseFields sets the JSON field names excluded from the response written to the
+// client for the current [SignatureConfig] instance and returns the updated instance.
+//
+// This is distinct from [WithIgnoringSignatureFields]: it only affects the JSON serialized to the
+// [http.ResponseWriter] (e.g. via [WriteJSON]) and has no effect on the signature computation.
+//
+// Parameters:
+//   - fields: A variadic list of JSON field names to exclude from the response.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithIgnoringResponseFields(fields ...string) *SignatureConfig {
+	s.ignoringResponseFields = fields
 	return s
 }
 

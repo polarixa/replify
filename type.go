@@ -397,11 +397,13 @@ type SignatureAlgorithm string
 // SignatureConfig holds the configuration for generating and validating cryptographic signatures.
 // It includes the secret key, the algorithm to use, whether to include a timestamp, which headers to sign, and the maximum age for the signature.
 type SignatureConfig struct {
-	secretKey        string             // Secret key is the shared secret key for HMAC signing (required)
-	algorithm        SignatureAlgorithm // Algorithm used for signature generation (required), (default: HMAC-SHA256)
-	includeTimestamp bool               // Indicates whether to include a timestamp in the signature (optional)
-	headersToSign    []string           // List of headers to include in the signature (optional)
-	maxAge           time.Duration      // Maximum age for the signature to be considered valid (optional)
+	secretKey               string             // Secret key is the shared secret key for HMAC signing (required)
+	algorithm               SignatureAlgorithm // Algorithm used for signature generation (required), (default: HMAC-SHA256)
+	includeTimestamp        bool               // Indicates whether to include a timestamp in the signature (optional)
+	headersToSign           []string           // List of headers to include in the signature (optional)
+	maxAge                  time.Duration      // Maximum age for the signature to be considered valid (optional)
+	ignoringSignatureFields []string           // JSON fields excluded when computing the signature (optional)
+	ignoringResponseFields  []string           // JSON fields excluded from the response written to the client (optional)
 }
 
 // ///////////////////////////
