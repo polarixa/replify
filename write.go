@@ -260,3 +260,88 @@ func (r *wrapper) Write(w http.ResponseWriter, ignoringJSONfields ...string) *wr
 	}
 	return r.WriteJSON(w, ignoringJSONfields...)
 }
+
+/////////////////////////////////////////////////////////////////////////////////
+//
+// Section: Signature-aware JSON writers
+// These methods combine signature generation ([ApplySignature], [ApplySignatureFromRequest],
+// [ApplySignatureHeader]) with [WriteJSON] so the signed response can be written in one call.
+//
+/////////////////////////////////////////////////////////////////////////////////
+
+// WriteJSONSignature generates a signature for the wrapper's JSON body using the provided
+// [SignatureConfig], applies it to the wrapper via [ApplySignature], and writes the resulting
+// JSON response to the [http.ResponseWriter].
+//
+// Parameters:
+//   - w: An [http.ResponseWriter] to which the JSON response will be written.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureConfig, ignoringfields ...string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
+	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteJSONSignature called with nil http.ResponseWriter"))
+	}
+	r.ApplySignature(config, ignoringfields...)
+	return r.WriteJSON(w, ignoringfields...)
+}
+
+// WriteJSONSignatureHeader generates a signature for the wrapper's JSON body using the provided
+// [SignatureConfig], adds the signature headers (X-Signature, X-Signature-Algorithm and, when
+// present, X-Signature-Timestamp) to the [http.ResponseWriter] via [ApplySignatureHeader], and
+// writes the resulting JSON response.
+//
+// Parameters:
+//   - w: An [http.ResponseWriter] to which the signature headers and JSON response will be written.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *SignatureConfig, ignoringfields ...string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
+	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteJSONSignatureHeader called with nil http.ResponseWriter"))
+	}
+	r.ApplySignatureHeader(w, config, ignoringfields...)
+	return r.WriteJSON(w, ignoringfields...)
+}
+
+// WriteJSONSignatureFromRequest generates a signature for the wrapper's JSON body based on the
+// provided HTTP request and [SignatureConfig] via [ApplySignatureFromRequest], then writes the
+// resulting JSON response to the [http.ResponseWriter].
+//
+// Parameters:
+//   - w: An [http.ResponseWriter] to which the JSON response will be written.
+//   - request: The HTTP request containing the headers to be signed.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringfields: A variadic list of field names ignored both when generating the signature and when serializing the JSON body.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *http.Request, config *SignatureConfig, ignoringfields ...string) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
+	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteJSONSignatureFromRequest called with nil http.ResponseWriter"))
+	}
+	r.ApplySignatureFromRequest(request, config, ignoringfields...)
+	return r.WriteJSON(w, ignoringfields...)
+}
