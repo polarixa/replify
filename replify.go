@@ -4029,6 +4029,152 @@ func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *Signature
 
 /////////////////////////////////////////////////////////////////////////////////
 //
+// Section: Signature Verification
+// This section contains methods related to verifying signatures previously applied to the
+// [wrapper] type, calling into the core [VerifySignature] / [VerifySignatureFromRequest]
+// functions in signature.go to perform the actual cryptographic checks.
+//
+/////////////////////////////////////////////////////////////////////////////////
+
+// VerifySignature verifies the provided [signature] against the current wrapper's body using the
+// given [SignatureConfig]. If any errors occur during verification, or the signature is invalid,
+// the wrapper remains unsigned and its header/message reflect the failure.
+//
+// Parameters:
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - provided: The [signature] to verify, typically obtained via [SignatureFromHeader].
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
+//
+// Returns:
+//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	provided := replify.SignatureFromHeader(r.Header)
+//	w1.VerifySignature(signatureConfig, provided, "signature")
+//	w1.Logging()
+func (w *wrapper) VerifySignature(config *SignatureConfig, provided *signature, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("VerifySignature can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
+		return w
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	valid, wv := VerifySignature(config, body, provided)
+
+	// Apply the headers and message from the signature verification wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If the signature failed verification, leave the wrapper without a stored signature.
+	if !valid {
+		return w
+	}
+	w.signature = provided
+	return w
+}
+
+// VerifySignatureFromRequest verifies the provided [signature] against the current wrapper's body
+// and the given HTTP request using the specified [SignatureConfig]. In addition to the checks
+// performed by [VerifySignature], it cross-checks the headers configured via
+// [SignatureConfig.WithHeaders] against the values recorded on `provided`.
+//
+// Parameters:
+//   - r: The HTTP request containing the current header values to cross-check.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - provided: The [signature] to verify, typically obtained via [SignatureFromHeader].
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
+//
+// Returns:
+//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	provided := replify.SignatureFromHeader(r.Header)
+//	w1.VerifySignatureFromRequest(r, signatureConfig, provided, "fieldToIgnore")
+//	w1.Logging()
+func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, provided *signature, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("VerifySignatureFromRequest can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
+		return w
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
+
+	// Apply the headers and message from the signature verification wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If the signature failed verification, leave the wrapper without a stored signature.
+	if !valid {
+		return w
+	}
+	w.signature = provided
+	return w
+}
+
+// VerifySignatureHeader verifies a signature carried in the X-Signature, X-Signature-Algorithm, and
+// X-Signature-Timestamp headers of the given HTTP request (as written by [ApplySignatureHeader])
+// against the current wrapper's body using the specified [SignatureConfig].
+//
+// Parameters:
+//   - r: The HTTP request carrying the signature headers to verify.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
+//
+// Returns:
+//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	w1.VerifySignatureHeader(r, signatureConfig, "fieldToIgnore")
+//	w1.Logging()
+func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("VerifySignatureHeader can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
+		return w
+	}
+	if r == nil {
+		return w.WithHeader(BadRequest).WithMessage("http request is missing, cannot read signature headers")
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	provided := SignatureFromHeader(r.Header)
+	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
+
+	// Apply the headers and message from the signature verification wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If the signature failed verification, leave the wrapper without a stored signature.
+	if !valid {
+		return w
+	}
+	w.signature = provided
+	return w
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+//
 // Unexported helper methods for internal use within the [wrapper] type.
 // These methods are intended for internal use and are not part of the public API of the [wrapper] type.
 //
