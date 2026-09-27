@@ -1469,28 +1469,9 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 //   - A [signature] instance containing the generated signature.
 //   - A [wrapper] instance indicating success or failure.
 func GenerateSignatureFromRequest(r *http.Request, config *SignatureConfig, body []byte) (s *signature, w *wrapper) {
-	v := ValidateSignature(config)
-	if v.IsError() {
-		return nil, v
-	}
-	var h func() hash.Hash
-	h, w = getHashSignature(config.Algorithm())
+	s, w = GenerateSignature(config, body)
 	if w.IsError() {
 		return nil, w
-	}
-	mac := hmac.New(h, []byte(config.SecretKey()))
-	mac.Write(body)
-	sum := mac.Sum(nil)
-	signature := base64.StdEncoding.EncodeToString(sum)
-
-	s = NewSignature().
-		WithAlgorithm(config.Algorithm()).
-		WithTextValue(signature)
-
-	// Include the timestamp in the signature if the configuration specifies it.
-	// This ensures that the signature includes a timestamp based on the maximum age specified in the configuration.
-	if config.IsIncludeTimestamp() {
-		s.WithTimeDuration(config.MaxAge())
 	}
 
 	// Include the headers specified in the configuration to be signed in the signature.
