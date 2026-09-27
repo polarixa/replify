@@ -321,6 +321,11 @@ The library produces responses in this standardized format:
     "trace_session_id": "4919e84fc26881e9fe790f5d07465db4",
     "execution_time_ms": 42
   },
+  "signature": {
+    "algorithm": "HMAC-SHA512",
+    "timestamp": 1790513074,
+    "value": "MhDQFzogLmHjVzHGMeGo7Km8OMlW2HfMhT4swSto9o7/KLTvIHtXtPbMA+rUpQ49INwOK2gDGTPRZwKOhPkQoA=="
+  },
   "_links": {
     "next": {
       "href": "/api/v1/users?page=2",
