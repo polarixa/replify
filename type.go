@@ -402,8 +402,8 @@ type SignatureConfig struct {
 	includeTimestamp        bool               // Indicates whether to include a timestamp in the signature (optional)
 	headersToSign           []string           // List of headers to include in the signature (optional)
 	maxAge                  time.Duration      // Maximum age for the signature to be considered valid (optional)
-	ignoringSignatureFields []string           // JSON fields excluded when computing the signature (optional)
-	ignoringResponseFields  []string           // JSON fields excluded from the response written to the client (optional)
+	ignoringSignatureFields []string           // JSON fields excluded when computing the signature (optional), don't export this field
+	ignoringResponseFields  []string           // JSON fields excluded from the response written to the client (optional), don't export this field
 }
 
 // ///////////////////////////
