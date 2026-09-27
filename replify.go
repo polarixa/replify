@@ -3887,6 +3887,13 @@ func (w *wrapper) ReleaseSignature() *wrapper {
 	return w
 }
 
+/////////////////////////////////////////////////////////////////////////////////
+//
+// Section: Signature Application
+// This section contains methods related to applying and managing signatures within the [wrapper] type.
+//
+/////////////////////////////////////////////////////////////////////////////////
+
 // ApplySignature generates a signature for the current wrapper's body using the provided [SignatureConfig]
 // and applies it to the wrapper. If any errors occur during signature generation, the wrapper remains unchanged.
 //
@@ -3914,6 +3921,48 @@ func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...
 
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
 	signature, wv := GenerateSignature(config, body)
+
+	// Apply the headers and message from the signature generation wrapper to the current wrapper.
+	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.
+	w.WithHeader(wv.Header()).
+		WithMessage(wv.Message())
+
+	// If there was an error during signature generation, return the current wrapper without applying the signature.
+	// This prevents the application of an invalid or incomplete signature to the current wrapper.
+	if wv.IsError() {
+		return w
+	}
+	w.signature = signature
+	return w
+}
+
+// ApplySignatureFromRequest applies a signature to the current [wrapper] instance based on the provided HTTP request and [SignatureConfig].
+//
+// Parameters:
+//   - r: The HTTP request containing the headers to be signed.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - ignoringJSONfields: Optional list of JSON fields to ignore when generating the signature.
+//
+// Returns:
+//   - The current [wrapper] instance with the applied signature, if successful.
+//
+// Example:
+//
+//	w1 := replify.New()
+//	signatureConfig := replify.NewSignatureConfig("abc@123")
+//	w1.ApplySignatureFromRequest(r, signatureConfig, "fieldToIgnore")
+//	w1.Logging()
+func (w *wrapper) ApplySignatureFromRequest(r *http.Request, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if w.IsError() {
+		slogger.Warnf("ApplySignatureFromRequest can not be executed, caused by an error in the chaining process before this point, so the signature will not be applied")
+		return w
+	}
+
+	body := w.JSONBytesIgnoring(ignoringJSONfields...)
+	signature, wv := GenerateSignatureFromRequest(r, config, body)
 
 	// Apply the headers and message from the signature generation wrapper to the current wrapper.
 	// This ensures that any headers and messages generated during the signature creation process are reflected in the current wrapper.

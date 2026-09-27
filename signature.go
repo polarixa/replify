@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"hash"
+	"net/http"
 	"reflect"
 	"slices"
 	"strings"
@@ -1455,4 +1456,53 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 		OK().
 		WithBody(s.Respond()).
 		WithMessagef("generated signature for algorithm %s successfully", config.Algorithm().String())
+}
+
+// GenerateSignatureFromRequest generates a signature for the given [SignatureConfig] and HTTP request.
+//
+// Parameters:
+//   - r: The HTTP request containing the headers to be signed.
+//   - config: The [SignatureConfig] instance containing the signature configuration.
+//   - body: The request body to be signed.
+//
+// Returns:
+//   - A [signature] instance containing the generated signature.
+//   - A [wrapper] instance indicating success or failure.
+func GenerateSignatureFromRequest(r *http.Request, config *SignatureConfig, body []byte) (s *signature, w *wrapper) {
+	v := ValidateSignature(config)
+	if v.IsError() {
+		return nil, v
+	}
+	var h func() hash.Hash
+	h, w = getHashSignature(config.Algorithm())
+	if w.IsError() {
+		return nil, w
+	}
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(body)
+	sum := mac.Sum(nil)
+	signature := base64.StdEncoding.EncodeToString(sum)
+
+	s = NewSignature().
+		WithAlgorithm(config.Algorithm()).
+		WithTextValue(signature)
+
+	// Include the timestamp in the signature if the configuration specifies it.
+	// This ensures that the signature includes a timestamp based on the maximum age specified in the configuration.
+	if config.IsIncludeTimestamp() {
+		s.WithTimeDuration(config.MaxAge())
+	}
+
+	// Include the headers specified in the configuration to be signed in the signature.
+	// This ensures that the signature covers the specified headers from the request.
+	if config.IsHeadersToSignPresent() {
+		for _, header := range config.headersToSign {
+			s.WithHeader(header, r.Header.Get(header))
+		}
+	}
+
+	return s, New().
+		OK().
+		WithBody(s.Respond()).
+		WithMessagef("generated signature from request for algorithm %s successfully", config.Algorithm().String())
 }
