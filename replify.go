@@ -4099,7 +4099,6 @@ func (w *wrapper) VerifySignature(config *SignatureConfig, ignoringJSONfields ..
 		return false
 	}
 
-	slogger.Debugf("VerifySignature: signature accepted for algorithm %s", config.Algorithm().String())
 	return true
 }
 
@@ -4149,7 +4148,6 @@ func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureC
 		return false
 	}
 
-	slogger.Debugf("VerifySignatureFromRequest: signature accepted for algorithm %s", config.Algorithm().String())
 	return true
 }
 
@@ -4209,7 +4207,7 @@ func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig
 	}
 
 	w.signature = provided // Attach the verified signature to the wrapper for future reference.
-	slogger.Debugf("VerifySignatureHeader: signature accepted for algorithm %s", config.Algorithm().String())
+	w.resetCache()         // Clear the cached response data after updating the signature.
 	return true
 }
 
