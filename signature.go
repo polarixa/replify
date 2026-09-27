@@ -1094,7 +1094,15 @@ func (s *SignatureConfig) ReleaseHeaders() *SignatureConfig {
 // Returns:
 //   - The updated [SignatureConfig] instance.
 func (s *SignatureConfig) WithIgnoringSignatureFields(fields ...string) *SignatureConfig {
-	s.ignoringSignatureFields = fields
+	if len(fields) == 0 {
+		return s
+	}
+	for _, field := range fields {
+		if strutil.IsEmpty(field) {
+			continue
+		}
+		s.ignoringSignatureFields = append(s.ignoringSignatureFields, field)
+	}
 	return s
 }
 
@@ -1110,7 +1118,15 @@ func (s *SignatureConfig) WithIgnoringSignatureFields(fields ...string) *Signatu
 // Returns:
 //   - The updated [SignatureConfig] instance.
 func (s *SignatureConfig) WithIgnoringResponseFields(fields ...string) *SignatureConfig {
-	s.ignoringResponseFields = fields
+	if len(fields) == 0 {
+		return s
+	}
+	for _, field := range fields {
+		if strutil.IsEmpty(field) {
+			continue
+		}
+		s.ignoringResponseFields = append(s.ignoringResponseFields, field)
+	}
 	return s
 }
 
