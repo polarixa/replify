@@ -3345,7 +3345,11 @@ func (w *wrapper) RespondIgnoring(level1fields ...string) map[string]any {
 	if len(level1fields) == 0 {
 		return w.Respond()
 	}
-	m := w.Respond()
+	// Respond() returns the shared cached map; clone it so deleting fields
+	// below doesn't mutate the cache backing future Respond()/JSON() calls.
+	src := w.Respond()
+	m := make(map[string]any, len(src))
+	maps.Copy(m, src)
 	for _, field := range level1fields {
 		if strutil.IsEmpty(field) {
 			continue
