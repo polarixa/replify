@@ -29,7 +29,7 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 		return r
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteFile called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteFile requires a non-nil http.ResponseWriter to stream the file response"))
 	}
 	if strutil.IsEmpty(r.filepath) {
 		r.WithHeader(BadRequest).
@@ -126,7 +126,7 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 		return r
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteBinary called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteBinary requires a non-nil http.ResponseWriter to write the binary response"))
 	}
 	// r.data is nil (unset) vs []byte(nil) stored by Binary(nil) — only the former is an error
 	if r.data == nil {
@@ -210,7 +210,7 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter, ignoringJSONfields ...string)
 		return r
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSON called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteJSON requires a non-nil http.ResponseWriter to write the JSON response"))
 	}
 
 	if r.isSpan() {
@@ -302,7 +302,7 @@ func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureCon
 		return r.WriteJSON(w)
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSONSignature called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteJSONSignature requires a non-nil http.ResponseWriter to write the signed JSON response"))
 	}
 	r.ApplySignature(config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
@@ -330,7 +330,7 @@ func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *Signat
 		return r.WriteJSON(w)
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSONSignatureHeader called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteJSONSignatureHeader requires a non-nil http.ResponseWriter to write the signature headers and JSON response"))
 	}
 	r.ApplySignatureHeader(w, config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
@@ -358,7 +358,7 @@ func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *
 		return r.WriteJSON(w)
 	}
 	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSONSignatureFromRequest called with nil http.ResponseWriter"))
+		return r.WithErrorAck(NewError("WriteJSONSignatureFromRequest requires a non-nil http.ResponseWriter to write the signed JSON response"))
 	}
 	r.ApplySignatureFromRequest(request, config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
