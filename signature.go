@@ -1396,14 +1396,14 @@ func getHashSignature(algorithm SignatureAlgorithm) (func() hash.Hash, *wrapper)
 	}
 }
 
-// ValidateSignature checks the validity of the provided [SignatureConfig] instance and returns a [wrapper] containing the validation result.
+// ValidateSignatureConfig checks the validity of the provided [SignatureConfig] instance and returns a [wrapper] containing the validation result.
 //
 // Parameters:
 //   - config: The [SignatureConfig] instance to validate.
 //
 // Returns:
 //   - A [wrapper] instance containing the validation result.
-func ValidateSignature(config *SignatureConfig) *wrapper {
+func ValidateSignatureConfig(config *SignatureConfig) *wrapper {
 	if config == nil {
 		return New().BadRequest().WithMessage("signature configuration is missing")
 	}
@@ -1428,7 +1428,7 @@ func ValidateSignature(config *SignatureConfig) *wrapper {
 //   - A [signature] instance containing the generated signature.
 //   - A [wrapper] instance indicating success or failure.
 func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *wrapper) {
-	v := ValidateSignature(config)
+	v := ValidateSignatureConfig(config)
 	if v.IsError() {
 		return nil, v
 	}
