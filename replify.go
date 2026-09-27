@@ -4036,141 +4036,161 @@ func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *Signature
 //
 /////////////////////////////////////////////////////////////////////////////////
 
-// VerifySignature verifies the provided [signature] against the current wrapper's body using the
-// given [SignatureConfig]. If any errors occur during verification, or the signature is invalid,
-// the wrapper remains unsigned and its header/message reflect the failure.
+// VerifySignature verifies the [signature] already attached to the current wrapper (via
+// [ApplySignature], [WithSignature], or a prior verification) against the wrapper's own body,
+// using the given [SignatureConfig]. The wrapper's header/message are updated to reflect the
+// verification outcome, but the primary result is the returned boolean.
 //
 // Parameters:
 //   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - provided: The [signature] to verify, typically obtained via [SignatureFromHeader].
 //   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
 //
 // Returns:
-//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//   - true if a signature is attached to the wrapper and it is valid for the wrapper's current
+//     body and the given config; false otherwise (including when no signature is attached).
 //
 // Example:
 //
-//	w1 := replify.New()
+//	w1 := replify.New().WithBody(payload).WithSignature(provided)
 //	signatureConfig := replify.NewSignatureConfig("abc@123")
-//	provided := replify.SignatureFromHeader(r.Header)
-//	w1.VerifySignature(signatureConfig, provided, "signature")
-//	w1.Logging()
-func (w *wrapper) VerifySignature(config *SignatureConfig, provided *signature, ignoringJSONfields ...string) *wrapper {
+//	if w1.VerifySignature(signatureConfig, "signature") {
+//	    // signature is valid
+//	}
+func (w *wrapper) VerifySignature(config *SignatureConfig, ignoringJSONfields ...string) bool {
 	if !w.Available() {
-		return w
+		return false
 	}
-	if w.IsError() {
-		slogger.Warnf("VerifySignature can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
-		return w
+
+	// Abort verification if the wrapper already carries an error from a prior step in the chain.
+	if w.IsErrorPresent() {
+		slogger.Warnf("VerifySignature: aborted, wrapper already carries an error from a prior step in the chain")
+		return false
+	}
+	if !w.IsSignaturePresent() {
+		slogger.Warnf("VerifySignature: aborted, wrapper has no signature attached to verify")
+		return false
 	}
 
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
-	valid, wv := VerifySignature(config, body, provided)
+	valid, wv := VerifySignature(config, body, w.signature)
 
-	// Apply the headers and message from the signature verification wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If the signature failed verification, leave the wrapper without a stored signature.
 	if !valid {
-		return w
+		slogger.Errorf("VerifySignature: signature rejected for algorithm %s: %s", config.Algorithm().String(), wv.Message())
+		return false
 	}
-	w.signature = provided
-	return w
+
+	slogger.Debugf("VerifySignature: signature accepted for algorithm %s", config.Algorithm().String())
+	return true
 }
 
-// VerifySignatureFromRequest verifies the provided [signature] against the current wrapper's body
-// and the given HTTP request using the specified [SignatureConfig]. In addition to the checks
-// performed by [VerifySignature], it cross-checks the headers configured via
-// [SignatureConfig.WithHeaders] against the values recorded on `provided`.
+// VerifySignatureFromRequest verifies the [signature] already attached to the current wrapper
+// against the wrapper's own body and the given HTTP request, using the specified [SignatureConfig].
+// In addition to the checks performed by [VerifySignature], it cross-checks the headers configured
+// via [SignatureConfig.WithHeaders] against the values recorded on the attached signature.
 //
 // Parameters:
 //   - r: The HTTP request containing the current header values to cross-check.
 //   - config: The [SignatureConfig] instance containing the signature configuration.
-//   - provided: The [signature] to verify, typically obtained via [SignatureFromHeader].
 //   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
 //
 // Returns:
-//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//   - true if a signature is attached to the wrapper and it (and its signed headers) are valid
+//     for the given request and config; false otherwise (including when no signature is attached).
 //
 // Example:
 //
-//	w1 := replify.New()
+//	w1 := replify.New().WithBody(payload).WithSignature(provided)
 //	signatureConfig := replify.NewSignatureConfig("abc@123")
-//	provided := replify.SignatureFromHeader(r.Header)
-//	w1.VerifySignatureFromRequest(r, signatureConfig, provided, "fieldToIgnore")
-//	w1.Logging()
-func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, provided *signature, ignoringJSONfields ...string) *wrapper {
+//	if w1.VerifySignatureFromRequest(r, signatureConfig, "fieldToIgnore") {
+//	    // signature is valid
+//	}
+func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, ignoringJSONfields ...string) bool {
 	if !w.Available() {
-		return w
-	}
-	if w.IsError() {
-		slogger.Warnf("VerifySignatureFromRequest can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
-		return w
+		return false
 	}
 
+	// Check if the wrapper already carries an error from a prior step in the chain. If so, abort verification.
+	// This prevents further signature verification attempts on a wrapper that is already in an error state.
+	if w.IsErrorPresent() {
+		slogger.Warnf("VerifySignatureFromRequest: aborted, wrapper already carries an error from a prior step in the chain")
+		return false
+	}
+	if !w.IsSignaturePresent() {
+		slogger.Warnf("VerifySignatureFromRequest: aborted, wrapper has no signature attached to verify")
+		return false
+	}
+
+	// Extract the body from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
-	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
+	valid, wv := VerifySignatureFromRequest(r, config, body, w.signature)
 
-	// Apply the headers and message from the signature verification wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If the signature failed verification, leave the wrapper without a stored signature.
 	if !valid {
-		return w
+		slogger.Errorf("VerifySignatureFromRequest: signature rejected for algorithm %s: %s", config.Algorithm().String(), wv.Message())
+		return false
 	}
-	w.signature = provided
-	return w
+
+	slogger.Debugf("VerifySignatureFromRequest: signature accepted for algorithm %s", config.Algorithm().String())
+	return true
 }
 
-// VerifySignatureHeader verifies a signature carried in the X-Signature, X-Signature-Algorithm, and
-// X-Signature-Timestamp headers of the given HTTP request (as written by [ApplySignatureHeader])
-// against the current wrapper's body using the specified [SignatureConfig].
+// VerifySignatureHeader verifies a signature against the current wrapper's body using the
+// specified [SignatureConfig]. If a signature is already attached to the wrapper (via
+// [ApplySignature], [WithSignature], or a prior verification), that signature is used; otherwise
+// the signature is recovered from the X-Signature, X-Signature-Algorithm, and X-Signature-Timestamp
+// headers of the given HTTP request (as written by [ApplySignatureHeader]) via [SignatureFromHeader].
 //
 // Parameters:
-//   - r: The HTTP request carrying the signature headers to verify.
+//   - r: The HTTP request carrying the signature headers to verify, used when no signature is
+//     already attached to the wrapper.
 //   - config: The [SignatureConfig] instance containing the signature configuration.
 //   - ignoringJSONfields: Optional list of JSON fields to ignore when recomputing the signature.
 //
 // Returns:
-//   - The current [wrapper] instance, with header/message reflecting the verification result.
+//   - true if a signature (attached or recovered from `r`) is valid for the wrapper's current
+//     body and the given config; false otherwise.
 //
 // Example:
 //
 //	w1 := replify.New()
 //	signatureConfig := replify.NewSignatureConfig("abc@123")
-//	w1.VerifySignatureHeader(r, signatureConfig, "fieldToIgnore")
-//	w1.Logging()
-func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig, ignoringJSONfields ...string) *wrapper {
+//	if w1.VerifySignatureHeader(r, signatureConfig, "fieldToIgnore") {
+//	    // signature is valid
+//	}
+func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig, ignoringJSONfields ...string) bool {
 	if !w.Available() {
-		return w
+		return false
 	}
-	if w.IsError() {
-		slogger.Warnf("VerifySignatureHeader can not be executed, caused by an error in the chaining process before this point, so the signature will not be verified")
-		return w
+
+	// Check if the wrapper already carries an error from a prior step in the chain. If so, abort verification.
+	// Abort verification if the wrapper already carries an error from a prior step in the chain.
+	if w.IsErrorPresent() {
+		slogger.Warnf("VerifySignatureHeader: aborted, wrapper already carries an error from a prior step in the chain")
+		return false
 	}
 	if r == nil {
-		return w.WithHeader(BadRequest).WithMessage("http request is missing, cannot read signature headers")
+		slogger.Warnf("VerifySignatureHeader: aborted, http request is missing so signature headers cannot be read")
+		return false
 	}
 
+	// Determine the signature to verify. If the wrapper already has a signature attached, use it;
+	// otherwise, recover the signature from the HTTP request headers.
+	provided := w.signature
+	if !w.IsSignaturePresent() {
+		provided = SignatureFromHeader(r.Header)
+	}
+
+	// Extract the body from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(ignoringJSONfields...)
-	provided := SignatureFromHeader(r.Header)
 	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
 
-	// Apply the headers and message from the signature verification wrapper to the current wrapper.
-	// This ensures that any headers and messages generated during the signature verification process are reflected in the current wrapper.
-	w.WithHeader(wv.Header()).
-		WithMessage(wv.Message())
-
-	// If the signature failed verification, leave the wrapper without a stored signature.
 	if !valid {
-		return w
+		slogger.Errorf("VerifySignatureHeader: signature rejected for algorithm %s: %s", config.Algorithm().String(), wv.Message())
+		return false
 	}
-	w.signature = provided
-	return w
+
+	w.signature = provided // Attach the verified signature to the wrapper for future reference.
+	slogger.Debugf("VerifySignatureHeader: signature accepted for algorithm %s", config.Algorithm().String())
+	return true
 }
 
 /////////////////////////////////////////////////////////////////////////////////
