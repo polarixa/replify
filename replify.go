@@ -3945,6 +3945,21 @@ func (w *wrapper) ApplySignature(config *SignatureConfig, ignoringJSONfields ...
 	}
 
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			w.WithHeader(wc.Header()).
+				WithMessage(wc.Message()).
+				WithErrorAck(wc.Cause())
+			return w
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	signature, wv := GenerateSignature(config, body)
 
 	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
@@ -3985,6 +4000,21 @@ func (w *wrapper) ApplySignatureFromRequest(r *http.Request, config *SignatureCo
 	}
 
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			w.WithHeader(wc.Header()).
+				WithMessage(wc.Message()).
+				WithErrorAck(wc.Cause())
+			return w
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	signature, wv := GenerateSignatureFromRequest(r, config, body)
 
 	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
@@ -4026,6 +4056,21 @@ func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *Signature
 	}
 
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			w.WithHeader(wc.Header()).
+				WithMessage(wc.Message()).
+				WithErrorAck(wc.Cause())
+			return w
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	signature, wv := GenerateSignatureFromRequest(&http.Request{Header: rw.Header()}, config, body)
 
 	// On failure only: reflect the outcome on the wrapper's header/message. On success, leave
@@ -4092,6 +4137,18 @@ func (w *wrapper) VerifySignature(config *SignatureConfig, ignoringJSONfields ..
 	}
 
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return false
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	valid, wv := VerifySignature(config, body, w.signature)
 
 	if !valid {
@@ -4141,6 +4198,18 @@ func (w *wrapper) VerifySignatureFromRequest(r *http.Request, config *SignatureC
 
 	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return false
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	valid, wv := VerifySignatureFromRequest(r, config, body, w.signature)
 
 	if !valid {
@@ -4199,6 +4268,18 @@ func (w *wrapper) VerifySignatureHeader(r *http.Request, config *SignatureConfig
 
 	// Extract the body payload from the wrapper, ignoring the specified JSON fields, to use for signature verification.
 	body := w.JSONBytesIgnoring(signatureEnvelopeFields(ignoringJSONfields)...)
+
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return false
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	valid, wv := VerifySignatureFromRequest(r, config, body, provided)
 
 	if !valid {

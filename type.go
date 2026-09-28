@@ -404,6 +404,7 @@ type SignatureConfig struct {
 	maxAge                  time.Duration      // Maximum age for the signature to be considered valid (optional)
 	ignoringSignatureFields []string           // JSON fields excluded when computing the signature (optional), don't export this field
 	ignoringResponseFields  []string           // JSON fields excluded from the response written to the client (optional), don't export this field
+	canonicalize            bool               // Indicates whether to canonicalize the JSON payload before signing (optional)
 }
 
 // ///////////////////////////

@@ -740,6 +740,7 @@ func NewSignatureConfig(secretKey string) *SignatureConfig {
 		includeTimestamp: true,            // Include timestamp in the signature by default
 		headersToSign:    []string{},      // Headers to include in the signature (optional)
 		maxAge:           5 * time.Minute, // Maximum age for the signature to be considered valid (optional)
+		canonicalize:     false,           // Disable canonicalization of the JSON payload by default
 	}
 }
 
@@ -982,6 +983,17 @@ func (s *SignatureConfig) IsExpired() bool {
 	return s.IsExpiredDuration(time.Since(time.Now()))
 }
 
+// IsCanonicalize checks if the canonicalization of the JSON payload before signing is enabled for the current [SignatureConfig] instance.
+//
+// Returns:
+//   - true if canonicalization is enabled, false otherwise, or false if the instance is not available.
+func (s *SignatureConfig) IsCanonicalize() bool {
+	if !s.Available() {
+		return false
+	}
+	return s.canonicalize
+}
+
 // WithSecretKey sets the secret key for the current [SignatureConfig] instance and returns the updated instance.
 //
 // Parameters:
@@ -1034,6 +1046,34 @@ func (s *SignatureConfig) DisableIncludeTimestamp() *SignatureConfig {
 func (s *SignatureConfig) WithIncludeTimestamp(include bool) *SignatureConfig {
 	s.includeTimestamp = include
 	return s
+}
+
+// WithCanonicalize sets whether to canonicalize the JSON payload before signing for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Parameters:
+//   - enable: A boolean value indicating whether to canonicalize the JSON payload before signing.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) WithCanonicalize(enable bool) *SignatureConfig {
+	s.canonicalize = enable
+	return s
+}
+
+// EnableCanonicalize enables the canonicalization of the JSON payload before signing for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) EnableCanonicalize() *SignatureConfig {
+	return s.WithCanonicalize(true)
+}
+
+// DisableCanonicalize disables the canonicalization of the JSON payload before signing for the current [SignatureConfig] instance and returns the updated instance.
+//
+// Returns:
+//   - The updated [SignatureConfig] instance.
+func (s *SignatureConfig) DisableCanonicalize() *SignatureConfig {
+	return s.WithCanonicalize(false)
 }
 
 // WithMaxAge sets the maximum age for the current [SignatureConfig] instance and returns the updated instance.
@@ -1173,6 +1213,7 @@ func (s *SignatureConfig) RemoveHeaderIgnorecase(header string) *SignatureConfig
 func (s *SignatureConfig) Respond() map[string]any {
 	m := make(map[string]any)
 	m["include_timestamp"] = s.includeTimestamp
+	m["canonicalize"] = s.canonicalize
 	if s.IsSecretKeyPresent() {
 		m["secret_key"] = "******"
 	}
@@ -1344,6 +1385,11 @@ func (s *SignatureConfig) Equal(other *SignatureConfig) bool {
 	if s.includeTimestamp != other.includeTimestamp {
 		return false
 	}
+	if s.IsCanonicalize() && other.IsCanonicalize() {
+		if s.canonicalize != other.canonicalize {
+			return false
+		}
+	}
 	return true
 }
 
@@ -1455,6 +1501,7 @@ func (s *SignatureConfig) Clone() *SignatureConfig {
 		headersToSign:    s.headersToSign,
 		maxAge:           s.maxAge,
 		includeTimestamp: s.includeTimestamp,
+		canonicalize:     s.canonicalize,
 	}
 	return clone
 }
