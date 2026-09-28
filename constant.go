@@ -1076,4 +1076,27 @@ const (
 	// HMACSHA512 provides stronger security than HMACSHA256 but results in larger signatures.
 	// It is suitable for applications where security is a higher priority than performance.
 	HMACSHA512 SignatureAlgorithm = "HMAC-SHA512"
+
+	// HMACSHA384 is a truncated version of SHA-512 (384-bit output). It offers strong security
+	// with slightly smaller signature sizes than HMACSHA512, commonly used in TLS and JWTs.
+	HMACSHA384 SignatureAlgorithm = "HMAC-SHA384"
+
+	// HMACSHA512_256 uses the SHA-512 algorithm but truncates the output to 256 bits.
+	// It provides the performance benefits of SHA-512 on 64-bit architectures while keeping
+	// the signature size equivalent to SHA-256.
+	HMACSHA512_256 SignatureAlgorithm = "HMAC-SHA512/256"
+
+	// HMACSHA224 is a truncated version of SHA-256 (224-bit output).
+	// It is occasionally used in environments with strict payload size constraints.
+	HMACSHA224 SignatureAlgorithm = "HMAC-SHA224"
+
+	// HMACSHA1 is provided primarily for backward compatibility with older systems (e.g., OAuth 1.0).
+	// WARNING: SHA-1 is considered cryptographically broken against collision attacks and
+	// should NOT be used for new security-critical signatures.
+	HMACSHA1 SignatureAlgorithm = "HMAC-SHA1"
+
+	// HMACMD5 is provided strictly for legacy system integration.
+	// WARNING: MD5 is completely insecure for cryptographic signatures and must be avoided
+	// in any modern application.
+	HMACMD5 SignatureAlgorithm = "HMAC-MD5"
 )

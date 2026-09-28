@@ -2,6 +2,8 @@ package replify
 
 import (
 	"crypto/hmac"
+	"crypto/md5"
+	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
@@ -1516,10 +1518,24 @@ func (s *SignatureConfig) Clone() *SignatureConfig {
 //   - A [wrapper] instance indicating success or failure.
 func getHashSignature(algorithm SignatureAlgorithm) (func() hash.Hash, *wrapper) {
 	switch algorithm {
+	// Standard SHA-2 (32-bit) family
 	case HMACSHA256:
 		return sha256.New, New().OK()
+	case HMACSHA224:
+		return sha256.New224, New().OK()
+	// Standard SHA-2 (64-bit) family
 	case HMACSHA512:
 		return sha512.New, New().OK()
+	case HMACSHA384:
+		return sha512.New384, New().OK()
+	case HMACSHA512_256:
+		return sha512.New512_256, New().OK()
+	// Legacy algorithms (kept for backward compatibility)
+	// HMAC-SHA1 and HMAC-MD5 are considered legacy algorithms and are included for backward compatibility.
+	case HMACSHA1:
+		return sha1.New, New().OK()
+	case HMACMD5:
+		return md5.New, New().OK()
 	default:
 		return nil, New().
 			BadRequest().
