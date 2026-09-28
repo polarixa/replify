@@ -1316,3 +1316,32 @@ func firstForwardedValue(v string) string {
 	}
 	return strings.TrimSpace(v)
 }
+
+// canonicalJSON ensures that the JSON structure is consistently formatted,
+// which is useful for tasks like generating signatures or comparing JSON content.
+//
+// Parameters:
+//   - data: The JSON byte slice to canonicalize.
+//
+// Returns:
+//   - The canonicalized JSON byte slice.
+//   - A [wrapper] indicating the success or failure of the operation.
+func canonicalJSON(data []byte) ([]byte, *wrapper) {
+	var generic any
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.UseNumber() // UseNumber ensures that numbers are decoded as json.Number instead of float64, preserving precision.
+	if err := dec.Decode(&generic); err != nil {
+		return nil, New().
+			InternalServerError().
+			WithErrorAck(err).
+			WithMessage("cannot canonicalize JSON while decoding")
+	}
+	b, err := json.Marshal(generic)
+	if err != nil {
+		return nil, New().
+			InternalServerError().
+			WithErrorAck(err).
+			WithMessage("cannot canonicalize JSON while marshaling")
+	}
+	return b, New().OK()
+}
