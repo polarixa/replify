@@ -378,7 +378,6 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		} else {
 			w.data = safeCastValue(value)
 		}
-		w.data = value
 	}
 
 	return w, nil
