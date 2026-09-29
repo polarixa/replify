@@ -1595,6 +1595,10 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 			body = canonicalBody
 		}
 	}
+
+	// Generate the HMAC signature using the specified hash function and secret key.
+	// The HMAC signature is computed over the canonicalized JSON body using the secret key and the specified hash function.
+	// The resulting signature is then base64-encoded and included in the [signature] instance.
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(body)
 	sum := mac.Sum(nil)
@@ -1707,6 +1711,18 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 		return false, New().Unauthorized().WithMessage("signature has expired")
 	}
 
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return false, wc
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
+
 	// Generate the expected signature for the given body using the provided configuration.
 	// This step ensures that we have a reference signature to compare against the one provided for verification.
 	expected, w := GenerateSignature(config, body)
@@ -1751,7 +1767,7 @@ func VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, body [
 	}
 
 	// Ensure headers recorded at signing time still match the request's current header values.
-	if config.IsHeadersToSignPresent() {
+	if config.IsHeadersToSignPresent() && provided.IsHeadersPresent() {
 		for _, header := range config.HeadersToSign() {
 			if r.Header.Get(header) != provided.Headers()[header] {
 				return false, New().
