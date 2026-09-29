@@ -896,6 +896,30 @@ func castJSONMarshaler(value *json.Marshaler) (as any, w *wrapper) {
 	return as, w.OK()
 }
 
+// castJSONNumber attempts to convert a [json.Number] pointer into a JSON-compatible representation.
+// It converts the [json.Number] to a [json.RawMessage] to preserve the exact string representation
+// without precision loss (e.g., for large integers like Snowflake IDs) and to prevent
+// [json.Marshal] from wrapping it in quotes (which would happen if cast to a standard Go string).
+//
+// Parameters:
+//   - value: A pointer to the input [json.Number] to be cast.
+//
+// Returns:
+//   - as: The resulting value, which is a [json.RawMessage] representation of the [json.Number], or nil if the input is nil.
+//   - w: A pointer to a wrapper instance indicating the status of the operation.
+func castJSONNumber(value *json.Number) (as any, w *wrapper) {
+	w = New().Processing().WithDebuggingKV("type", "json.Number")
+	if value == nil {
+		return value, w.OK()
+	}
+
+	// Use [json.RawMessage] to ensure the number is serialized exactly as it was parsed.
+	// This avoids float64 precision loss for large integers and prevents [json.Marshal]
+	// from incorrectly wrapping the value in quotes "".
+	as = json.RawMessage(value.String())
+	return as, w.OK()
+}
+
 // castValueBase attempts to convert a generic Go value into a JSON-compatible
 // representation by dispatching on its concrete type. It handles strings,
 // byte slices, runes, booleans, integers, floats, complex numbers, time
@@ -996,6 +1020,10 @@ func castValueBase(value any) (as any, w *wrapper, matched bool) {
 		as, w = castDuration(v)
 	case error:
 		as, w = castError(v)
+	case json.Number:
+		as, w = castJSONNumber(&v)
+	case *json.Number:
+		as, w = castJSONNumber(v)
 	case fmt.Stringer:
 		as, w = castFmtStringer(&v)
 	case *fmt.Stringer:
