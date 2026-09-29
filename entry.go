@@ -1,7 +1,9 @@
 package replify
 
 import (
+	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/polarixa/replify/pkg/conv"
@@ -11,7 +13,7 @@ import (
 	"github.com/polarixa/replify/pkg/sysx"
 )
 
-// UnwrapJSON parses a raw JSON string and maps it into a [wrapper] struct.
+// UnwrapJSON parses a raw JSON string and maps it into a wrapper struct.
 //
 // The input is first normalised (comments stripped, whitespace compacted) and
 // validated before unmarshaling. The following top-level JSON keys are
@@ -30,22 +32,30 @@ import (
 //	                                description)
 //	"meta"         meta            object → *meta (api_version, locale,
 //	                                request_id, requested_time,
-//	                                custom_fields)
+//	                                custom_fields, delta_cnt, delta_value)
 //	"pagination"   pagination      object → *pagination (page, per_page,
 //	                                total_pages, total_items, is_last)
+//	"cursor"       cursor          object → *cursor (next, previous,
+//	                                has_next, has_previous, limit)
+//	"issue"        issue           object → *issue (id, fingerprint, message)
+//	"_links"       links           object → *Links; each relation is mapped
+//	                                to a *link (href, method, title, type,
+//	                                templated, name, deprecation, profile,
+//	                                hreflang)
+//	"signature"    signature       object → *signature (algorithm, value,
+//	                                timestamp, headers)
 //
 // Unknown top-level keys are silently ignored. Missing keys leave the
 // corresponding field at its zero value—no error is returned.
 //
 // Parameters:
-//   - `jsonStr`: the raw JSON string to parse; may contain JS-style comments
-//     or trailing commas, which are stripped during normalisation.
+//   - jsonStr: the raw JSON string to parse; may contain JS-style comments or
+//     trailing commas, which are stripped during normalisation.
 //
 // Returns:
 //
-// a non-nil *wrapper and a nil error on success.
-// Returns nil, err when jsonStr is empty, fails normalisation, or is not
-// valid JSON after normalisation.
+// a non-nil *wrapper and a nil error on success. Returns nil, err when jsonStr
+// is empty, fails normalisation, or is not valid JSON after normalisation.
 //
 // Example:
 //
@@ -91,19 +101,88 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 	}
 
 	var data map[string]any
-	err = encoding.UnmarshalJSONString(nJSON, &data)
+
+	// Use json.Decoder with UseNumber() to prevent precision loss for large integers (e.g., Snowflake IDs).
+	// This ensures numbers are parsed as json.Number (which preserves the exact string representation)
+	// instead of float64, which loses precision for integers larger than 2^53 - 1.
+	dec := json.NewDecoder(strings.NewReader(nJSON))
+	dec.UseNumber()
+
+	err = dec.Decode(&data)
 	if err != nil {
 		return nil, NewErrorAck(err)
 	}
 	if len(data) == 0 {
 		return nil, NewErrorf("an unexpected error occurred while unmarshaling JSON to map, json: %s", nJSON)
 	}
-	w = &wrapper{}
-	if value, exists := data["status_code"].(float64); exists {
-		w.statusCode = int(value)
+
+	// Helper closures to safely extract numeric values from `any`
+	// (handling both float64 from legacy parsers and json.Number from UseNumber).
+	toInt := func(v any) (int, bool) {
+		switch n := v.(type) {
+		case json.Number:
+			if i, err := n.Int64(); err == nil {
+				return int(i), true
+			}
+			if f, err := n.Float64(); err == nil {
+				return int(f), true
+			}
+		case float64:
+			return int(n), true
+		case int:
+			return n, true
+		case int64:
+			return int(n), true
+		}
+		return 0, false
 	}
-	if value, exists := data["total"].(float64); exists {
-		w.total = int(value)
+
+	toInt64 := func(v any) (int64, bool) {
+		switch n := v.(type) {
+		case json.Number:
+			if i, err := n.Int64(); err == nil {
+				return i, true
+			}
+			if f, err := n.Float64(); err == nil {
+				return int64(f), true
+			}
+		case float64:
+			return int64(n), true
+		case int:
+			return int64(n), true
+		case int64:
+			return n, true
+		}
+		return 0, false
+	}
+
+	toFloat64 := func(v any) (float64, bool) {
+		switch n := v.(type) {
+		case json.Number:
+			if f, err := n.Float64(); err == nil {
+				return f, true
+			}
+		case float64:
+			return n, true
+		case int:
+			return float64(n), true
+		case int64:
+			return float64(n), true
+		}
+		return 0, false
+	}
+
+	w = &wrapper{}
+
+	if value, exists := data["status_code"]; exists {
+		if v, ok := toInt(value); ok {
+			w.statusCode = v
+		}
+	}
+	if value, exists := data["total"]; exists {
+		if v, ok := toInt(value); ok {
+			w.total = v
+		}
 	}
 	if value, exists := data["message"].(string); exists {
 		w.message = value
@@ -136,18 +215,24 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 				meta.requestedTime = conv.TimeOrDefault(value, time.Time{})
 			}
 		}
-		if value, exists := values["delta_cnt"].(float64); exists {
-			meta.deltaCnt = int(value)
+		if value, exists := values["delta_cnt"]; exists {
+			if v, ok := toInt(value); ok {
+				meta.deltaCnt = v
+			}
 		}
-		if value, exists := values["delta_value"].(float64); exists {
-			meta.deltaValue = value
+		if value, exists := values["delta_value"]; exists {
+			if v, ok := toFloat64(value); ok {
+				meta.deltaValue = v
+			}
 		}
 		w.meta = meta
 	}
 	if values, exists := data["header"].(map[string]any); exists {
 		header := &header{}
-		if value, exists := values["code"].(float64); exists {
-			header.code = int(value)
+		if value, exists := values["code"]; exists {
+			if v, ok := toInt(value); ok {
+				header.code = v
+			}
 		}
 		if value, exists := values["text"].(string); exists {
 			header.text = value
@@ -162,17 +247,25 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 	}
 	if values, exists := data["pagination"].(map[string]any); exists {
 		pagination := &pagination{}
-		if value, exists := values["page"].(float64); exists {
-			pagination.page = int(value)
+		if value, exists := values["page"]; exists {
+			if v, ok := toInt(value); ok {
+				pagination.page = v
+			}
 		}
-		if value, exists := values["per_page"].(float64); exists {
-			pagination.perPage = int(value)
+		if value, exists := values["per_page"]; exists {
+			if v, ok := toInt(value); ok {
+				pagination.perPage = v
+			}
 		}
-		if value, exists := values["total_pages"].(float64); exists {
-			pagination.totalPages = int(value)
+		if value, exists := values["total_pages"]; exists {
+			if v, ok := toInt(value); ok {
+				pagination.totalPages = v
+			}
 		}
-		if value, exists := values["total_items"].(float64); exists {
-			pagination.totalItems = int(value)
+		if value, exists := values["total_items"]; exists {
+			if v, ok := toInt(value); ok {
+				pagination.totalItems = v
+			}
 		}
 		if value, exists := values["is_last"].(bool); exists {
 			pagination.isLast = value
@@ -193,8 +286,10 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		if value, exists := values["has_previous"].(bool); exists {
 			cursor.hasPrevious = value
 		}
-		if value, exists := values["limit"].(float64); exists {
-			cursor.limit = int(value)
+		if value, exists := values["limit"]; exists {
+			if v, ok := toInt(value); ok {
+				cursor.limit = v
+			}
 		}
 		w.cursor = cursor
 	}
@@ -258,8 +353,10 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		if value, exists := values["value"].(string); exists {
 			signature.value = value
 		}
-		if value, exists := values["timestamp"].(float64); exists {
-			signature.timestamp = int64(value)
+		if value, exists := values["timestamp"]; exists {
+			if v, ok := toInt64(value); ok {
+				signature.timestamp = v
+			}
 		}
 		if headers, exists := values["headers"].(map[string]any); exists {
 			signature.headers = make(map[string]string, len(headers))
@@ -271,9 +368,19 @@ func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
 		}
 		w.signature = signature
 	}
+
+	// If the data payload is a number, it was parsed as json.Number by UseNumber().
+	// We MUST preserve it as json.Number so that when it is marshaled back to JSON
+	// for HMAC verification, it matches the original bytes exactly without precision loss.
 	if value, exists := data["data"]; exists {
-		w.data = safeCastValue(value)
+		if _, isNum := value.(json.Number); isNum {
+			w.data = value // Keep exact precision for large integers (e.g. Snowflake IDs)
+		} else {
+			w.data = safeCastValue(value)
+		}
+		w.data = value
 	}
+
 	return w, nil
 }
 
