@@ -1584,6 +1584,17 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 	if w.IsError() {
 		return nil, w
 	}
+	// Canonicalize the JSON body if the configuration specifies it.
+	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	if config.IsCanonicalize() {
+		if canonicalBody, w := canonicalJSON(body); w.IsError() {
+			w.Slogging()
+			return nil, w
+		} else {
+			// Replace the original body with its canonicalized version.
+			body = canonicalBody
+		}
+	}
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(body)
 	sum := mac.Sum(nil)
