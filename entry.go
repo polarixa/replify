@@ -49,17 +49,17 @@ import (
 // corresponding field at its zero value—no error is returned.
 //
 // Parameters:
-//   - jsonStr: the raw JSON string to parse; may contain JS-style comments or
+//   - jsonValue: the raw JSON string to parse; may contain JS-style comments or
 //     trailing commas, which are stripped during normalisation.
 //
 // Returns:
 //
-// a non-nil *wrapper and a nil error on success. Returns nil, err when jsonStr
+// a non-nil *wrapper and a nil error on success. Returns nil, err when jsonValue
 // is empty, fails normalisation, or is not valid JSON after normalisation.
 //
 // Example:
 //
-//	jsonStr := `{
+//	jsonValue := `{
 //	    "status_code": 200,
 //	    "message":     "OK",
 //	    "path":        "/api/v1/users",
@@ -80,24 +80,24 @@ import (
 //	    }
 //	}`
 //
-//	w, err := replify.UnwrapJSON(jsonStr)
+//	w, err := replify.UnwrapJSON(jsonValue)
 //	if err != nil {
 //	    log.Fatalf("parse error: %v", err)
 //	}
 //	fmt.Println(w.JSONBodyParser().Get("0").Get("username").String()) // "alice"
 //	fmt.Println(w.StatusCode())                                       // 200
 //	fmt.Println(w.Pagination().TotalItems())                          // 42
-func UnwrapJSON(jsonStr string) (w *wrapper, err error) {
-	if strutil.IsEmpty(jsonStr) {
+func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
+	if strutil.IsEmpty(jsonValue) {
 		return nil, NewError("JSON string is required")
 	}
-	specJSON := encoding.Spec([]byte(jsonStr))
+	specJSON := encoding.Spec([]byte(jsonValue))
 	nJSON, err := encoding.NormalizeJSON(string(specJSON))
 	if err != nil {
 		return nil, err
 	}
 	if !encoding.IsValidJSONString(nJSON) || !fj.IsValidJSONString(nJSON) {
-		return nil, NewErrorf("invalid JSON string: %s", jsonStr) // keep original JSON string
+		return nil, NewErrorf("invalid JSON string: %s", jsonValue) // keep original JSON string
 	}
 
 	var data map[string]any
