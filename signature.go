@@ -1699,16 +1699,24 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 	if provided.IsAlgorithmPresent() && !provided.Algorithm().Equals(config.Algorithm()) {
 		return false, New().
 			Unauthorized().
-			WithMessagef("signature algorithm mismatch: expected %s, got %s", config.Algorithm().String(), provided.Algorithm().String())
+			WithMessagef("signature algorithm mismatch: expected %s, got %s",
+				config.Algorithm().String(),
+				provided.Algorithm().String())
 	}
 	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() && config.IsExpiredUnix(provided.Timestamp()) {
 		return false, New().Unauthorized().WithMessage("signature has expired")
 	}
 
+	// Generate the expected signature for the given body using the provided configuration.
+	// This step ensures that we have a reference signature to compare against the one provided for verification.
 	expected, w := GenerateSignature(config, body)
 	if w.IsError() {
 		return false, w
 	}
+
+	// Compare the expected signature with the provided signature using a constant-time comparison to prevent timing attacks.
+	// If the comparison fails, it indicates that the provided signature does not match the expected signature.
+	// This helps ensure the integrity and authenticity of the signed data.
 	if !hmac.Equal([]byte(expected.Value()), []byte(provided.Value())) {
 		return false, New().Unauthorized().WithMessage("signature verification failed: value mismatch")
 	}
