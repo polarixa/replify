@@ -12,12 +12,14 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/encoding"
 	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/sysx"
 )
@@ -1372,4 +1374,42 @@ func canonicalJSON(data []byte) ([]byte, *wrapper) {
 			WithMessage("cannot canonicalize JSON while marshaling")
 	}
 	return b, New().OK()
+}
+
+// buildSignaturePayload constructs the canonical byte slice to be signed by HMAC.
+// It concatenates the body, timestamp (if present), and sorted headers (if present)
+// to ensure cryptographic binding and prevent tampering of metadata.
+//
+// Parameters:
+//   - body: The request body as a byte slice.
+//   - timestamp: The timestamp to include in the signature payload.
+//   - headers: A map of headers to include in the signature payload.
+//
+// Returns:
+//   - The constructed signature payload as a byte slice.
+//
+// Example:
+//
+//	payload := buildSignaturePayload([]byte("body"), 1234567890, map[string]string{"Header": "Value"})
+func buildSignaturePayload(body []byte, timestamp int64, headers map[string]string) []byte {
+	sw := strchain.New()
+	sw.AppendBytes(body)
+
+	// Append the timestamp to the signature payload if it is greater than zero.
+	if timestamp > 0 {
+		sw.AppendF("||ts:%d", timestamp)
+	}
+
+	// Append the sorted headers to the signature payload if any headers are present.
+	if len(headers) > 0 {
+		keys := make([]string, 0, len(headers))
+		for k := range headers {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			sw.AppendF("||h:%s:%s", k, headers[k])
+		}
+	}
+	return sw.Bytes()
 }
