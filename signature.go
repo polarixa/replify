@@ -919,13 +919,15 @@ func (s *SignatureConfig) RemainingMaxAge(t time.Time) time.Duration {
 	}
 
 	elapsed := time.Since(t)
-	if elapsed <= 0 {
+	if elapsed < 0 {
 		return s.maxAge
 	}
-	if elapsed >= s.maxAge {
+
+	remaining := s.maxAge - elapsed
+	if remaining <= 0 {
 		return 0
 	}
-	return s.maxAge - elapsed
+	return remaining
 }
 
 // IsExpiredTime checks if a given [time.Time] value is considered expired based on
@@ -1584,35 +1586,37 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 	if w.IsError() {
 		return nil, w
 	}
-	// Canonicalize the JSON body if the configuration specifies it.
-	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+
+	// Canonicalize the request body if the configuration specifies it.
+	// This ensures consistent JSON formatting for signature generation.
 	if config.IsCanonicalize() {
-		if canonicalBody, w := canonicalJSON(body); w.IsError() {
-			w.Slogging()
-			return nil, w
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return nil, wc
 		} else {
-			// Replace the original body with its canonicalized version.
 			body = canonicalBody
 		}
 	}
 
-	// Generate the HMAC signature using the specified hash function and secret key.
-	// The HMAC signature is computed over the canonicalized JSON body using the secret key and the specified hash function.
-	// The resulting signature is then base64-encoded and included in the [signature] instance.
-	mac := hmac.New(h, []byte(config.SecretKey()))
-	mac.Write(body)
-	sum := mac.Sum(nil)
-	signature := base64.StdEncoding.EncodeToString(sum)
-
 	s = NewSignature().
-		WithAlgorithm(config.Algorithm()).
-		WithTextValue(signature)
+		WithAlgorithm(config.Algorithm())
 
-	// Include the timestamp in the signature if the configuration specifies it.
-	// This ensures that the signature includes a timestamp based on the maximum age specified in the configuration.
+	var ts int64
 	if config.IsIncludeTimestamp() {
-		s.WithTimeDuration(config.MaxAge())
+		ts = time.Now().Unix()
+		s.WithTimeUnix(ts)
 	}
+
+	// Build the signature payload by concatenating the body, timestamp, and headers (if any).
+	// The payload is constructed in a deterministic manner to ensure that both the sender and receiver
+	// can generate the same signature for the same request content.
+	payload := buildSignaturePayload(body, ts, nil)
+
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(payload)
+	sum := mac.Sum(nil)
+	signatureValue := base64.StdEncoding.EncodeToString(sum)
+	s.WithTextValue(signatureValue)
 
 	return s, New().
 		OK().
@@ -1631,18 +1635,53 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 //   - A [signature] instance containing the generated signature.
 //   - A [wrapper] instance indicating success or failure.
 func GenerateSignatureFromRequest(r *http.Request, config *SignatureConfig, body []byte) (s *signature, w *wrapper) {
-	s, w = GenerateSignature(config, body)
+	v := ValidateSignatureConfig(config)
+	if v.IsError() {
+		return nil, v
+	}
+	var h func() hash.Hash
+	h, w = getHashSignature(config.Algorithm())
 	if w.IsError() {
 		return nil, w
 	}
 
-	// Include the headers specified in the configuration to be signed in the signature.
-	// This ensures that the signature covers the specified headers from the request.
-	if config.IsHeadersToSignPresent() {
-		for _, header := range config.headersToSign {
-			s.WithHeader(header, r.Header.Get(header))
+	// Canonicalize the request body if the configuration specifies it.
+	// This ensures consistent JSON formatting for signature generation.
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return nil, wc
+		} else {
+			body = canonicalBody
 		}
 	}
+
+	s = NewSignature().
+		WithAlgorithm(config.Algorithm())
+
+	var ts int64
+	if config.IsIncludeTimestamp() {
+		ts = time.Now().Unix()
+		s.WithTimeUnix(ts)
+	}
+
+	headers := make(map[string]string)
+	if config.IsHeadersToSignPresent() {
+		for _, header := range config.HeadersToSign() {
+			val := r.Header.Get(header)
+			s.WithHeader(header, val)
+			headers[header] = val
+		}
+	}
+
+	// Build the signature payload by concatenating the body, timestamp, and headers in a canonical form.
+	payload := buildSignaturePayload(body, ts, headers)
+
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(payload)
+	sum := mac.Sum(nil)
+	signatureValue := base64.StdEncoding.EncodeToString(sum)
+	s.WithTextValue(signatureValue)
 
 	return s, New().
 		OK().
@@ -1697,8 +1736,15 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 	if v.IsError() {
 		return false, v
 	}
+	if config.IsHeadersToSignPresent() {
+		return false, New().
+			BadRequest().
+			WithMessage("headers are configured to be signed, use VerifySignatureFromRequest instead")
+	}
 	if !provided.IsValuePresent() {
-		return false, New().BadRequest().WithMessage("signature to verify is missing")
+		return false, New().
+			BadRequest().
+			WithMessage("signature to verify is missing")
 	}
 	if provided.IsAlgorithmPresent() && !provided.Algorithm().Equals(config.Algorithm()) {
 		return false, New().
@@ -1707,34 +1753,46 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 				config.Algorithm().String(),
 				provided.Algorithm().String())
 	}
-	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() && config.IsExpiredUnix(provided.Timestamp()) {
-		return false, New().Unauthorized().WithMessage("signature has expired")
+	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() {
+		if config.IsExpiredUnix(provided.Timestamp()) {
+			return false, New().Unauthorized().WithMessage("signature has expired")
+		}
 	}
 
-	// Canonicalize the JSON body if the configuration specifies it.
-	// This ensures a consistent JSON representation for signing, preventing discrepancies due to field ordering or formatting.
+	// Canonicalize the JSON body if the configuration requires it. This ensures consistent
+	// formatting for signature verification, avoiding mismatches due to differences in
+	// whitespace, key ordering, or other non-semantic variations in the JSON structure.
 	if config.IsCanonicalize() {
 		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
 			wc.Slogging()
 			return false, wc
 		} else {
-			// Replace the original body with its canonicalized version.
 			body = canonicalBody
 		}
 	}
 
-	// Generate the expected signature for the given body using the provided configuration.
-	// This step ensures that we have a reference signature to compare against the one provided for verification.
-	expected, w := GenerateSignature(config, body)
+	var h func() hash.Hash
+	h, w := getHashSignature(config.Algorithm())
 	if w.IsError() {
 		return false, w
 	}
 
-	// Compare the expected signature with the provided signature using a constant-time comparison to prevent timing attacks.
-	// If the comparison fails, it indicates that the provided signature does not match the expected signature.
-	// This helps ensure the integrity and authenticity of the signed data.
-	if !hmac.Equal([]byte(expected.Value()), []byte(provided.Value())) {
-		return false, New().Unauthorized().WithMessage("signature verification failed: value mismatch")
+	var ts int64
+	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() {
+		ts = provided.Timestamp()
+	}
+
+	// Build the payload that will be used for HMAC verification.
+	// This includes the body, timestamp, and any headers if applicable.
+	payload := buildSignaturePayload(body, ts, nil)
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(payload)
+	expectedValue := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(expectedValue), []byte(provided.Value())) {
+		return false, New().
+			Unauthorized().
+			WithMessage("signature verification failed: value mismatch or timestamp tampered")
 	}
 
 	return true, New().
@@ -1758,23 +1816,80 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 //   - true if `provided` (and its recorded headers) are valid for the given request and `config`, false otherwise.
 //   - A [wrapper] instance describing the verification outcome.
 func VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, body []byte, provided *signature) (bool, *wrapper) {
-	valid, w := VerifySignature(config, body, provided)
-	if !valid {
-		return false, w
+	v := ValidateSignatureConfig(config)
+	if v.IsError() {
+		return false, v
 	}
+	if !provided.IsValuePresent() {
+		return false, New().BadRequest().WithMessage("signature to verify is missing")
+	}
+	if provided.IsAlgorithmPresent() && !provided.Algorithm().Equals(config.Algorithm()) {
+		return false, New().
+			Unauthorized().
+			WithMessagef("signature algorithm mismatch: expected %s, got %s",
+				config.Algorithm().String(),
+				provided.Algorithm().String())
+	}
+
+	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() {
+		if config.IsExpiredUnix(provided.Timestamp()) {
+			return false, New().Unauthorized().WithMessage("signature has expired")
+		}
+	}
+
 	if r == nil {
 		return false, New().BadRequest().WithMessage("http request is missing, cannot cross-check signed headers")
 	}
 
-	// Ensure headers recorded at signing time still match the request's current header values.
-	if config.IsHeadersToSignPresent() && provided.IsHeadersPresent() {
+	if config.IsCanonicalize() {
+		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
+			wc.Slogging()
+			return false, wc
+		} else {
+			body = canonicalBody
+		}
+	}
+
+	var h func() hash.Hash
+	h, w := getHashSignature(config.Algorithm())
+	if w.IsError() {
+		return false, w
+	}
+
+	var ts int64
+	if config.IsIncludeTimestamp() && provided.IsTimestampPresent() {
+		ts = provided.Timestamp()
+	}
+
+	headers := make(map[string]string)
+	if config.IsHeadersToSignPresent() {
+		if !provided.IsHeadersPresent() {
+			return false, New().Unauthorized().WithMessage("signed headers are missing from the provided signature")
+		}
 		for _, header := range config.HeadersToSign() {
-			if r.Header.Get(header) != provided.Headers()[header] {
+			originalVal, ok := provided.Headers()[header]
+			if !ok {
+				return false, New().Unauthorized().WithMessagef("signed header %q is missing from the provided signature", header)
+			}
+			currentVal := r.Header.Get(header)
+			if originalVal != currentVal {
 				return false, New().
 					Unauthorized().
 					WithMessagef("signed header %q has changed since the signature was generated", header)
 			}
+			headers[header] = originalVal
 		}
+	}
+
+	payload := buildSignaturePayload(body, ts, headers)
+	mac := hmac.New(h, []byte(config.SecretKey()))
+	mac.Write(payload)
+	expectedValue := base64.StdEncoding.EncodeToString(mac.Sum(nil))
+
+	if !hmac.Equal([]byte(expectedValue), []byte(provided.Value())) {
+		return false, New().
+			Unauthorized().
+			WithMessage("signature verification failed: value mismatch or payload tampered")
 	}
 
 	return true, New().
