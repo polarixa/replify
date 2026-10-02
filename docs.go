@@ -113,7 +113,7 @@ func (w *wrapper) ErrorStackTraceDoc() *strchain.StringWeaver {
 // The generated error stack trace document can be used for logging, troubleshooting, or any other purpose where detailed error context is needed.
 func (w *wrapper) SafeErrorStackTraceDoc() *strchain.StringWeaver {
 	sw := w.ErrorStackTraceDoc()
-	defer w.DisableInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
+	defer w.ReleaseInjectStackTrace() // Disable stack trace injection after generating the document to avoid side effects
 	return sw
 }
 
@@ -128,7 +128,7 @@ func (w *wrapper) ErrorFlowDoc() *strchain.StringWeaver {
 		return sw
 	}
 	w.InjectStackTrace()
-	defer w.DisableInjectStackTrace()
+	defer w.ReleaseInjectStackTrace()
 
 	// Check if the "error_stack_trace" key is present in the debugging information
 	traceVal, ok := w.Debugging()["error_stack_trace"]
@@ -489,7 +489,7 @@ func (w *wrapper) ResolveESTOrderedDoc() *strchain.StringWeaver {
 	}
 	w.autoAdjust()
 	w.InjectStackTrace()
-	defer w.DisableInjectStackTrace()
+	defer w.ReleaseInjectStackTrace()
 
 	traceVal, ok := w.Debugging()["error_stack_trace"]
 	if !ok {
