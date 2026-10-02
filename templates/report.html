@@ -1,0 +1,462 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>{{.Title}}</title>
+    <style>
+      :root {
+        --bg-color: #f4f6f9;
+        --card-bg: #ffffff;
+        --text-color: #333333;
+        --muted-text: #6c757d;
+        --border-color: #e1e4e8;
+        --primary-color: #007bff;
+        --success-color: #28a745;
+        --danger-color: #dc3545;
+        --warning-color: #ffc107;
+        --json-key: #d73a49;
+        --json-string: #032f62;
+        --json-number: #005cc5;
+        --json-boolean: #d73a49;
+        --json-null: #6f42c1;
+      }
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
+          Arial, sans-serif;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        line-height: 1.6;
+        margin: 0;
+        padding: 20px;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      h1,
+      h2,
+      h3 {
+        color: var(--text-color);
+        margin-top: 0;
+      }
+      .card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+      .card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border-color);
+      }
+      .card-header h2 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+      .badge {
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        font-weight: bold;
+        color: #fff;
+      }
+      .badge-success {
+        background-color: var(--success-color);
+      }
+      .badge-danger {
+        background-color: var(--danger-color);
+      }
+      .badge-warning {
+        background-color: var(--warning-color);
+        color: #333;
+      }
+      .badge-muted {
+        background-color: var(--muted-text);
+      }
+      .controls {
+        margin-bottom: 15px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 8px 16px;
+        border: 1px solid var(--border-color);
+        background: #fff;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+      }
+      button:hover {
+        background: #f8f9fa;
+        border-color: var(--primary-color);
+        color: var(--primary-color);
+      }
+      input[type="text"] {
+        padding: 8px 12px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        flex: 1;
+        min-width: 200px;
+        font-size: 0.9rem;
+      }
+      .json-tree {
+        font-family: "SFMono-Regular", Consolas, monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .json-tree ul {
+        list-style-type: none;
+        margin: 0;
+        padding-left: 24px;
+      }
+      .json-tree li {
+        position: relative;
+        margin: 4px 0;
+      }
+      .json-key {
+        color: var(--json-key);
+        font-weight: 600;
+      }
+      .json-string {
+        color: var(--json-string);
+      }
+      .json-number {
+        color: var(--json-number);
+      }
+      .json-boolean {
+        color: var(--json-boolean);
+        font-weight: bold;
+      }
+      .json-null {
+        color: var(--json-null);
+        font-style: italic;
+      }
+      .toggle-btn {
+        cursor: pointer;
+        user-select: none;
+        color: var(--muted-text);
+        margin-right: 5px;
+        display: inline-block;
+        width: 16px;
+        text-align: center;
+        font-weight: bold;
+      }
+      .collapsed > ul {
+        display: none;
+      }
+      .collapsed > .ellipsis {
+        display: inline;
+        color: var(--muted-text);
+        font-style: italic;
+      }
+      .ellipsis {
+        display: none;
+      }
+      .highlight {
+        background-color: #fff3cd;
+        padding: 2px 0;
+      }
+      .copy-btn {
+        font-size: 0.75rem;
+        padding: 2px 6px;
+        margin-left: 8px;
+        opacity: 0;
+        transition: opacity 0.2s;
+        background: #e9ecef;
+        border: 1px solid #ced4da;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      li:hover > .copy-btn {
+        opacity: 1;
+      }
+      .est-checklist {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .est-checklist li {
+        padding: 12px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        transition: all 0.2s;
+      }
+      .est-checklist li:last-child {
+        border-bottom: none;
+      }
+      .est-checklist li.checked {
+        opacity: 0.6;
+        text-decoration: line-through;
+        background: #f8f9fa;
+      }
+      .est-checklist input[type="checkbox"] {
+        margin-top: 4px;
+        transform: scale(1.3);
+        cursor: pointer;
+      }
+      .est-code {
+        background: #f6f8fa;
+        padding: 16px;
+        border-radius: 6px;
+        font-family: "SFMono-Regular", Consolas, monospace;
+        white-space: pre-wrap;
+        color: #24292e;
+        border: 1px solid var(--border-color);
+        font-size: 0.9rem;
+        overflow-x: auto;
+      }
+      .est-annotation {
+        font-size: 0.85rem;
+        margin-left: auto;
+        font-style: italic;
+        padding-left: 10px;
+      }
+      .est-runtime {
+        color: var(--warning-color);
+      }
+      .est-root {
+        color: var(--danger-color);
+        font-weight: bold;
+      }
+      .est-entry {
+        color: var(--success-color);
+        font-weight: bold;
+      }
+      .meta-footer {
+        text-align: center;
+        color: var(--muted-text);
+        font-size: 0.8rem;
+        margin-top: 30px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>{{.Title}}</h1>
+
+      {{if .IsEST}}
+      <div class="card">
+        <div class="card-header"><h2>Resolve Error (Ordered)</h2></div>
+        <h3>👉 Root Cause</h3>
+        <pre class="est-code">{{.ErrorMessage}}</pre>
+
+        <h3 style="margin-top: 25px; margin-bottom: 15px">
+          Follow these steps in order, starting from where the error originated:
+        </h3>
+        <ul class="est-checklist">
+          {{range .Frames}}
+          <li>
+            <input
+              type="checkbox"
+              onchange="
+                this.parentElement.classList.toggle('checked', this.checked)
+              "
+            />
+            <div style="flex: 1; font-family: monospace; font-size: 0.95rem">
+              <strong>{{.DisplayName}}</strong>
+              {{if .Location}}<span style="color: var(--muted-text)">
+                — {{.Location}}</span
+              >{{end}}
+            </div>
+            <span
+              class="est-annotation {{if .IsRuntime}}est-runtime{{else if .IsRoot}}est-root{{else if .IsEntry}}est-entry{{end}}"
+            >
+              {{.Annotation}}
+            </span>
+          </li>
+          {{end}}
+        </ul>
+      </div>
+      {{else}}
+      <div class="card">
+        <div class="card-header">
+          <h2>Response Envelope</h2>
+          <div id="status-badge"></div>
+        </div>
+        <div class="controls">
+          <input
+            type="text"
+            id="search"
+            placeholder="Search keys or values..."
+          />
+          <button id="expand-all">Expand All</button>
+          <button id="collapse-all">Collapse All</button>
+        </div>
+        <div id="json-root" class="json-tree"></div>
+      </div>
+      {{end}}
+
+      <div class="meta-footer">Generated at {{.GeneratedAt}} by replify</div>
+    </div>
+
+    <pre id="payload" style="display: none">{{.Payload}}</pre>
+
+    <script>
+      (function() {
+          const payloadText = document.getElementById('payload').textContent;
+          if (!payloadText || payloadText.trim() === '') return;
+
+          {{if .IsEST}}
+              // EST specific logic handled mostly via HTML
+          {{else}}
+              let data;
+              try {
+                  data = JSON.parse(payloadText);
+              } catch (e) {
+                  document.getElementById('json-root').innerText = 'Failed to parse JSON: ' + e.message;
+                  return;
+              }
+
+              const root = document.getElementById('json-root');
+              const statusBadge = document.getElementById('status-badge');
+
+              if (data && data.header && data.header.code) {
+                  const code = data.header.code;
+                  let cls = 'badge-muted';
+                  if (code >= 200 && code < 300) cls = 'badge-success';
+                  else if (code >= 400 && code < 500) cls = 'badge-warning';
+                  else if (code >= 500) cls = 'badge-danger';
+                  statusBadge.innerHTML = `<span class="badge ${cls}">${code} ${data.header.text || ''}</span>`;
+              }
+
+              function escapeHtml(text) {
+                  if (typeof text !== 'string') return text;
+                  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+              }
+
+              function buildTree(key, value, parentElement) {
+                  const li = document.createElement('li');
+                  const isObject = value !== null && typeof value === 'object';
+                  const isArray = Array.isArray(value);
+
+                  if (isObject) {
+                      const toggle = document.createElement('span');
+                      toggle.className = 'toggle-btn';
+                      toggle.textContent = '-';
+                      toggle.onclick = function(e) {
+                          e.stopPropagation();
+                          li.classList.toggle('collapsed');
+                          toggle.textContent = li.classList.contains('collapsed') ? '+' : '-';
+                      };
+                      li.appendChild(toggle);
+
+                      if (key !== null) {
+                          const keySpan = document.createElement('span');
+                          keySpan.className = 'json-key';
+                          keySpan.textContent = `"${escapeHtml(String(key))}": `;
+                          li.appendChild(keySpan);
+                      }
+
+                      const preview = document.createElement('span');
+                      preview.className = 'ellipsis';
+                      preview.textContent = isArray ? `Array(${Object.keys(value).length})` : `Object{${Object.keys(value).length}}`;
+                      li.appendChild(preview);
+
+                      const ul = document.createElement('ul');
+                      if (isArray) {
+                          value.forEach((item, index) => buildTree(index, item, ul));
+                      } else {
+                          Object.keys(value).forEach(k => buildTree(k, value[k], ul));
+                      }
+                      li.appendChild(ul);
+                  } else {
+                      if (key !== null) {
+                          const keySpan = document.createElement('span');
+                          keySpan.className = 'json-key';
+                          keySpan.textContent = `"${escapeHtml(String(key))}": `;
+                          li.appendChild(keySpan);
+                      }
+
+                      const valSpan = document.createElement('span');
+                      let displayVal = value;
+                      let valClass = 'json-string';
+
+                      if (typeof value === 'string') { displayVal = `"${escapeHtml(value)}"`; }
+                      else if (typeof value === 'number') { valClass = 'json-number'; displayVal = String(value); }
+                      else if (typeof value === 'boolean') { valClass = 'json-boolean'; displayVal = String(value); }
+                      else if (value === null) { valClass = 'json-null'; displayVal = 'null'; }
+
+                      valSpan.className = valClass;
+                      valSpan.textContent = displayVal;
+                      li.appendChild(valSpan);
+                  }
+
+                  const copyBtn = document.createElement('button');
+                  copyBtn.className = 'copy-btn';
+                  copyBtn.textContent = 'Copy';
+                  copyBtn.onclick = function(e) {
+                      e.stopPropagation();
+                      const textToCopy = isObject ? JSON.stringify(value, null, 2) : String(value);
+                      navigator.clipboard.writeText(textToCopy).then(() => {
+                          copyBtn.textContent = 'Copied!';
+                          setTimeout(() => copyBtn.textContent = 'Copy', 1500);
+                      });
+                  };
+                  li.appendChild(copyBtn);
+                  parentElement.appendChild(li);
+              }
+
+              const ul = document.createElement('ul');
+              if (Array.isArray(data)) {
+                  data.forEach((item, index) => buildTree(index, item, ul));
+              } else if (typeof data === 'object' && data !== null) {
+                  Object.keys(data).forEach(k => buildTree(k, data[k], ul));
+              } else {
+                  buildTree(null, data, ul);
+              }
+              root.appendChild(ul);
+
+              document.getElementById('expand-all').onclick = function() {
+                  document.querySelectorAll('.json-tree .collapsed').forEach(el => {
+                      el.classList.remove('collapsed');
+                      const btn = el.querySelector(':scope > .toggle-btn');
+                      if (btn) btn.textContent = '-';
+                  });
+              };
+
+              document.getElementById('collapse-all').onclick = function() {
+                  document.querySelectorAll('.json-tree ul ul').forEach(el => {
+                      el.parentElement.classList.add('collapsed');
+                      const btn = el.parentElement.querySelector(':scope > .toggle-btn');
+                      if (btn) btn.textContent = '+';
+                  });
+              };
+
+              document.getElementById('search').oninput = function(e) {
+                  const term = e.target.value.toLowerCase();
+                  document.querySelectorAll('.json-tree li').forEach(li => {
+                      li.classList.remove('highlight');
+                      if (!term) return;
+                      const text = li.innerText.toLowerCase();
+                      if (text.includes(term)) {
+                          li.classList.add('highlight');
+                          let parent = li.parentElement;
+                          while(parent && parent !== root) {
+                              if (parent.tagName === 'UL' && parent.parentElement.tagName === 'LI') {
+                                  parent.parentElement.classList.remove('collapsed');
+                                  const btn = parent.parentElement.querySelector(':scope > .toggle-btn');
+                                  if (btn) btn.textContent = '-';
+                              }
+                              parent = parent.parentElement;
+                          }
+                      }
+                  });
+              };
+          {{end}}
+      })();
+    </script>
+  </body>
+</html>
