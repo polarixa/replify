@@ -271,6 +271,19 @@ func dumpMarkdown(payload []byte) (*sysx.Resource, error) {
 		})
 }
 
+// dumpHTML creates a seekable in-process [sysx.Resource] backed by a
+// temporary file from an already-serialized HTML payload.
+func dumpHTML(payload []byte) (*sysx.Resource, error) {
+	return sysx.NewResource().
+		WithName("w_snapshot.html").
+		WithTempPattern("w_snapshot-*.html").
+		WithContentType(sysx.MimeHTML).
+		FromTempFile(func(w io.Writer) error {
+			_, err := w.Write(payload)
+			return err
+		})
+}
+
 // dumpAny creates a seekable in-process [sysx.Resource] backed by a
 // temporary file from a generic Go value. The value is first converted to a
 // string using [conv.String].
