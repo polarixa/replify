@@ -1100,3 +1100,87 @@ const (
 	// in any modern application.
 	HMACMD5 SignatureAlgorithm = "HMAC-MD5"
 )
+
+// ReasonCategory constants define various categories for reasons associated with wrapper instances.
+const (
+	// CategoryCommon represents general/common reasons that do not fit into other specific categories.
+	CategoryCommon ReasonCategory = "GENERAL_COMMON"
+
+	// CategoryValidation represents reasons related to input validation failures.
+	CategoryValidation ReasonCategory = "VALIDATION"
+
+	// CategoryAuthentication represents reasons related to authentication failures.
+	CategoryAuthentication ReasonCategory = "AUTHENTICATION"
+
+	// CategoryAuthorization represents reasons related to authorization or permission failures.
+	CategoryAuthorization ReasonCategory = "AUTHORIZATION_PERMISSION"
+
+	// CategoryUserAccount represents reasons related to user account issues.
+	CategoryUserAccount ReasonCategory = "USER_ACCOUNT"
+
+	// CategoryResourceLifecycle represents reasons related to the lifecycle of resources.
+	CategoryResourceLifecycle ReasonCategory = "RESOURCE_LIFECYCLE"
+
+	// CategoryStateTransition represents reasons related to state transitions of resources.
+	CategoryStateTransition ReasonCategory = "STATE_STATE_TRANSITION"
+
+	// CategoryConcurrencyIdempotency represents reasons related to concurrency control and idempotency issues.
+	CategoryConcurrencyIdempotency ReasonCategory = "CONCURRENCY_IDEMPOTENCY"
+
+	// CategoryRateLimitQuota represents reasons related to rate limiting and quota enforcement.
+	CategoryRateLimitQuota ReasonCategory = "RATE_LIMIT_QUOTA"
+
+	// CategoryPaginationQuery represents reasons related to pagination and query operations.
+	CategoryPaginationQuery ReasonCategory = "PAGINATION_QUERY"
+
+	// CategoryFileUpload represents reasons related to file upload operations.
+	CategoryFileUpload ReasonCategory = "FILE_UPLOAD"
+
+	// CategoryPayment represents reasons related to payment operations.
+	CategoryPayment ReasonCategory = "PAYMENT"
+
+	// CategoryOrder represents reasons related to order operations.
+	CategoryOrder ReasonCategory = "ORDER"
+
+	// CategoryInventory represents reasons related to inventory management.
+	CategoryInventory ReasonCategory = "INVENTORY"
+
+	// CategoryShippingDelivery represents reasons related to shipping and delivery operations.
+	CategoryShippingDelivery ReasonCategory = "SHIPPING_DELIVERY"
+
+	// CategoryCouponPromotion represents reasons related to coupon and promotion operations.
+	CategoryCouponPromotion ReasonCategory = "COUPON_PROMOTION"
+
+	// CategoryVerification represents reasons related to verification processes.
+	CategoryVerification ReasonCategory = "VERIFICATION"
+
+	// CategoryBusinessRule represents reasons related to business rule violations.
+	CategoryBusinessRule ReasonCategory = "BUSINESS_RULE"
+
+	// CategoryDependencyExternalService represents reasons related to external service dependencies.
+	CategoryDependencyExternalService ReasonCategory = "DEPENDENCY_EXTERNAL_SERVICE"
+
+	// CategoryDatabasePersistence represents reasons related to database persistence operations.
+	CategoryDatabasePersistence ReasonCategory = "DATABASE_PERSISTENCE"
+
+	// CategoryCache represents reasons related to caching operations.
+	CategoryCache ReasonCategory = "CACHE"
+
+	// CategorySecurity represents reasons related to security issues.
+	CategorySecurity ReasonCategory = "SECURITY"
+
+	// CategoryWebhookEvent represents reasons related to webhook events.
+	CategoryWebhookEvent ReasonCategory = "WEBHOOK_EVENT"
+
+	// CategoryAsyncJob represents reasons related to asynchronous job operations.
+	CategoryAsyncJob ReasonCategory = "ASYNC_JOB"
+
+	// CategoryImportExport represents reasons related to import and export operations.
+	CategoryImportExport ReasonCategory = "IMPORT_EXPORT"
+
+	// CategoryNotification represents reasons related to notification operations.
+	CategoryNotification ReasonCategory = "NOTIFICATION"
+
+	// CategorySystem represents reasons related to system operations.
+	CategorySystem ReasonCategory = "SYSTEM"
+)
