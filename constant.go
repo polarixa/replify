@@ -277,6 +277,22 @@ const (
 	// X-Signature-Timestamp specifies the timestamp when the signature was generated.
 	// 	Example: "1790442053"
 	HeaderXSignatureTimestamp HeaderType = "X-Signature-Timestamp"
+
+	// X-API-Version specifies the version of the API being requested or used.
+	// 	Example: "v1"
+	HeaderXAPIVersion HeaderType = "X-API-Version"
+
+	// X-Request-ID contains the unique identifier for the request, often used for tracing and debugging.
+	// 	Example: "db0hu7v9djihpogo96r0"
+	HeaderXRequestID HeaderType = "X-Request-ID"
+
+	// X-Request-Time specifies the timestamp when the request was made.
+	// 	Example: "1790442053"
+	HeaderXRequestTime HeaderType = "X-Request-Time"
+
+	// X-Locale specifies the locale of the client making the request.
+	// 	Example: "en_US"
+	HeaderXLocale HeaderType = "X-Locale"
 )
 
 // Media Type constants define commonly used MIME types for different content types in HTTP requests and responses.

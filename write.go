@@ -75,6 +75,10 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 
 	// Set the Content-Length header based on the resource's size.
 	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(resource.Size(), "0B"))
+	w.Header().Set(HeaderXLocale.String(), r.Meta().Locale())
+	w.Header().Set(HeaderXAPIVersion.String(), r.Meta().ApiVersion())
+	w.Header().Set(HeaderXRequestID.String(), r.Meta().RequestID())
+	w.Header().Set(HeaderXRequestTime.String(), r.Meta().RequestedTimeFormat())
 
 	// If a filename is specified, set the Content-Disposition header to indicate an attachment with the given filename.
 	if strutil.IsNotEmpty(r.filename) {
@@ -160,6 +164,10 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 
 	// Set the Content-Length header based on the length of the binary data.
 	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(len(data), "0B"))
+	w.Header().Set(HeaderXLocale.String(), r.Meta().Locale())
+	w.Header().Set(HeaderXAPIVersion.String(), r.Meta().ApiVersion())
+	w.Header().Set(HeaderXRequestID.String(), r.Meta().RequestID())
+	w.Header().Set(HeaderXRequestTime.String(), r.Meta().RequestedTimeFormat())
 
 	// If a filename is specified, set the Content-Disposition header to indicate an attachment with the given filename.
 	if strutil.IsNotEmpty(r.filename) {
@@ -225,6 +233,10 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter, ignoringJSONfields ...string)
 
 	// Set the Content-Type header to indicate that the response is JSON with UTF-8 encoding.
 	w.Header().Set(HeaderContentType.String(), MediaTypeApplicationJSONUTF8.String())
+	w.Header().Set(HeaderXLocale.String(), r.Meta().Locale())
+	w.Header().Set(HeaderXAPIVersion.String(), r.Meta().ApiVersion())
+	w.Header().Set(HeaderXRequestID.String(), r.Meta().RequestID())
+	w.Header().Set(HeaderXRequestTime.String(), r.Meta().RequestedTimeFormat())
 
 	// Write the status code to the ResponseWriter.
 	w.WriteHeader(r.StatusCode())
