@@ -108,74 +108,59 @@ func (r ReasonCategory) Equals(other ...ReasonCategory) bool {
 	return slices.Contains(other, r)
 }
 
-// NewReasonCode creates a new [ReasonCode] instance from the provided string.
+// CastReasonCode creates a new [ReasonCode] instance from the provided string.
 //
 // Parameters:
 //   - code: A string representing the reason code.
 //
 // Returns:
 //   - A [ReasonCode] instance initialized with the provided code.
-func NewReasonCode(code string) ReasonCode {
+func CastReasonCode(code string) ReasonCode {
 	return ReasonCode(code)
 }
 
-// NewReasonCategory creates a new [ReasonCategory] instance from the provided string.
+// CastReasonCategory creates a new [ReasonCategory] instance from the provided string.
 //
 // Parameters:
 //   - category: A string representing the reason category.
 //
 // Returns:
 //   - A [ReasonCategory] instance initialized with the provided category.
-func NewReasonCategory(category string) ReasonCategory {
+func CastReasonCategory(category string) ReasonCategory {
 	return ReasonCategory(category)
 }
 
-// NewReasonWithCategory creates a new [reason] instance with the specified category and an empty code.
+// CastReasonWithCategory creates a new [reason] instance with the specified category and an empty code.
 //
 // Parameters:
 //   - category: A string representing the reason category.
 //
 // Returns:
 //   - A pointer to a newly created [reason] instance initialized with the provided category and an empty code.
-func NewReasonWithCategory(category string) *reason {
+func CastReasonWithCategory(category string) *reason {
 	return &reason{
-		category: NewReasonCategory(category),
+		category: CastReasonCategory(category),
 	}
 }
 
-// NewReasonWithCode creates a new [reason] instance with the specified code and an empty category.
+// CastReasonWithCode creates a new [reason] instance with the specified code and an empty category.
 //
 // Parameters:
 //   - code: A string representing the reason code.
 //
 // Returns:
 //   - A pointer to a newly created [reason] instance initialized with the provided code and an empty category.
-func NewReasonWithCode(code string) *reason {
+func CastReasonWithCode(code string) *reason {
 	return &reason{
-		code: NewReasonCode(code),
+		code: CastReasonCode(code),
 	}
 }
 
-// NewReason creates a new [reason] instance with the specified category and code.
-//
-// Parameters:
-//   - category: A string representing the reason category.
-//   - code: A string representing the reason code.
-//
-// Returns:
-//   - A pointer to a newly created [reason] instance initialized with the provided category and code.
-func NewReason(category, code string) *reason {
-	return &reason{
-		code:     NewReasonCode(code),
-		category: NewReasonCategory(category),
-	}
-}
-
-// newReason creates a new [reason] instance with empty category and code.
+// NewReason creates a new [reason] instance with empty category and code.
 //
 // Returns:
 //   - A pointer to a newly created [reason] instance with empty category and code.
-func newReason() *reason {
+func NewReason() *reason {
 	return &reason{}
 }
 
