@@ -3583,6 +3583,9 @@ func (w *wrapper) String() string {
 	if w.IsSignaturePresent() {
 		sw.AppendF("signature=%q", w.signature.String()).Space()
 	}
+	if w.IsReasonPresent() {
+		sw.AppendF("reason=%q", w.reason.String()).Space()
+	}
 	return sw.String()
 }
 
