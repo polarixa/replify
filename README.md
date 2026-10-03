@@ -326,6 +326,7 @@ The library produces responses in this standardized format:
     "timestamp": 1790513074,
     "value": "MhDQFzogLmHjVzHGMeGo7Km8OMlW2HfMhT4swSto9o7/KLTvIHtXtPbMA+rUpQ49INwOK2gDGTPRZwKOhPkQoA=="
   },
+  "reason": { "category": "VALIDATION", "code": "FIELD_INVALID" },
   "_links": {
     "next": {
       "href": "/api/v1/users?page=2",
