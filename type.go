@@ -380,8 +380,13 @@ type StreamingMetadata struct {
 //	// pipe the JSON into an HTTP response writer:
 //	io.Copy(httpResponseWriter, dump.Resource().Content())
 type Dump struct {
-	syr      *sysx.Resource
-	once     sync.Once
+	// syr is the underlying system resource representing the dump content.
+	syr *sysx.Resource
+
+	// once ensures that the Close operation is performed only once.
+	once sync.Once
+
+	// closeErr stores the error encountered during the Close operation, if any.
 	closeErr error
 
 	// filepath is non-empty when DumpTo wrote a permanent on-disk copy.
