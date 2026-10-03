@@ -505,3 +505,29 @@ func WithReasonCategory(category ReasonCategory) ROption {
 		w.WithReasonCategory(category)
 	}
 }
+
+// WithPathFromRequest returns an [ROption] that sets the path for the wrapper based on the provided HTTP request.
+//
+// Parameters:
+//   - `request`: A pointer to the [http.Request] from which to extract the path.
+//
+// Returns:
+//   - An [ROption] that sets the path in the wrapper based on the request's URL path.
+func WithPathFromRequest(request *http.Request) ROption {
+	return func(w *wrapper) {
+		w.WithPathFromRequest(request)
+	}
+}
+
+// WithMetaFromRequest returns an [ROption] that sets the metadata for the wrapper based on the provided HTTP request.
+//
+// Parameters:
+//   - `request`: A pointer to the [http.Request] from which to extract metadata.
+//
+// Returns:
+//   - An [ROption] that sets the metadata in the wrapper based on the request.
+func WithMetaFromRequest(request *http.Request) ROption {
+	return func(w *wrapper) {
+		w.WithMetaFromRequest(request)
+	}
+}
