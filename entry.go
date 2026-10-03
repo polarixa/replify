@@ -44,6 +44,7 @@ import (
 //	                                hreflang)
 //	"signature"    signature       object → *signature (algorithm, value,
 //	                                timestamp, headers)
+//	"reason"       reason          object → *reason (category, code)
 //
 // Unknown top-level keys are silently ignored. Missing keys leave the
 // corresponding field at its zero value—no error is returned.
