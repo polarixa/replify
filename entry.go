@@ -368,6 +368,16 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 		}
 		w.signature = signature
 	}
+	if values, exists := data["reason"].(map[string]any); exists {
+		reason := &reason{}
+		if value, exists := values["category"].(string); exists {
+			reason.category = NewReasonCategory(value)
+		}
+		if value, exists := values["code"].(string); exists {
+			reason.code = NewReasonCode(value)
+		}
+		w.reason = reason
+	}
 
 	// If the data payload is a number, it was parsed as json.Number by UseNumber().
 	// We MUST preserve it as json.Number so that when it is marshaled back to JSON
