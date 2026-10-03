@@ -2121,6 +2121,23 @@ func (w *wrapper) WithPathf(v string, args ...any) *wrapper {
 	return w
 }
 
+// WithPathFromRequest sets the [wrapper]'s path field based on the provided HTTP request.
+//
+// Parameters:
+//   - request: The HTTP request from which to extract the path.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithPathFromRequest(request *http.Request) *wrapper {
+	if !w.Available() {
+		return w
+	}
+	if request != nil && request.URL != nil {
+		w.path = request.URL.Path
+	}
+	return w
+}
+
 // WithHeader sets the header for the [wrapper] instance.
 //
 // This function updates the [header] field of the [wrapper] with the provided [header]
