@@ -2155,6 +2155,24 @@ func (w *wrapper) WithMeta(v *meta) *wrapper {
 	return w
 }
 
+// WithMetaFromRequest extracts metadata from the given HTTP request and applies it to the [meta] field of the [wrapper] instance.
+//
+// This function ensures that the [meta] field is initialized. If it is not already present, a new [meta] instance is created.
+// Then, it calls the `Apply` method on the [meta] instance, passing the provided HTTP request to extract relevant metadata.
+//
+// Parameters:
+//   - request: [http.Request] The HTTP request from which to extract metadata.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance, enabling method chaining.
+func (w *wrapper) WithMetaFromRequest(request *http.Request) *wrapper {
+	if !w.IsMetaPresent() {
+		w.meta = Meta()
+	}
+	w.meta.Apply(request)
+	return w
+}
+
 // WithPagination sets the pagination information for the [wrapper] instance.
 //
 // This function updates the [pagination] field of the [wrapper] with the provided [pagination]
