@@ -3,6 +3,7 @@ package replify
 import (
 	"fmt"
 	"maps"
+	"net/http"
 	"time"
 
 	"github.com/polarixa/replify/pkg/coll"
@@ -1592,6 +1593,48 @@ func (m *meta) Clone() *meta {
 		clone.customFields = customFieldsCopy
 	}
 	return clone
+}
+
+// Apply extracts relevant metadata from the given HTTP request and applies it to the current [meta] instance.
+//
+// This function reads specific headers from the provided HTTP request and updates the corresponding fields
+// in the [meta] instance. If a header is not present or cannot be parsed, the corresponding field remains unchanged.
+//
+// Supported headers include:
+//   - `X-API-Version`: The API version.
+//   - `X-Request-ID`: The unique request ID.
+//   - `X-Locale`: The locale information.
+//   - `X-Request-Time`: The time the request was made.
+//
+// Parameters:
+//   - request: The HTTP request from which to extract metadata.
+//
+// Returns:
+//   - A pointer to the modified [meta] instance, enabling method chaining.
+func (m *meta) Apply(request *http.Request) *meta {
+	if m == nil {
+		m = defaultMetaValues()
+	}
+	if request == nil {
+		return m
+	}
+	if value := request.Header.Get(HeaderXAPIVersion.String()); strutil.IsNotEmpty(value) {
+		m.WithApiVersion(value)
+	}
+	if value := request.Header.Get(HeaderXRequestID.String()); strutil.IsNotEmpty(value) {
+		m.WithRequestID(value)
+	}
+	if value := request.Header.Get(HeaderXLocale.String()); strutil.IsNotEmpty(value) {
+		m.WithLocale(value)
+	}
+	if value := request.Header.Get(HeaderXRequestTime.String()); strutil.IsNotEmpty(value) {
+		if t, err := time.Parse(time.RFC3339, value); err == nil {
+			m.WithRequestedTime(t)
+		} else {
+			m.WithRequestedTime(conv.TimeOrDefault(value, time.Time{}))
+		}
+	}
+	return m
 }
 
 // autoRequestID generates and sets a random request ID for the [meta] instance if it is not already present.
