@@ -98,6 +98,47 @@ func NewReasonCategory(category string) ReasonCategory {
 	return ReasonCategory(category)
 }
 
+// NewReasonWithCategory creates a new [reason] instance with the specified category and an empty code.
+//
+// Parameters:
+//   - category: A string representing the reason category.
+//
+// Returns:
+//   - A pointer to a newly created [reason] instance initialized with the provided category and an empty code.
+func NewReasonWithCategory(category string) *reason {
+	return &reason{
+		category: NewReasonCategory(category),
+	}
+}
+
+// NewReasonWithCode creates a new [reason] instance with the specified code and an empty category.
+//
+// Parameters:
+//   - code: A string representing the reason code.
+//
+// Returns:
+//   - A pointer to a newly created [reason] instance initialized with the provided code and an empty category.
+func NewReasonWithCode(code string) *reason {
+	return &reason{
+		code: NewReasonCode(code),
+	}
+}
+
+// NewReason creates a new [reason] instance with the specified category and code.
+//
+// Parameters:
+//   - category: A string representing the reason category.
+//   - code: A string representing the reason code.
+//
+// Returns:
+//   - A pointer to a newly created [reason] instance initialized with the provided category and code.
+func NewReason(category, code string) *reason {
+	return &reason{
+		code:     NewReasonCode(code),
+		category: NewReasonCategory(category),
+	}
+}
+
 // Available checks whether the [reason] instance is non-nil.
 //
 // This function ensures that the [reason] object exists and is not nil.
