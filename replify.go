@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"reflect"
+	"slices"
 	"strings"
 	"time"
 
@@ -1221,6 +1222,20 @@ func (w *wrapper) Signature() *signature {
 	return w.signature
 }
 
+// Reason retrieves the [reason] associated with the [wrapper] instance.
+//
+// This function returns the [reason] field from the [wrapper] instance, which contains
+// information about the business logic failure or any other relevant metadata. If the [wrapper]
+// instance is correctly initialized, it will return the [reason]; otherwise, it may
+// return `nil` if the [reason] has not been set.
+//
+// Returns:
+//   - A pointer to the [reason] instance associated with the [wrapper].
+//   - `nil` if the [reason] is not set or the [wrapper] is uninitialized.
+func (w *wrapper) Reason() *reason {
+	return w.reason
+}
+
 // IsDebuggingPresent checks whether debugging information is present in the [wrapper] instance.
 //
 // This function verifies if the `debug` field of the [wrapper] is not nil and contains at least one entry.
@@ -1452,6 +1467,21 @@ func (w *wrapper) IsSignaturePresent() bool {
 		return false
 	}
 	return w.signature != nil
+}
+
+// IsReasonPresent checks whether a reason is present in the [wrapper] instance.
+//
+// This function checks if the `reason` field of the [wrapper] is not nil, indicating that a reason has been set.
+//
+// Returns:
+//   - A boolean value indicating whether a reason is present:
+//   - `true` if `reason` is not nil.
+//   - `false` if `reason` is nil.
+func (w *wrapper) IsReasonPresent() bool {
+	if !w.Available() {
+		return false
+	}
+	return w.reason != nil
 }
 
 // IsHTTPRequestPresent checks whether an HTTP request is present in the [wrapper] instance.
@@ -1750,6 +1780,28 @@ func (w *wrapper) EqualSignature(s *signature) bool {
 	return w.signature.Equal(s)
 }
 
+// EqualReason compares the reason information of the [wrapper] instance with another [reason] instance.
+//
+// This function checks if the [wrapper] is available and if the provided [reason] instance is not nil.
+// It then compares the reason details of the [wrapper] with those of the provided [reason] instance.
+//
+// Parameters:
+//   - `r`: A pointer to a [reason] instance to compare with the [wrapper]'s reason.
+//
+// Returns:
+//   - A boolean value indicating whether the reason information is equal:
+//   - `true` if both reason instances have the same reason details.
+//   - `false` if the [wrapper] is not available, the provided reason is nil, or the reason details do not match.
+func (w *wrapper) EqualReason(r *reason) bool {
+	if !w.Available() || r == nil {
+		return false
+	}
+	if w.reason == nil {
+		return false
+	}
+	return w.reason.Equal(r)
+}
+
 // Clone creates a deep copy of the [wrapper] instance.
 //
 // This function creates a new [wrapper] instance with the same fields as the original instance.
@@ -1814,6 +1866,11 @@ func (w *wrapper) Clone() *wrapper {
 		clone.signature = w.signature.Clone()
 	}
 
+	// Clone reason
+	if w.reason != nil {
+		clone.reason = w.reason.Clone()
+	}
+
 	return clone
 }
 
@@ -1853,6 +1910,7 @@ func (w *wrapper) Reset() *wrapper {
 	w.request = nil
 	w.links = nil
 	w.signature = nil
+	w.reason = nil
 
 	// Reset meta
 	w.meta = defaultMetaValues()
@@ -3837,6 +3895,23 @@ func (w *wrapper) WithSignature(signature *signature) *wrapper {
 	return w
 }
 
+// WithReason attaches a [reason] to the [wrapper].
+// If the provided [reason] is nil or the [wrapper] is not available, it returns the [wrapper] unchanged.
+//
+// Parameters:
+//   - r: The [reason] instance to attach to the [wrapper].
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithReason(r *reason) *wrapper {
+	if !w.Available() || r == nil {
+		return w
+	}
+	w.reason = r
+	w.resetCache()
+	return w
+}
+
 // ReleaseIssue detaches the current [issue] from the [wrapper], effectively clearing any associated issue.
 //
 // Returns:
@@ -3898,6 +3973,19 @@ func (w *wrapper) ReleaseSignature() *wrapper {
 		return w
 	}
 	w.signature = nil
+	w.resetCache()
+	return w
+}
+
+// ReleaseReason detaches the current reason from the [wrapper], effectively clearing any associated reason.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) ReleaseReason() *wrapper {
+	if !w.Available() {
+		return w
+	}
+	w.reason = nil
 	w.resetCache()
 	return w
 }
@@ -4391,6 +4479,9 @@ func (w *wrapper) build() map[string]any {
 	if w.IsSignaturePresent() {
 		m["signature"] = w.signature.Respond()
 	}
+	if w.IsReasonPresent() {
+		m["reason"] = w.reason.Respond()
+	}
 	return m
 }
 
@@ -4423,4 +4514,21 @@ func (s StatusCode) Value() int {
 //   - A string representing the StatusCode in a human-readable format.
 func (s StatusCode) StatusText() string {
 	return fmt.Sprintf("%d (%s)", s.Value(), http.StatusText(s.Value()))
+}
+
+// Equals checks whether the current [StatusCode] is equal to any of the provided [StatusCode] values.
+//
+// This method allows for convenient comparison of a StatusCode against multiple other StatusCode instances.
+//
+// Parameters:
+//   - other: A variadic list of [StatusCode] values to compare against.
+//
+// Returns:
+//   - `true` if the current [StatusCode] matches any of the provided [StatusCode] values.
+//   - `false` if there are no matches or if no [StatusCode] values are provided.
+func (s StatusCode) Equals(other ...StatusCode) bool {
+	if len(other) == 0 {
+		return false
+	}
+	return slices.Contains(other, s)
 }
