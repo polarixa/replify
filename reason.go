@@ -8,6 +8,38 @@ import (
 	"github.com/polarixa/replify/pkg/strutil"
 )
 
+// ReasonCategoryOf retrieves the category associated with the given reason code.
+//
+// Parameters:
+//   - code: The [ReasonCode] for which to retrieve the category.
+//
+// Returns:
+//   - The [ReasonCategory] associated with the provided code, if it exists.
+//   - A boolean value indicating whether the category was found:
+//   - `true` if the category was found.
+//   - `false` if the category was not found.
+func ReasonCategoryOf(code ReasonCode) (ReasonCategory, bool) {
+	r, ok := ReasonCodes[code]
+	if !ok {
+		return "", false
+	}
+	return r.category, true
+}
+
+// IsReasonKnown checks whether the given reason code is known.
+//
+// Parameters:
+//   - code: The [ReasonCode] to check.
+//
+// Returns:
+//   - A boolean value indicating whether the reason code is known:
+//   - `true` if the reason code exists in the [ReasonCodes] map.
+//   - `false` if the reason code does not exist in the [ReasonCodes] map.
+func IsReasonKnown(code ReasonCode) bool {
+	_, ok := ReasonCodes[code]
+	return ok
+}
+
 // String returns the string representation of the [ReasonCode] instance.
 //
 // Returns:
@@ -183,6 +215,7 @@ func (r *reason) Category() ReasonCategory {
 }
 
 // WithCode sets the reason code for the [reason] instance.
+// This method also updates the reason category based on the provided reason code, if the category can be determined.
 //
 // Parameters:
 //   - code: A [ReasonCode] representing the reason code to set.
@@ -190,6 +223,10 @@ func (r *reason) Category() ReasonCategory {
 // Returns:
 //   - A pointer to the updated [reason] instance.
 func (r *reason) WithCode(code ReasonCode) *reason {
+	c, ok := ReasonCategoryOf(code) // Retrieve the category associated with the given reason code.
+	if ok {
+		r.category = c
+	}
 	r.code = code
 	return r
 }
