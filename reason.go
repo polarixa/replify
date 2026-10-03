@@ -200,6 +200,7 @@ func (r *reason) Category() ReasonCategory {
 }
 
 // WithCode sets the reason code for the [reason] instance.
+//
 // This method also updates the reason category based on the provided reason code, if the category can be determined.
 //
 // Parameters:
