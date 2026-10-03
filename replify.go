@@ -3018,6 +3018,44 @@ func (w *wrapper) WithCursorLimit(v int) *wrapper {
 	return w
 }
 
+// WithReasonCode sets the reason code for the [wrapper]'s [reason] instance.
+//
+// If the reason object is not already initialized, it creates a new one
+// using the `newReason` function. The specified reason code is then
+// applied to the reason instance.
+//
+// Parameters:
+//   - v: A [ReasonCode] representing the reason code to set.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithReasonCode(v ReasonCode) *wrapper {
+	if !w.IsReasonPresent() {
+		w.reason = newReason()
+	}
+	w.reason.WithCode(v)
+	return w
+}
+
+// WithReasonCategory sets the reason category for the [wrapper]'s [reason] instance.
+//
+// If the reason object is not already initialized, it creates a new one
+// using the `newReason` function. The specified reason category is then
+// applied to the reason instance.
+//
+// Parameters:
+//   - v: A [ReasonCategory] representing the reason category to set.
+//
+// Returns:
+//   - A pointer to the updated [wrapper] instance.
+func (w *wrapper) WithReasonCategory(v ReasonCategory) *wrapper {
+	if !w.IsReasonPresent() {
+		w.reason = newReason()
+	}
+	w.reason.WithCategory(v)
+	return w
+}
+
 // WithSpan sets the span flag in the [wrapper] instance.
 //
 // This function checks if the [wrapper] instance is available. If it is, it sets the `span` field

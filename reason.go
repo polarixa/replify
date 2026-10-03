@@ -139,6 +139,14 @@ func NewReason(category, code string) *reason {
 	}
 }
 
+// newReason creates a new [reason] instance with empty category and code.
+//
+// Returns:
+//   - A pointer to a newly created [reason] instance with empty category and code.
+func newReason() *reason {
+	return &reason{}
+}
+
 // Available checks whether the [reason] instance is non-nil.
 //
 // This function ensures that the [reason] object exists and is not nil.
