@@ -114,7 +114,7 @@ func (rw *recoveryWriter) Unwrap() http.ResponseWriter {
 func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
 	fb := fieldsPool.Get().(*fieldsBuf)
 	fields := fb.v[:0]
-	if id := r.Header.Get("X-Request-Id"); strutil.IsNotEmpty(id) {
+	if id := r.Header.Get(HeaderXRequestID.String()); strutil.IsNotEmpty(id) {
 		fields = append(fields, slogger.String("request_id", id))
 	}
 	fields = append(fields,
@@ -187,10 +187,10 @@ func Logger() func(http.Handler) http.Handler {
 
 			fb := fieldsPool.Get().(*fieldsBuf)
 			fields := fb.v[:0]
-			if id := r.Header.Get("X-Request-Id"); strutil.IsNotEmpty(id) {
+			if id := r.Header.Get(HeaderXRequestID.String()); strutil.IsNotEmpty(id) {
 				fields = append(fields, slogger.String("request_id", id))
 			}
-			if ua := r.Header.Get("User-Agent"); strutil.IsNotEmpty(ua) {
+			if ua := r.Header.Get(HeaderUserAgent.String()); strutil.IsNotEmpty(ua) {
 				fields = append(fields, slogger.String("user_agent", ua))
 			}
 			fields = append(fields,
