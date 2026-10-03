@@ -372,10 +372,10 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 	if values, exists := data["reason"].(map[string]any); exists {
 		reason := &reason{}
 		if value, exists := values["category"].(string); exists {
-			reason.category = NewReasonCategory(value)
+			reason.category = CastReasonCategory(value)
 		}
 		if value, exists := values["code"].(string); exists {
-			reason.code = NewReasonCode(value)
+			reason.code = CastReasonCode(value)
 		}
 		w.reason = reason
 	}

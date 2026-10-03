@@ -3031,7 +3031,7 @@ func (w *wrapper) WithCursorLimit(v int) *wrapper {
 //   - A pointer to the updated [wrapper] instance.
 func (w *wrapper) WithReasonCode(v ReasonCode) *wrapper {
 	if !w.IsReasonPresent() {
-		w.reason = newReason()
+		w.reason = NewReason()
 	}
 	w.reason.WithCode(v)
 	return w
@@ -3050,7 +3050,7 @@ func (w *wrapper) WithReasonCode(v ReasonCode) *wrapper {
 //   - A pointer to the updated [wrapper] instance.
 func (w *wrapper) WithReasonCategory(v ReasonCategory) *wrapper {
 	if !w.IsReasonPresent() {
-		w.reason = newReason()
+		w.reason = NewReason()
 	}
 	w.reason.WithCategory(v)
 	return w
