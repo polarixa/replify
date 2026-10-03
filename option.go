@@ -466,3 +466,42 @@ func WithSignature(signature *signature) ROption {
 		w.WithSignature(signature)
 	}
 }
+
+// WithReason returns an [ROption] that sets the reason for the wrapper.
+//
+// Parameters:
+//   - `reason`: A pointer to the [reason] instance to associate with the wrapper.
+//
+// Returns:
+//   - An [ROption] that sets the specified reason in the wrapper.
+func WithReason(reason *reason) ROption {
+	return func(w *wrapper) {
+		w.WithReason(reason)
+	}
+}
+
+// WithReasonCode returns an [ROption] that sets the reason code for the wrapper's [reason] instance.
+//
+// Parameters:
+//   - `code`: A [ReasonCode] representing the reason code to set.
+//
+// Returns:
+//   - An [ROption] that sets the specified reason code in the wrapper.
+func WithReasonCode(code ReasonCode) ROption {
+	return func(w *wrapper) {
+		w.WithReasonCode(code)
+	}
+}
+
+// WithReasonCategory returns an [ROption] that sets the reason category for the wrapper's [reason] instance.
+//
+// Parameters:
+//   - `category`: A [ReasonCategory] representing the reason category to set.
+//
+// Returns:
+//   - An [ROption] that sets the specified reason category in the wrapper.
+func WithReasonCategory(category ReasonCategory) ROption {
+	return func(w *wrapper) {
+		w.WithReasonCategory(category)
+	}
+}
