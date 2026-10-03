@@ -78,6 +78,14 @@ type S struct {
 	*signature
 }
 
+// B represents a wrapper around the [reason] struct. It is used to encapsulate
+// reason details for API responses, providing a structured way to access
+// and manipulate the reason information. The "B" type allows for easier handling
+// of reason data while maintaining the flexibility of the underlying [reason] structure.
+type B struct {
+	*reason
+}
+
 // ROption is a functional option for configuring a [wrapper] instance.
 // Functions of this type are passed to [Wrap] to apply settings in a
 // declarative, composable way.
@@ -226,10 +234,10 @@ type StreamProgress struct {
 // and performance metrics.
 type StreamingStats struct {
 	// Time when streaming started
-	StartTime time.Time `json:"start_time,omitempty"`
+	StartTime time.Time `json:"start_time"`
 
 	// Time when streaming ended
-	EndTime time.Time `json:"end_time,omitempty"`
+	EndTime time.Time `json:"end_time"`
 
 	// Total bytes processed
 	TotalBytes int64 `json:"total_bytes"`
@@ -394,6 +402,14 @@ type MediaType string
 // Examples include "HMAC-SHA256", "SHA256", "SHA512", etc.
 type SignatureAlgorithm string
 
+// ReasonCode represents a code indicating the reason for a business logic failure.
+// It is used to categorize and identify specific failure scenarios in the application.
+type ReasonCode string
+
+// ReasonCategory represents a category indicating the context or classification of a business logic failure.
+// It is used to group and identify related failure scenarios in the application.
+type ReasonCategory string
+
 // SignatureConfig holds the configuration for generating and validating cryptographic signatures.
 // It includes the secret key, the algorithm to use, whether to include a timestamp, which headers to sign, and the maximum age for the signature.
 type SignatureConfig struct {
@@ -491,6 +507,13 @@ type signature struct {
 	headers   map[string]string  // Optional headers included in the signature.
 }
 
+// reason represents the reason for a business logic failure, including a specific code and a broader category.
+// It provides both a specific reason code and a broader category to help understand the context of the failure.
+type reason struct {
+	code     ReasonCode     // Reason code indicating the cause of the business logic failure.
+	category ReasonCategory // Category of the reason, providing additional context for the business logic failure.
+}
+
 // wrapper is the main structure for wrapping API responses, including metadata, data, and debugging information.
 type wrapper struct {
 	mu sync.RWMutex // Mutex for synchronizing access to the wrapper's fields.
@@ -509,6 +532,7 @@ type wrapper struct {
 	cursor     *cursor        // Pagination cursors for navigating through results.
 	issue      *issue         // API-facing issue information derived from internal errors.
 	signature  *signature     // Cryptographic signature information for the response.
+	reason     *reason        // Reason for the business logic failure, providing context for the response.
 	debug      map[string]any // Debugging information (useful for development).
 	errors     error          // Internal errors (not exposed in JSON responses).
 	skipBody   bool           // When true, the body payload is omitted from String(), build(), and Slogging() output.
