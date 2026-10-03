@@ -3906,6 +3906,8 @@ func (w *wrapper) WithRequest(r *http.Request) *wrapper {
 		return w
 	}
 	w.request = r
+	w.WithMetaFromRequest(r) // Extract and apply metadata from the request to the wrapper's meta field.
+	w.WithPathFromRequest(r) // Set the wrapper's path field based on the request's URL path.
 
 	// If we already have a "self" link with relative path, resolve it
 	// Attempt to resolve the "self" link to an absolute URL if it is currently relative.
