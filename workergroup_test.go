@@ -11,15 +11,15 @@ import (
 	"github.com/polarixa/replify/pkg/workergroup"
 )
 
-// resultsOf extracts the []replify.WorkerResult body from w, failing the
+// resultsOf extracts the []*replify.WorkerResult body from w, failing the
 // test if the body is absent or of an unexpected type.
 func resultsOf(t *testing.T, w interface {
 	Body() any
-}) []replify.WorkerResult {
+}) []*replify.WorkerResult {
 	t.Helper()
-	results, ok := w.Body().([]replify.WorkerResult)
+	results, ok := w.Body().([]*replify.WorkerResult)
 	if !ok {
-		t.Fatalf("expected body of type []replify.WorkerResult, got %T", w.Body())
+		t.Fatalf("expected body of type []*replify.WorkerResult, got %T", w.Body())
 	}
 	return results
 }
@@ -29,8 +29,8 @@ func resultsOf(t *testing.T, w interface {
 func TestRunWorkerGroup_SingleTaskSuccess(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "only", Fn: func(ctx context.Context) (any, error) { return 42, nil }},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("only", func(ctx context.Context) (any, error) { return 42, nil }),
 	})
 
 	if w.StatusCode() != replify.StatusOK.Value() {
@@ -40,7 +40,7 @@ func TestRunWorkerGroup_SingleTaskSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got %v", w.Error())
 	}
 	results := resultsOf(t, w)
-	if len(results) != 1 || !results[0].Success() || results[0].Value != 42 {
+	if len(results) != 1 || !results[0].Success() || results[0].Value() != 42 {
 		t.Fatalf("unexpected results: %+v", results)
 	}
 }
@@ -48,13 +48,13 @@ func TestRunWorkerGroup_SingleTaskSuccess(t *testing.T) {
 func TestRunWorkerGroup_MultipleTasksSuccess(t *testing.T) {
 	t.Parallel()
 
-	var tasks []replify.WorkerTask
+	var tasks []*replify.WorkerTask
 	for i := 0; i < 5; i++ {
 		i := i
-		tasks = append(tasks, replify.WorkerTask{
-			Name: fmt.Sprintf("task-%d", i),
-			Fn:   func(ctx context.Context) (any, error) { return i * i, nil },
-		})
+		tasks = append(tasks, replify.NewWorkerTask(
+			fmt.Sprintf("task-%d", i),
+			func(ctx context.Context) (any, error) { return i * i, nil },
+		))
 	}
 
 	w := replify.RunWorkerGroup(context.Background(), 3, tasks)
@@ -71,7 +71,7 @@ func TestRunWorkerGroup_MultipleTasksSuccess(t *testing.T) {
 		if !r.Success() {
 			t.Fatalf("unexpected failure: %+v", r)
 		}
-		sum += r.Value.(int)
+		sum += r.Value().(int)
 	}
 	if sum != 0+1+4+9+16 {
 		t.Fatalf("expected sum 30, got %d", sum)
@@ -101,8 +101,8 @@ var errBoom = errors.New("boom")
 func TestRunWorkerGroup_SingleTaskFailure(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "failing", Fn: func(ctx context.Context) (any, error) { return nil, errBoom }},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("failing", func(ctx context.Context) (any, error) { return nil, errBoom }),
 	})
 
 	if w.StatusCode() != replify.StatusInternalServerError.Value() {
@@ -125,9 +125,9 @@ func TestRunWorkerGroup_AllTasksFail(t *testing.T) {
 	errA := errors.New("task a failed")
 	errB := errors.New("task b failed")
 
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "a", Fn: func(ctx context.Context) (any, error) { return nil, errA }},
-		{Name: "b", Fn: func(ctx context.Context) (any, error) { return nil, errB }},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("a", func(ctx context.Context) (any, error) { return nil, errA }),
+		replify.NewWorkerTask("b", func(ctx context.Context) (any, error) { return nil, errB }),
 	})
 
 	if w.StatusCode() != replify.StatusInternalServerError.Value() {
@@ -146,9 +146,9 @@ func TestRunWorkerGroup_AllTasksFail(t *testing.T) {
 func TestRunWorkerGroup_PartialFailure(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "ok", Fn: func(ctx context.Context) (any, error) { return "done", nil }},
-		{Name: "bad", Fn: func(ctx context.Context) (any, error) { return nil, errBoom }},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("ok", func(ctx context.Context) (any, error) { return "done", nil }),
+		replify.NewWorkerTask("bad", func(ctx context.Context) (any, error) { return nil, errBoom }),
 	})
 
 	if w.StatusCode() != replify.StatusMultiStatus.Value() {
@@ -165,11 +165,11 @@ func TestRunWorkerGroup_PartialFailure(t *testing.T) {
 	}
 	var sawSuccess, sawFailure bool
 	for _, r := range results {
-		switch r.Name {
+		switch r.Name() {
 		case "ok":
 			sawSuccess = r.Success()
 		case "bad":
-			sawFailure = !r.Success() && errors.Is(r.Err, errBoom)
+			sawFailure = !r.Success() && errors.Is(r.Err(), errBoom)
 		}
 	}
 	if !sawSuccess || !sawFailure {
@@ -185,8 +185,8 @@ func TestRunWorkerGroup_ErrorsAs(t *testing.T) {
 	t.Parallel()
 
 	var myErr *customError
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "typed", Fn: func(ctx context.Context) (any, error) { return nil, &customError{msg: "typed failure"} }},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("typed", func(ctx context.Context) (any, error) { return nil, &customError{msg: "typed failure"} }),
 	})
 
 	if !errors.As(w.Cause(), &myErr) {
@@ -209,8 +209,8 @@ func TestRunWorkerGroup_ContextCanceledBeforeExecution(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before any task runs
 
-	w := replify.RunWorkerGroup(ctx, 0, []replify.WorkerTask{
-		{Name: "irrelevant", Fn: func(ctx context.Context) (any, error) { return nil, nil }},
+	w := replify.RunWorkerGroup(ctx, 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("irrelevant", func(ctx context.Context) (any, error) { return nil, nil }),
 	})
 
 	if w.StatusCode() != replify.StatusClientClosedRequest.Value() {
@@ -276,12 +276,10 @@ func TestRunWorkerGroup_ConcurrentAggregation(t *testing.T) {
 	t.Parallel()
 
 	const n = 50
-	var tasks []replify.WorkerTask
+	var tasks []*replify.WorkerTask
 	for i := 0; i < n; i++ {
 		i := i
-		tasks = append(tasks, replify.WorkerTask{
-			Fn: func(ctx context.Context) (any, error) { return i, nil },
-		})
+		tasks = append(tasks, replify.NewWorkerTask("", func(ctx context.Context) (any, error) { return i, nil }))
 	}
 
 	w := replify.RunWorkerGroup(context.Background(), 8, tasks)
@@ -291,7 +289,7 @@ func TestRunWorkerGroup_ConcurrentAggregation(t *testing.T) {
 	}
 	seen := make(map[int]bool, n)
 	for _, r := range results {
-		seen[r.Value.(int)] = true
+		seen[r.Value().(int)] = true
 	}
 	if len(seen) != n {
 		t.Fatalf("expected all %d distinct values, got %d", n, len(seen))
@@ -309,8 +307,8 @@ func TestWorkerGroup_SequentialOrderMatchesCallOrder(t *testing.T) {
 	w := g.Wait()
 	results := resultsOf(t, w)
 	for i, r := range results {
-		if r.Index != i || r.Value != i {
-			t.Fatalf("expected sequential index/value %d, got index=%d value=%v", i, r.Index, r.Value)
+		if r.Index() != i || r.Value() != i {
+			t.Fatalf("expected sequential index/value %d, got index=%d value=%v", i, r.Index(), r.Value())
 		}
 	}
 }
@@ -320,8 +318,8 @@ func TestWorkerGroup_SequentialOrderMatchesCallOrder(t *testing.T) {
 func TestRunWorkerGroup_NilWorkerFunc(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerGroup(context.Background(), 0, []replify.WorkerTask{
-		{Name: "nil-fn", Fn: nil},
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("nil-fn", nil),
 	})
 
 	if w.StatusCode() != replify.StatusInternalServerError.Value() {
@@ -339,8 +337,8 @@ func TestWorkerGroup_DefaultNames(t *testing.T) {
 	g.Go("", func(ctx context.Context) (any, error) { return nil, nil })
 	w := g.Wait()
 	results := resultsOf(t, w)
-	if results[0].Name != "task-0" {
-		t.Fatalf("expected default name task-0, got %q", results[0].Name)
+	if results[0].Name() != "task-0" {
+		t.Fatalf("expected default name task-0, got %q", results[0].Name())
 	}
 }
 
@@ -367,19 +365,67 @@ func TestWorkerGroup_TryGoRespectsLimit(t *testing.T) {
 	}
 }
 
+// --- WorkerTask / PoolJob / WorkerResult accessors --------------------------
+
+func TestWorkerTask_GettersAndSetters(t *testing.T) {
+	t.Parallel()
+
+	fn := func(ctx context.Context) (any, error) { return nil, nil }
+	task := replify.NewWorkerTask("initial", fn)
+	if task.Name() != "initial" {
+		t.Fatalf("expected name %q, got %q", "initial", task.Name())
+	}
+	task.WithName("renamed")
+	if task.Name() != "renamed" {
+		t.Fatalf("expected name %q, got %q", "renamed", task.Name())
+	}
+	if task.Fn() == nil {
+		t.Fatalf("expected non-nil Fn")
+	}
+
+	var nilTask *replify.WorkerTask
+	if nilTask.Available() {
+		t.Fatalf("expected nil *WorkerTask to be unavailable")
+	}
+	if nilTask.Name() != "" || nilTask.Fn() != nil {
+		t.Fatalf("expected zero values from a nil *WorkerTask")
+	}
+}
+
+func TestPoolJob_GettersAndSetters(t *testing.T) {
+	t.Parallel()
+
+	job := replify.NewPoolJob("initial", func(ctx context.Context) error { return nil })
+	if job.Name() != "initial" {
+		t.Fatalf("expected name %q, got %q", "initial", job.Name())
+	}
+	job.WithName("renamed").WithJob(func(ctx context.Context) error { return errBoom })
+	if job.Name() != "renamed" {
+		t.Fatalf("expected name %q, got %q", "renamed", job.Name())
+	}
+	if err := job.Job()(context.Background()); !errors.Is(err, errBoom) {
+		t.Fatalf("expected errBoom from replaced job, got %v", err)
+	}
+
+	var nilJob *replify.PoolJob
+	if nilJob.Available() {
+		t.Fatalf("expected nil *PoolJob to be unavailable")
+	}
+}
+
 // --- Pool: happy path ---------------------------------------------------------
 
 func TestRunWorkerPool_Success(t *testing.T) {
 	t.Parallel()
 
 	sum := make(chan int, 4)
-	var jobs []replify.PoolJob
+	var jobs []*replify.PoolJob
 	for i := 1; i <= 4; i++ {
 		i := i
-		jobs = append(jobs, replify.PoolJob{
-			Name: fmt.Sprintf("job-%d", i),
-			Job:  func(ctx context.Context) error { sum <- i; return nil },
-		})
+		jobs = append(jobs, replify.NewPoolJob(
+			fmt.Sprintf("job-%d", i),
+			func(ctx context.Context) error { sum <- i; return nil },
+		))
 	}
 
 	w := replify.RunWorkerPool(context.Background(), 2, jobs)
@@ -409,9 +455,9 @@ func TestRunWorkerPool_Empty(t *testing.T) {
 func TestRunWorkerPool_PartialFailure(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerPool(context.Background(), 2, []replify.PoolJob{
-		{Name: "ok", Job: func(ctx context.Context) error { return nil }},
-		{Name: "bad", Job: func(ctx context.Context) error { return errBoom }},
+	w := replify.RunWorkerPool(context.Background(), 2, []*replify.PoolJob{
+		replify.NewPoolJob("ok", func(ctx context.Context) error { return nil }),
+		replify.NewPoolJob("bad", func(ctx context.Context) error { return errBoom }),
 	})
 
 	if w.StatusCode() != replify.StatusMultiStatus.Value() {
@@ -422,8 +468,8 @@ func TestRunWorkerPool_PartialFailure(t *testing.T) {
 	for _, r := range results {
 		if !r.Success() {
 			failures++
-			if !errors.Is(r.Err, errBoom) {
-				t.Fatalf("expected errBoom, got %v", r.Err)
+			if !errors.Is(r.Err(), errBoom) {
+				t.Fatalf("expected errBoom, got %v", r.Err())
 			}
 		}
 	}
@@ -435,9 +481,9 @@ func TestRunWorkerPool_PartialFailure(t *testing.T) {
 func TestRunWorkerPool_AllFail(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerPool(context.Background(), 2, []replify.PoolJob{
-		{Name: "a", Job: func(ctx context.Context) error { return errBoom }},
-		{Name: "b", Job: func(ctx context.Context) error { return errBoom }},
+	w := replify.RunWorkerPool(context.Background(), 2, []*replify.PoolJob{
+		replify.NewPoolJob("a", func(ctx context.Context) error { return errBoom }),
+		replify.NewPoolJob("b", func(ctx context.Context) error { return errBoom }),
 	})
 
 	if w.StatusCode() != replify.StatusInternalServerError.Value() {
@@ -451,8 +497,8 @@ func TestRunWorkerPool_AllFail(t *testing.T) {
 func TestRunWorkerPool_NilJob(t *testing.T) {
 	t.Parallel()
 
-	w := replify.RunWorkerPool(context.Background(), 1, []replify.PoolJob{
-		{Name: "nil-job", Job: nil},
+	w := replify.RunWorkerPool(context.Background(), 1, []*replify.PoolJob{
+		replify.NewPoolJob("nil-job", nil),
 	})
 	if !errors.Is(w.Cause(), replify.ErrNilTask) {
 		t.Fatalf("expected errors.Is to find ErrNilTask in %v", w.Cause())
@@ -479,8 +525,8 @@ func TestPool_SubmitFailureIsRecorded(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // the pool's own ctx is already canceled
 
-	w := replify.RunWorkerPool(ctx, 1, []replify.PoolJob{
-		{Name: "never-runs", Job: func(ctx context.Context) error { return nil }},
+	w := replify.RunWorkerPool(ctx, 1, []*replify.PoolJob{
+		replify.NewPoolJob("never-runs", func(ctx context.Context) error { return nil }),
 	})
 
 	// Submission itself fails because ctx is canceled; it must still show
@@ -495,17 +541,17 @@ func TestPool_SubmitFailureIsRecorded(t *testing.T) {
 // ExampleRunWorkerGroup demonstrates running a batch of named tasks
 // concurrently through replify and inspecting the aggregated result.
 func ExampleRunWorkerGroup() {
-	tasks := []replify.WorkerTask{
-		{Name: "square-1", Fn: func(ctx context.Context) (any, error) { return 1 * 1, nil }},
-		{Name: "square-2", Fn: func(ctx context.Context) (any, error) { return 2 * 2, nil }},
-		{Name: "square-3", Fn: func(ctx context.Context) (any, error) { return 3 * 3, nil }},
+	tasks := []*replify.WorkerTask{
+		replify.NewWorkerTask("square-1", func(ctx context.Context) (any, error) { return 1 * 1, nil }),
+		replify.NewWorkerTask("square-2", func(ctx context.Context) (any, error) { return 2 * 2, nil }),
+		replify.NewWorkerTask("square-3", func(ctx context.Context) (any, error) { return 3 * 3, nil }),
 	}
 
 	w := replify.RunWorkerGroup(context.Background(), 2, tasks)
 
 	sum := 0
-	for _, r := range w.Body().([]replify.WorkerResult) {
-		sum += r.Value.(int)
+	for _, r := range w.Body().([]*replify.WorkerResult) {
+		sum += r.Value().(int)
 	}
 	fmt.Println(w.StatusCode(), sum)
 	// Output: 200 14

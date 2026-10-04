@@ -43,32 +43,161 @@ var ErrWorkerPanicked = errors.New("replify: task panicked before completing")
 // [errors.As] continue to see the original error through the wrapping.
 type WorkerFunc func(ctx context.Context) (any, error)
 
-// WorkerTask pairs a descriptive Name with the [WorkerFunc] to execute. It is
+// WorkerTask pairs a descriptive name with the [WorkerFunc] to execute. It is
 // the input accepted by [RunWorkerGroup] for the common case of submitting a
-// fixed, known-upfront batch of named tasks.
+// fixed, known-upfront batch of named tasks. Build one with [NewWorkerTask].
 type WorkerTask struct {
-	// Name identifies the task in the resulting [WorkerResult] and in any
-	// wrapped error. Defaults to "task-<index>" (its submission index) when
-	// empty.
-	Name string
-
-	// Fn is the unit of work to execute. A nil Fn is reported as a failed
-	// task carrying [ErrNilTask] rather than panicking.
-	Fn WorkerFunc
+	name string // identifies the task in the resulting [WorkerResult] and in any wrapped error
+	fn   WorkerFunc
 }
 
-// PoolJob pairs a descriptive Name with the [workergroup.Job] to submit to a
-// [Pool]. It is the input accepted by [RunWorkerPool] for the common case of
-// submitting a fixed, known-upfront batch of named jobs.
-type PoolJob struct {
-	// Name identifies the job in the resulting [WorkerResult] and in any
-	// wrapped error. Defaults to "job-<index>" (its submission index) when
-	// empty.
-	Name string
+// NewWorkerTask creates a new [WorkerTask] pairing name with fn.
+//
+// Parameters:
+//   - name: identifies the task in the resulting [WorkerResult] and in any
+//     wrapped error. Defaults to "task-<index>" (its submission index) when
+//     empty.
+//   - fn: the unit of work to execute. A nil fn is reported as a failed task
+//     carrying [ErrNilTask] rather than panicking.
+//
+// Returns:
+//   - A pointer to a newly created [WorkerTask] instance.
+func NewWorkerTask(name string, fn WorkerFunc) *WorkerTask {
+	return &WorkerTask{name: name, fn: fn}
+}
 
-	// Job is the unit of work to execute. A nil Job is reported as a failed
-	// job carrying [ErrNilTask] rather than panicking.
-	Job workergroup.Job
+// Available checks whether the [WorkerTask] instance is non-nil.
+//
+// Returns:
+//   - A boolean value indicating whether the [WorkerTask] instance is non-nil.
+func (t *WorkerTask) Available() bool {
+	return t != nil
+}
+
+// Name retrieves the descriptive name of the [WorkerTask] instance.
+//
+// Returns:
+//   - A string representing the task's name, or an empty string if the
+//     [WorkerTask] instance is nil.
+func (t *WorkerTask) Name() string {
+	if !t.Available() {
+		return ""
+	}
+	return t.name
+}
+
+// Fn retrieves the unit of work of the [WorkerTask] instance.
+//
+// Returns:
+//   - The [WorkerFunc] to execute, or nil if the [WorkerTask] instance is nil.
+func (t *WorkerTask) Fn() WorkerFunc {
+	if !t.Available() {
+		return nil
+	}
+	return t.fn
+}
+
+// WithName sets the descriptive name of the [WorkerTask] instance.
+//
+// Parameters:
+//   - name: The string to set as the task's name.
+//
+// Returns:
+//   - A pointer to the updated [WorkerTask] instance.
+func (t *WorkerTask) WithName(name string) *WorkerTask {
+	t.name = name
+	return t
+}
+
+// WithFn sets the unit of work of the [WorkerTask] instance.
+//
+// Parameters:
+//   - fn: The [WorkerFunc] to set as the task's unit of work.
+//
+// Returns:
+//   - A pointer to the updated [WorkerTask] instance.
+func (t *WorkerTask) WithFn(fn WorkerFunc) *WorkerTask {
+	t.fn = fn
+	return t
+}
+
+// PoolJob pairs a descriptive name with the [workergroup.Job] to submit to a
+// [Pool]. It is the input accepted by [RunWorkerPool] for the common case of
+// submitting a fixed, known-upfront batch of named jobs. Build one with
+// [NewPoolJob].
+type PoolJob struct {
+	name string // identifies the job in the resulting [WorkerResult] and in any wrapped error
+	job  workergroup.Job
+}
+
+// NewPoolJob creates a new [PoolJob] pairing name with job.
+//
+// Parameters:
+//   - name: identifies the job in the resulting [WorkerResult] and in any
+//     wrapped error. Defaults to "job-<index>" (its submission index) when
+//     empty.
+//   - job: the unit of work to execute. A nil job is reported as a failed job
+//     carrying [ErrNilTask] rather than panicking.
+//
+// Returns:
+//   - A pointer to a newly created [PoolJob] instance.
+func NewPoolJob(name string, job workergroup.Job) *PoolJob {
+	return &PoolJob{name: name, job: job}
+}
+
+// Available checks whether the [PoolJob] instance is non-nil.
+//
+// Returns:
+//   - A boolean value indicating whether the [PoolJob] instance is non-nil.
+func (j *PoolJob) Available() bool {
+	return j != nil
+}
+
+// Name retrieves the descriptive name of the [PoolJob] instance.
+//
+// Returns:
+//   - A string representing the job's name, or an empty string if the
+//     [PoolJob] instance is nil.
+func (j *PoolJob) Name() string {
+	if !j.Available() {
+		return ""
+	}
+	return j.name
+}
+
+// Job retrieves the unit of work of the [PoolJob] instance.
+//
+// Returns:
+//   - The [workergroup.Job] to execute, or nil if the [PoolJob] instance is nil.
+func (j *PoolJob) Job() workergroup.Job {
+	if !j.Available() {
+		return nil
+	}
+	return j.job
+}
+
+// WithName sets the descriptive name of the [PoolJob] instance.
+//
+// Parameters:
+//   - name: The string to set as the job's name.
+//
+// Returns:
+//   - A pointer to the updated [PoolJob] instance.
+func (j *PoolJob) WithName(name string) *PoolJob {
+	j.name = name
+	return j
+}
+
+// WithJob sets the unit of work of the [PoolJob] instance.
+//
+// Parameters:
+//   - job: The [workergroup.Job] to set as the job's unit of work.
+//
+// Returns:
+//   - A pointer to the updated [PoolJob] instance.
+func (j *PoolJob) WithJob(job workergroup.Job) *PoolJob {
+	j.job = job
+	return j
 }
 
 // WorkerResult captures the outcome of a single task executed through a
@@ -79,35 +208,148 @@ type PoolJob struct {
 // tasks. When a concurrency limit of 1 is used (fully sequential execution),
 // Index does match call order.
 type WorkerResult struct {
-	// Name identifies the task or job, as supplied to Go, TryGo, Submit, or
-	// TrySubmit (defaulted to "task-<index>"/"job-<index>" when empty).
-	Name string
+	name     string        // identifies the task or job, defaulted to "task-<index>"/"job-<index>" when empty
+	index    int           // zero-based position of the result among all tasks or jobs
+	value    any           // the value returned by the task, or nil if not applicable
+	err      error         // the error returned by the task, or nil if the task succeeded or if not applicable
+	duration time.Duration // the time taken to execute the task, or zero if not applicable
+}
 
-	// Index is the zero-based position of this result among all results
-	// collected by the same [WorkerGroup] or [Pool].
-	Index int
+// newWorkerResult creates a new [WorkerResult] reserved for the task or job
+// identified by name at the given index; value, err, and duration are filled
+// in once the task completes.
+func newWorkerResult(name string, index int) *WorkerResult {
+	return &WorkerResult{name: name, index: index}
+}
 
-	// Value is the task's return value, when produced by a [WorkerFunc].
-	// Always nil for [Pool] jobs, since [workergroup.Job] only reports an
-	// error.
-	Value any
+// Available checks whether the [WorkerResult] instance is non-nil.
+//
+// Returns:
+//   - A boolean value indicating whether the [WorkerResult] instance is non-nil.
+func (r *WorkerResult) Available() bool {
+	return r != nil
+}
 
-	// Err is the error returned by the task, or nil on success. It is the
-	// original, unwrapped error — the task-name wrapping applied for the
-	// underlying Group/Pool's own error aggregation is not applied here, so
-	// [errors.Is] and [errors.As] against sentinel errors work directly.
-	Err error
+// Name retrieves the name of the task or job that produced this [WorkerResult].
+//
+// Returns:
+//   - A string representing the task or job's name, or an empty string if the
+//     [WorkerResult] instance is nil.
+func (r *WorkerResult) Name() string {
+	if !r.Available() {
+		return ""
+	}
+	return r.name
+}
 
-	// Duration is the wall-clock time the task spent executing, measured
-	// from immediately before the task function is invoked to immediately
-	// after it returns (or, for a recovered panic, to the point the panic
-	// unwound past the measurement point).
-	Duration time.Duration
+// Index retrieves the zero-based position of this [WorkerResult] among all
+// results collected by the same [WorkerGroup] or [Pool].
+//
+// Returns:
+//   - An integer representing the result's index, or 0 if the [WorkerResult]
+//     instance is nil.
+func (r *WorkerResult) Index() int {
+	if !r.Available() {
+		return 0
+	}
+	return r.index
+}
+
+// Value retrieves the task's return value, when produced by a [WorkerFunc].
+//
+// Returns:
+//   - The value returned by the task, always nil for [Pool] jobs (since
+//     [workergroup.Job] only reports an error) or if the [WorkerResult]
+//     instance is nil.
+func (r *WorkerResult) Value() any {
+	if !r.Available() {
+		return nil
+	}
+	return r.value
+}
+
+// Err retrieves the error returned by the task, or nil on success. It is the
+// original, unwrapped error — the task-name wrapping applied for the
+// underlying Group/Pool's own error aggregation is not applied here, so
+// [errors.Is] and [errors.As] against sentinel errors work directly.
+//
+// Returns:
+//   - The error returned by the task, or nil if it succeeded or if the
+//     [WorkerResult] instance is nil.
+func (r *WorkerResult) Err() error {
+	if !r.Available() {
+		return nil
+	}
+	return r.err
+}
+
+// Duration retrieves the wall-clock time the task spent executing, measured
+// from immediately before the task function is invoked to immediately after
+// it returns (or, for a recovered panic, to the point the panic unwound past
+// the measurement point).
+//
+// Returns:
+//   - A [time.Duration] representing the task's execution time, or 0 if the
+//     [WorkerResult] instance is nil.
+func (r *WorkerResult) Duration() time.Duration {
+	if !r.Available() {
+		return 0
+	}
+	return r.duration
+}
+
+// WithName sets the name of the [WorkerResult] instance.
+//
+// Returns:
+//   - A pointer to the updated [WorkerResult] instance.
+func (r *WorkerResult) WithName(name string) *WorkerResult {
+	r.name = name
+	return r
+}
+
+// WithIndex sets the zero-based position of the [WorkerResult] instance.
+//
+// Returns:
+//   - A pointer to the updated [WorkerResult] instance.
+func (r *WorkerResult) WithIndex(index int) *WorkerResult {
+	r.index = index
+	return r
+}
+
+// WithValue sets the return value of the [WorkerResult] instance.
+//
+// Returns:
+//   - A pointer to the updated [WorkerResult] instance.
+func (r *WorkerResult) WithValue(value any) *WorkerResult {
+	r.value = value
+	return r
+}
+
+// WithErr sets the error of the [WorkerResult] instance.
+//
+// Returns:
+//   - A pointer to the updated [WorkerResult] instance.
+func (r *WorkerResult) WithErr(err error) *WorkerResult {
+	r.err = err
+	return r
+}
+
+// WithDuration sets the execution duration of the [WorkerResult] instance.
+//
+// Returns:
+//   - A pointer to the updated [WorkerResult] instance.
+func (r *WorkerResult) WithDuration(d time.Duration) *WorkerResult {
+	r.duration = d
+	return r
 }
 
 // Success reports whether the task completed without error.
-func (r WorkerResult) Success() bool {
-	return r.Err == nil
+//
+// Returns:
+//   - A boolean value indicating whether the task succeeded: `true` if Err is
+//     nil, `false` otherwise (including when the [WorkerResult] instance is nil).
+func (r *WorkerResult) Success() bool {
+	return r.Available() && r.err == nil
 }
 
 // WorkerGroup wraps a [workergroup.Group], recording the name, return value
@@ -144,7 +386,7 @@ type WorkerGroup struct {
 	started time.Time
 
 	mu      sync.Mutex
-	results []WorkerResult
+	results []*WorkerResult
 }
 
 // NewWorkerGroup creates a [WorkerGroup] with no associated Context; tasks
@@ -212,38 +454,30 @@ func (g *WorkerGroup) run(name string, fn WorkerFunc) (groupErr error) {
 	g.mu.Lock()
 	idx := len(g.results)
 	name = strutil.DefaultIfEmpty(name, fmt.Sprintf("task-%d", idx))
-	g.results = append(g.results, WorkerResult{Name: name, Index: idx})
+	res := newWorkerResult(name, idx)
+	g.results = append(g.results, res)
 	g.mu.Unlock()
 
 	if fn == nil {
-		g.mu.Lock()
-		g.results[idx].Err = ErrNilTask
-		g.mu.Unlock()
+		res.WithErr(ErrNilTask)
 		return fmt.Errorf("worker %q failed: %w", name, ErrNilTask)
 	}
 
 	start := time.Now()
 	completed := false
 	defer func() {
-		dur := time.Since(start)
-		g.mu.Lock()
 		if !completed {
 			// A panic unwound past this task (panic recovery is configured
 			// on the underlying Group; otherwise the process has already
 			// crashed and this defer never runs).
-			g.results[idx].Err = ErrWorkerPanicked
+			res.WithErr(ErrWorkerPanicked)
 		}
-		g.results[idx].Duration = dur
-		g.mu.Unlock()
+		res.WithDuration(time.Since(start))
 	}()
 
 	value, err := fn(g.ctx)
 	completed = true
-
-	g.mu.Lock()
-	g.results[idx].Value = value
-	g.results[idx].Err = err
-	g.mu.Unlock()
+	res.WithValue(value).WithErr(err)
 
 	if err != nil {
 		return fmt.Errorf("worker %q failed: %w", name, err)
@@ -280,10 +514,10 @@ func (g *WorkerGroup) Wait() *wrapper {
 
 // snapshot returns a defensive copy of the results collected so far,
 // ordered by Index.
-func (g *WorkerGroup) snapshot() []WorkerResult {
+func (g *WorkerGroup) snapshot() []*WorkerResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	out := make([]WorkerResult, len(g.results))
+	out := make([]*WorkerResult, len(g.results))
 	copy(out, g.results)
 	return out
 }
@@ -303,14 +537,14 @@ func (g *WorkerGroup) snapshot() []WorkerResult {
 // always uses [workergroup.CollectErrors] so that a single failing task
 // cannot hide the outcome of the others, which is what makes the
 // [MultiStatus] partial-failure case meaningful.
-func RunWorkerGroup(ctx context.Context, concurrency int, tasks []WorkerTask) *wrapper {
+func RunWorkerGroup(ctx context.Context, concurrency int, tasks []*WorkerTask) *wrapper {
 	opts := []workergroup.Option{workergroup.WithErrorMode(workergroup.CollectErrors)}
 	if concurrency > 0 {
 		opts = append(opts, workergroup.WithLimit(concurrency))
 	}
 	g, _ := NewWorkerGroupWithContext(ctx, opts...)
 	for _, t := range tasks {
-		g.Go(t.Name, t.Fn)
+		g.Go(t.Name(), t.Fn())
 	}
 	return g.Wait()
 }
@@ -337,7 +571,7 @@ type Pool struct {
 	started time.Time
 
 	mu      sync.Mutex
-	results []WorkerResult
+	results []*WorkerResult
 }
 
 // NewPool creates a [Pool] whose jobs observe ctx and starts it with
@@ -384,35 +618,28 @@ func (p *Pool) wrap(name string, job workergroup.Job) workergroup.Job {
 	p.mu.Lock()
 	idx := len(p.results)
 	name = strutil.DefaultIfEmpty(name, fmt.Sprintf("job-%d", idx))
-	p.results = append(p.results, WorkerResult{Name: name, Index: idx})
+	res := newWorkerResult(name, idx)
+	p.results = append(p.results, res)
 	p.mu.Unlock()
 
 	return func(ctx context.Context) error {
 		if job == nil {
-			p.mu.Lock()
-			p.results[idx].Err = ErrNilTask
-			p.mu.Unlock()
+			res.WithErr(ErrNilTask)
 			return fmt.Errorf("job %q failed: %w", name, ErrNilTask)
 		}
 
 		start := time.Now()
 		completed := false
 		defer func() {
-			dur := time.Since(start)
-			p.mu.Lock()
 			if !completed {
-				p.results[idx].Err = ErrWorkerPanicked
+				res.WithErr(ErrWorkerPanicked)
 			}
-			p.results[idx].Duration = dur
-			p.mu.Unlock()
+			res.WithDuration(time.Since(start))
 		}()
 
 		err := job(ctx)
 		completed = true
-
-		p.mu.Lock()
-		p.results[idx].Err = err
-		p.mu.Unlock()
+		res.WithErr(err)
 
 		if err != nil {
 			return fmt.Errorf("job %q failed: %w", name, err)
@@ -441,10 +668,10 @@ func (p *Pool) Wait() *wrapper {
 
 // snapshot returns a defensive copy of the results collected so far,
 // ordered by Index.
-func (p *Pool) snapshot() []WorkerResult {
+func (p *Pool) snapshot() []*WorkerResult {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	out := make([]WorkerResult, len(p.results))
+	out := make([]*WorkerResult, len(p.results))
 	copy(out, p.results)
 	return out
 }
@@ -459,12 +686,12 @@ func (p *Pool) snapshot() []WorkerResult {
 // canceled before every job could be accepted), that job is still recorded
 // as a failed [WorkerResult] carrying the submission error, rather than
 // being silently dropped from the result set.
-func RunWorkerPool(ctx context.Context, workers int, jobs []PoolJob) *wrapper {
+func RunWorkerPool(ctx context.Context, workers int, jobs []*PoolJob) *wrapper {
 	p := NewPool(ctx, workers)
 	for _, j := range jobs {
-		if err := p.Submit(ctx, j.Name, j.Job); err != nil {
+		if err := p.Submit(ctx, j.Name(), j.Job()); err != nil {
 			p.mu.Lock()
-			p.results = append(p.results, WorkerResult{Name: j.Name, Index: len(p.results), Err: err})
+			p.results = append(p.results, newWorkerResult(j.Name(), len(p.results)).WithErr(err))
 			p.mu.Unlock()
 		}
 	}
@@ -478,7 +705,7 @@ func RunWorkerPool(ctx context.Context, workers int, jobs []PoolJob) *wrapper {
 // only affects wording in Message; parent is the caller-supplied Context
 // (nil when none was given) used to detect genuine external
 // cancellation/deadline expiry, independent of task-level errors.
-func buildGroupWrapper(kind string, parent context.Context, results []WorkerResult, groupErr error, elapsed time.Duration) *wrapper {
+func buildGroupWrapper(kind string, parent context.Context, results []*WorkerResult, groupErr error, elapsed time.Duration) *wrapper {
 	w := New().
 		WithTotal(len(results)).
 		WithBody(results).
@@ -509,14 +736,14 @@ func buildGroupWrapper(kind string, parent context.Context, results []WorkerResu
 
 	succeeded, failed := 0, 0
 	var firstFailed *WorkerResult
-	for i := range results {
-		if results[i].Success() {
+	for _, r := range results {
+		if r.Success() {
 			succeeded++
 			continue
 		}
 		failed++
 		if firstFailed == nil {
-			firstFailed = &results[i]
+			firstFailed = r
 		}
 	}
 	w.WithDebuggingKV("succeeded", succeeded).WithDebuggingKV("failed", failed)
@@ -533,7 +760,7 @@ func buildGroupWrapper(kind string, parent context.Context, results []WorkerResu
 			WithReasonCode(ReasonCodeJobFailed).
 			WithMessagef("%s: all %d task(s) failed", kind, failed)
 	default:
-		w.WithDebuggingKV("first_failed", firstFailed.Name)
+		w.WithDebuggingKV("first_failed", firstFailed.Name())
 		return w.
 			WithHeader(MultiStatus).
 			WithMessagef("%s: %d of %d task(s) failed", kind, failed, len(results))
