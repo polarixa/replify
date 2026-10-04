@@ -413,6 +413,81 @@ func TestPoolJob_GettersAndSetters(t *testing.T) {
 	}
 }
 
+// --- Respond / JSON / Logging / Slogging ------------------------------------
+
+func TestWorkerTask_RespondAndJSON(t *testing.T) {
+	t.Parallel()
+
+	task := replify.NewWorkerTask("t1", func(ctx context.Context) (any, error) { return nil, nil })
+	m := task.Respond()
+	if m["name"] != "t1" || m["has_fn"] != true {
+		t.Fatalf("unexpected Respond() map: %+v", m)
+	}
+	if task.JSON() == "" {
+		t.Fatalf("expected non-empty JSON")
+	}
+
+	task.Logging()
+	task.Slogging()
+
+	var nilTask *replify.WorkerTask
+	if len(nilTask.Respond()) != 0 {
+		t.Fatalf("expected empty Respond() map for nil *WorkerTask")
+	}
+	nilTask.Logging() // must not panic
+	nilTask.Slogging()
+}
+
+func TestPoolJob_RespondAndJSON(t *testing.T) {
+	t.Parallel()
+
+	job := replify.NewPoolJob("j1", func(ctx context.Context) error { return nil })
+	m := job.Respond()
+	if m["name"] != "j1" || m["has_job"] != true {
+		t.Fatalf("unexpected Respond() map: %+v", m)
+	}
+	if job.JSON() == "" {
+		t.Fatalf("expected non-empty JSON")
+	}
+
+	job.Logging()
+	job.Slogging()
+
+	var nilJob *replify.PoolJob
+	if len(nilJob.Respond()) != 0 {
+		t.Fatalf("expected empty Respond() map for nil *PoolJob")
+	}
+	nilJob.Logging() // must not panic
+	nilJob.Slogging()
+}
+
+func TestWorkerResult_RespondAndJSON(t *testing.T) {
+	t.Parallel()
+
+	w := replify.RunWorkerGroup(context.Background(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("failing", func(ctx context.Context) (any, error) { return nil, errBoom }),
+	})
+	result := resultsOf(t, w)[0]
+
+	m := result.Respond()
+	if m["name"] != "failing" || m["success"] != false || m["error"] != errBoom.Error() {
+		t.Fatalf("unexpected Respond() map: %+v", m)
+	}
+	if result.JSON() == "" {
+		t.Fatalf("expected non-empty JSON")
+	}
+
+	result.Logging()
+	result.Slogging()
+
+	var nilResult *replify.WorkerResult
+	if len(nilResult.Respond()) != 0 {
+		t.Fatalf("expected empty Respond() map for nil *WorkerResult")
+	}
+	nilResult.Logging() // must not panic
+	nilResult.Slogging()
+}
+
 // --- Pool: happy path ---------------------------------------------------------
 
 func TestRunWorkerPool_Success(t *testing.T) {

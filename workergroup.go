@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/workergroup"
 )
@@ -121,6 +122,75 @@ func (t *WorkerTask) WithFn(fn WorkerFunc) *WorkerTask {
 	return t
 }
 
+// Respond constructs a map representation of the [WorkerTask] instance.
+//
+// Returns:
+//   - A map with keys "name" and "has_fn" (the [WorkerFunc] itself is never
+//     serialized). Empty when the [WorkerTask] instance is nil.
+func (t *WorkerTask) Respond() map[string]any {
+	m := make(map[string]any)
+	if !t.Available() {
+		return m
+	}
+	m["name"] = t.name
+	m["has_fn"] = t.fn != nil
+	return m
+}
+
+// JSON serializes the [WorkerTask] instance into a compact JSON string.
+//
+// Returns:
+//   - A compact JSON string representation of the [WorkerTask] instance.
+func (t *WorkerTask) JSON() string {
+	return jsonpass(t.Respond())
+}
+
+// Logging logs the [WorkerTask] instance using the provided logger or the default logger.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [WorkerTask] instance (enabling method chaining).
+func (t *WorkerTask) Logging(logger ...*slogger.Logger) *WorkerTask {
+	if !t.Available() {
+		return t
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, slogger.InfoLevel, "replify::workertask::logging", slogger.JSON("WORKER_TASK", t.Respond()))
+	return t
+}
+
+// Slogging logs the [WorkerTask] instance using the provided logger or the default logger in a simplified manner.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [WorkerTask] instance (enabling method chaining).
+func (t *WorkerTask) Slogging(logger ...*slogger.Logger) *WorkerTask {
+	if !t.Available() {
+		return t
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, slogger.InfoLevel, fmt.Sprintf("name=%s has_fn=%t", t.name, t.fn != nil))
+	return t
+}
+
 // PoolJob pairs a descriptive name with the [workergroup.Job] to submit to a
 // [Pool]. It is the input accepted by [RunWorkerPool] for the common case of
 // submitting a fixed, known-upfront batch of named jobs. Build one with
@@ -197,6 +267,75 @@ func (j *PoolJob) WithName(name string) *PoolJob {
 //   - A pointer to the updated [PoolJob] instance.
 func (j *PoolJob) WithJob(job workergroup.Job) *PoolJob {
 	j.job = job
+	return j
+}
+
+// Respond constructs a map representation of the [PoolJob] instance.
+//
+// Returns:
+//   - A map with keys "name" and "has_job" (the [workergroup.Job] itself is
+//     never serialized). Empty when the [PoolJob] instance is nil.
+func (j *PoolJob) Respond() map[string]any {
+	m := make(map[string]any)
+	if !j.Available() {
+		return m
+	}
+	m["name"] = j.name
+	m["has_job"] = j.job != nil
+	return m
+}
+
+// JSON serializes the [PoolJob] instance into a compact JSON string.
+//
+// Returns:
+//   - A compact JSON string representation of the [PoolJob] instance.
+func (j *PoolJob) JSON() string {
+	return jsonpass(j.Respond())
+}
+
+// Logging logs the [PoolJob] instance using the provided logger or the default logger.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [PoolJob] instance (enabling method chaining).
+func (j *PoolJob) Logging(logger ...*slogger.Logger) *PoolJob {
+	if !j.Available() {
+		return j
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, slogger.InfoLevel, "replify::pooljob::logging", slogger.JSON("POOL_JOB", j.Respond()))
+	return j
+}
+
+// Slogging logs the [PoolJob] instance using the provided logger or the default logger in a simplified manner.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [PoolJob] instance (enabling method chaining).
+func (j *PoolJob) Slogging(logger ...*slogger.Logger) *PoolJob {
+	if !j.Available() {
+		return j
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	slogAtLevel(child, slogger.InfoLevel, fmt.Sprintf("name=%s has_job=%t", j.name, j.job != nil))
 	return j
 }
 
@@ -350,6 +489,88 @@ func (r *WorkerResult) WithDuration(d time.Duration) *WorkerResult {
 //     nil, `false` otherwise (including when the [WorkerResult] instance is nil).
 func (r *WorkerResult) IsSuccess() bool {
 	return r.Available() && r.err == nil
+}
+
+// Respond constructs a map representation of the [WorkerResult] instance.
+//
+// Returns:
+//   - A map with keys "name", "index", "success", and "duration" (formatted
+//     via [time.Duration.String]), plus "value" and "error" when present.
+//     Empty when the [WorkerResult] instance is nil.
+func (r *WorkerResult) Respond() map[string]any {
+	m := make(map[string]any)
+	if !r.Available() {
+		return m
+	}
+	m["name"] = r.name
+	m["index"] = r.index
+	m["success"] = r.IsSuccess()
+	m["duration"] = r.duration.String()
+	if r.value != nil {
+		m["value"] = r.value
+	}
+	if r.err != nil {
+		m["error"] = r.err.Error()
+	}
+	return m
+}
+
+// JSON serializes the [WorkerResult] instance into a compact JSON string.
+//
+// Returns:
+//   - A compact JSON string representation of the [WorkerResult] instance.
+func (r *WorkerResult) JSON() string {
+	return jsonpass(r.Respond())
+}
+
+// Logging logs the [WorkerResult] instance using the provided logger or the default logger.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [WorkerResult] instance (enabling method chaining).
+func (r *WorkerResult) Logging(logger ...*slogger.Logger) *WorkerResult {
+	if !r.Available() {
+		return r
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	logAtLevel(child, slogger.InfoLevel, "replify::workerresult::logging", slogger.JSON("WORKER_RESULT", r.Respond()))
+	return r
+}
+
+// Slogging logs the [WorkerResult] instance using the provided logger or the default logger in a simplified manner.
+//
+// Parameters:
+//   - logger: An optional pointer to a [slogger.Logger] instance to use for logging.
+//
+// Returns:
+//   - A pointer to the [WorkerResult] instance (enabling method chaining).
+func (r *WorkerResult) Slogging(logger ...*slogger.Logger) *WorkerResult {
+	if !r.Available() {
+		return r
+	}
+	l := slogger.S()
+	if len(logger) > 0 && logger[0] != nil {
+		l = logger[0]
+	}
+
+	child := l.With()
+	child.WithCaller(true).WithCallerSkip(3)
+
+	msg := fmt.Sprintf("name=%s index=%d success=%t duration=%s", r.name, r.index, r.IsSuccess(), r.duration)
+	if r.err != nil {
+		msg += fmt.Sprintf(" error=%s", r.err.Error())
+	}
+	slogAtLevel(child, slogger.InfoLevel, msg)
+	return r
 }
 
 // WorkerGroup wraps a [workergroup.Group], recording the name, return value
