@@ -7,7 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/slogger"
+	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
 	"github.com/polarixa/replify/pkg/workergroup"
 )
@@ -38,7 +40,7 @@ var ErrWorkerPanicked = errors.New("replify: task panicked before completing")
 //
 // A nil error marks the task as successful and value (if any) is preserved in
 // the corresponding [WorkerResult.Value]. A non-nil error marks the task as
-// failed; it is preserved verbatim in [WorkerResult.Err] and also reported to
+// failed; it is preserved verbatim in [WorkerResult.Cause] and also reported to
 // the underlying [workergroup.Group], wrapped with the task's name via
 // fmt.Errorf("worker %q failed: %w", name, err) so that [errors.Is] and
 // [errors.As] continue to see the original error through the wrapping.
@@ -407,7 +409,7 @@ func (r *WorkerResult) Value() any {
 	return r.value
 }
 
-// Err retrieves the error returned by the task, or nil on success. It is the
+// Cause retrieves the error returned by the task, or nil on success. It is the
 // original, unwrapped error — the task-name wrapping applied for the
 // underlying Group/Pool's own error aggregation is not applied here, so
 // [errors.Is] and [errors.As] against sentinel errors work directly.
@@ -415,7 +417,7 @@ func (r *WorkerResult) Value() any {
 // Returns:
 //   - The error returned by the task, or nil if it succeeded or if the
 //     [WorkerResult] instance is nil.
-func (r *WorkerResult) Err() error {
+func (r *WorkerResult) Cause() error {
 	if !r.Available() {
 		return nil
 	}
@@ -523,6 +525,33 @@ func (r *WorkerResult) JSON() string {
 	return jsonpass(r.Respond())
 }
 
+// String returns a human-readable string representation of the [WorkerResult] instance.
+//
+// Returns:
+//   - A string representing the [WorkerResult] instance in a human-readable format.
+func (r *WorkerResult) String() string {
+	if r == nil {
+		return ""
+	}
+	sw := strchain.New()
+	sw.AppendF("name=%s", r.name)
+	sw.Space()
+	sw.AppendF("index=%d", r.index)
+	sw.Space()
+	sw.AppendF("success=%t", r.IsSuccess())
+	sw.Space()
+	sw.AppendF("duration=%s", r.duration)
+	if r.value != nil {
+		sw.Space()
+		sw.AppendF("value=%v", conv.StringOrEmpty(r.value))
+	}
+	if r.err != nil {
+		sw.Space()
+		sw.AppendF("error=%s", r.err.Error())
+	}
+	return sw.String()
+}
+
 // Logging logs the [WorkerResult] instance using the provided logger or the default logger.
 //
 // Parameters:
@@ -564,12 +593,7 @@ func (r *WorkerResult) Slogging(logger ...*slogger.Logger) *WorkerResult {
 
 	child := l.With()
 	child.WithCaller(true).WithCallerSkip(3)
-
-	msg := fmt.Sprintf("name=%s index=%d success=%t duration=%s", r.name, r.index, r.IsSuccess(), r.duration)
-	if r.err != nil {
-		msg += fmt.Sprintf(" error=%s", r.err.Error())
-	}
-	slogAtLevel(child, slogger.InfoLevel, msg)
+	slogAtLevel(child, slogger.InfoLevel, r.String())
 	return r
 }
 
@@ -735,6 +759,13 @@ func (g *WorkerGroup) Wait() *wrapper {
 
 // snapshot returns a defensive copy of the results collected so far,
 // ordered by Index.
+//
+// This method is safe to call concurrently with other methods that may
+// modify the group's results, as it acquires the necessary lock before
+// making a copy.
+//
+// Returns:
+//   - A slice of pointers to [WorkerResult], representing a snapshot of the group's results at the time of the call.
 func (g *WorkerGroup) snapshot() []*WorkerResult {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -936,13 +967,13 @@ func buildGroupWrapper(kind string, parent context.Context, results []*WorkerRes
 		if cErr := parent.Err(); cErr != nil {
 			if errors.Is(cErr, context.DeadlineExceeded) {
 				return w.
-					WithHeader(GatewayTimeout).
+					GatewayTimeout().
 					WithErrorAck(cErr).
 					WithReasonCode(ReasonCodeJobTimeout).
 					WithMessagef("%s: context deadline exceeded", kind)
 			}
 			return w.
-				WithHeader(ClientClosedRequest).
+				ClientClosedRequest().
 				WithErrorAck(cErr).
 				WithReasonCode(ReasonCodeJobCancelled).
 				WithMessagef("%s: context canceled", kind)
@@ -951,7 +982,7 @@ func buildGroupWrapper(kind string, parent context.Context, results []*WorkerRes
 
 	if len(results) == 0 {
 		return w.
-			WithHeader(NoContent).
+			NoContent().
 			WithMessagef("%s: no tasks were submitted", kind)
 	}
 
@@ -972,18 +1003,18 @@ func buildGroupWrapper(kind string, parent context.Context, results []*WorkerRes
 	switch {
 	case failed == 0:
 		return w.
-			WithHeader(OK).
+			OK().
 			WithMessagef("%s: %d task(s) completed successfully", kind, succeeded)
 	case succeeded == 0:
 		return w.
-			WithHeader(InternalServerError).
+			InternalServerError().
 			WithErrorAck(groupErr).
 			WithReasonCode(ReasonCodeJobFailed).
 			WithMessagef("%s: all %d task(s) failed", kind, failed)
 	default:
 		w.WithDebuggingKV("first_failed", firstFailed.Name())
 		return w.
-			WithHeader(MultiStatus).
+			MultiStatus().
 			WithMessagef("%s: %d of %d task(s) failed", kind, failed, len(results))
 	}
 }

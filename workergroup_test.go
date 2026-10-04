@@ -169,7 +169,7 @@ func TestRunWorkerGroup_PartialFailure(t *testing.T) {
 		case "ok":
 			sawSuccess = r.IsSuccess()
 		case "bad":
-			sawFailure = !r.IsSuccess() && errors.Is(r.Err(), errBoom)
+			sawFailure = !r.IsSuccess() && errors.Is(r.Cause(), errBoom)
 		}
 	}
 	if !sawSuccess || !sawFailure {
@@ -543,8 +543,8 @@ func TestRunWorkerPool_PartialFailure(t *testing.T) {
 	for _, r := range results {
 		if !r.IsSuccess() {
 			failures++
-			if !errors.Is(r.Err(), errBoom) {
-				t.Fatalf("expected errBoom, got %v", r.Err())
+			if !errors.Is(r.Cause(), errBoom) {
+				t.Fatalf("expected errBoom, got %v", r.Cause())
 			}
 		}
 	}
