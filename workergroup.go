@@ -325,11 +325,11 @@ func (r *WorkerResult) WithValue(value any) *WorkerResult {
 	return r
 }
 
-// WithErr sets the error of the [WorkerResult] instance.
+// WithError sets the error of the [WorkerResult] instance.
 //
 // Returns:
 //   - A pointer to the updated [WorkerResult] instance.
-func (r *WorkerResult) WithErr(err error) *WorkerResult {
+func (r *WorkerResult) WithError(err error) *WorkerResult {
 	r.err = err
 	return r
 }
@@ -343,12 +343,12 @@ func (r *WorkerResult) WithDuration(d time.Duration) *WorkerResult {
 	return r
 }
 
-// Success reports whether the task completed without error.
+// IsSuccess reports whether the task completed without error.
 //
 // Returns:
 //   - A boolean value indicating whether the task succeeded: `true` if Err is
 //     nil, `false` otherwise (including when the [WorkerResult] instance is nil).
-func (r *WorkerResult) Success() bool {
+func (r *WorkerResult) IsSuccess() bool {
 	return r.Available() && r.err == nil
 }
 
@@ -459,7 +459,7 @@ func (g *WorkerGroup) run(name string, fn WorkerFunc) (groupErr error) {
 	g.mu.Unlock()
 
 	if fn == nil {
-		res.WithErr(ErrNilTask)
+		res.WithError(ErrNilTask)
 		return fmt.Errorf("worker %q failed: %w", name, ErrNilTask)
 	}
 
@@ -470,14 +470,14 @@ func (g *WorkerGroup) run(name string, fn WorkerFunc) (groupErr error) {
 			// A panic unwound past this task (panic recovery is configured
 			// on the underlying Group; otherwise the process has already
 			// crashed and this defer never runs).
-			res.WithErr(ErrWorkerPanicked)
+			res.WithError(ErrWorkerPanicked)
 		}
 		res.WithDuration(time.Since(start))
 	}()
 
 	value, err := fn(g.ctx)
 	completed = true
-	res.WithValue(value).WithErr(err)
+	res.WithValue(value).WithError(err)
 
 	if err != nil {
 		return fmt.Errorf("worker %q failed: %w", name, err)
@@ -624,7 +624,7 @@ func (p *Pool) wrap(name string, job workergroup.Job) workergroup.Job {
 
 	return func(ctx context.Context) error {
 		if job == nil {
-			res.WithErr(ErrNilTask)
+			res.WithError(ErrNilTask)
 			return fmt.Errorf("job %q failed: %w", name, ErrNilTask)
 		}
 
@@ -632,14 +632,14 @@ func (p *Pool) wrap(name string, job workergroup.Job) workergroup.Job {
 		completed := false
 		defer func() {
 			if !completed {
-				res.WithErr(ErrWorkerPanicked)
+				res.WithError(ErrWorkerPanicked)
 			}
 			res.WithDuration(time.Since(start))
 		}()
 
 		err := job(ctx)
 		completed = true
-		res.WithErr(err)
+		res.WithError(err)
 
 		if err != nil {
 			return fmt.Errorf("job %q failed: %w", name, err)
@@ -691,7 +691,7 @@ func RunWorkerPool(ctx context.Context, workers int, jobs []*PoolJob) *wrapper {
 	for _, j := range jobs {
 		if err := p.Submit(ctx, j.Name(), j.Job()); err != nil {
 			p.mu.Lock()
-			p.results = append(p.results, newWorkerResult(j.Name(), len(p.results)).WithErr(err))
+			p.results = append(p.results, newWorkerResult(j.Name(), len(p.results)).WithError(err))
 			p.mu.Unlock()
 		}
 	}
@@ -737,7 +737,7 @@ func buildGroupWrapper(kind string, parent context.Context, results []*WorkerRes
 	succeeded, failed := 0, 0
 	var firstFailed *WorkerResult
 	for _, r := range results {
-		if r.Success() {
+		if r.IsSuccess() {
 			succeeded++
 			continue
 		}

@@ -40,7 +40,7 @@ func TestRunWorkerGroup_SingleTaskSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got %v", w.Error())
 	}
 	results := resultsOf(t, w)
-	if len(results) != 1 || !results[0].Success() || results[0].Value() != 42 {
+	if len(results) != 1 || !results[0].IsSuccess() || results[0].Value() != 42 {
 		t.Fatalf("unexpected results: %+v", results)
 	}
 }
@@ -68,7 +68,7 @@ func TestRunWorkerGroup_MultipleTasksSuccess(t *testing.T) {
 	results := resultsOf(t, w)
 	sum := 0
 	for _, r := range results {
-		if !r.Success() {
+		if !r.IsSuccess() {
 			t.Fatalf("unexpected failure: %+v", r)
 		}
 		sum += r.Value().(int)
@@ -138,7 +138,7 @@ func TestRunWorkerGroup_AllTasksFail(t *testing.T) {
 	}
 
 	results := resultsOf(t, w)
-	if len(results) != 2 || results[0].Success() || results[1].Success() {
+	if len(results) != 2 || results[0].IsSuccess() || results[1].IsSuccess() {
 		t.Fatalf("expected both results to be failures: %+v", results)
 	}
 }
@@ -167,9 +167,9 @@ func TestRunWorkerGroup_PartialFailure(t *testing.T) {
 	for _, r := range results {
 		switch r.Name() {
 		case "ok":
-			sawSuccess = r.Success()
+			sawSuccess = r.IsSuccess()
 		case "bad":
-			sawFailure = !r.Success() && errors.Is(r.Err(), errBoom)
+			sawFailure = !r.IsSuccess() && errors.Is(r.Err(), errBoom)
 		}
 	}
 	if !sawSuccess || !sawFailure {
@@ -466,7 +466,7 @@ func TestRunWorkerPool_PartialFailure(t *testing.T) {
 	results := resultsOf(t, w)
 	var failures int
 	for _, r := range results {
-		if !r.Success() {
+		if !r.IsSuccess() {
 			failures++
 			if !errors.Is(r.Err(), errBoom) {
 				t.Fatalf("expected errBoom, got %v", r.Err())
