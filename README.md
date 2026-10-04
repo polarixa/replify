@@ -42,6 +42,7 @@ Building RESTful APIs often requires repetitive boilerplate code for standardizi
 - 📊 **Metadata** - API version, custom fields, timestamps
 - ✅ **Status Helpers** - IsSuccess(), IsClientError(), IsServerError()
 - 🔄 **JSON Parsing** - Parse JSON strings back to wrapper objects
+- 🧵 **Concurrent Execution** - `WorkerGroup`/`Pool` fan-out and persistent worker pools with replify-native aggregated results
 
 ## Requirements
 
@@ -1622,6 +1623,397 @@ sorted := response.SortJSONBody("products", "price", true)
    // ❌ mutating b corrupts the original string
    ```
 
+## WorkerGroup Usage Guide
+
+`pkg/workergroup` (a dependency-free reimagining of `golang.org/x/sync/errgroup` with live-scalable concurrency and a genuine persistent worker pool) is integrated as a first-class replify execution capability. Instead of returning a plain `error`, running tasks through replify's `WorkerGroup`, `Pool`, `RunWorkerGroup`, and `RunWorkerPool` produces a `*wrapper` that distinguishes full success, partial failure, group-level failure, and context cancellation/timeout — the same `wrapper` your handlers already know how to log, serialize, and write to an `http.ResponseWriter`.
+
+### Core Types
+
+| Type / Function                                                  | Purpose                                                                                     |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `WorkerFunc func(ctx context.Context) (any, error)`              | A task's unit of work; the optional return value is preserved per-result                    |
+| `WorkerTask` / `NewWorkerTask(name, fn)`                         | Pairs a name with a `WorkerFunc` for `RunWorkerGroup`                                       |
+| `PoolJob` / `NewPoolJob(name, job)`                              | Pairs a name with a `workergroup.Job` for `RunWorkerPool`                                   |
+| `WorkerResult`                                                   | Per-task outcome: `Name()`, `Index()`, `Value()`, `Cause()`, `Duration()`, `IsSuccess()`    |
+| `RunWorkerGroup(ctx, concurrency, tasks []*WorkerTask) *wrapper` | One-call: run a fixed batch of named tasks concurrently, return the aggregated `*wrapper`   |
+| `RunWorkerPool(ctx, workers, jobs []*PoolJob) *wrapper`          | One-call: run a fixed batch of jobs through a worker pool, return the aggregated `*wrapper` |
+| `WorkerGroup` / `NewWorkerGroupWithContext(ctx, opts...)`        | Lower-level builder for incremental/streaming submission (`Go`, `TryGo`, `Wait`)            |
+| `Pool` / `NewPool(ctx, initialWorkers, opts...)`                 | Lower-level builder for a long-lived, dynamically scalable worker pool                      |
+
+### Status Mapping
+
+`Wait()` (and the `Run*` convenience functions) always resolve to exactly one of these outcomes, so callers never have to reconstruct them from a single combined error:
+
+| Scenario                                   | Status Code               | Notes                                                              |
+| ------------------------------------------ | ------------------------- | ------------------------------------------------------------------ |
+| Every task/job succeeded                   | `200 OK`                  | —                                                                  |
+| Some succeeded, some failed                | `207 MultiStatus`         | No top-level error attached; inspect each `WorkerResult.Cause()`   |
+| Every task/job failed                      | `500 InternalServerError` | Combined error attached via `WithErrorAck` (`errors.Is`/`As` work) |
+| The caller's Context was canceled          | `499 ClientClosedRequest` | Detected independently of individual task errors                   |
+| The caller's Context deadline was exceeded | `504 GatewayTimeout`      | Same as above, for `context.DeadlineExceeded`                      |
+| No tasks/jobs were ever submitted          | `204 NoContent`           | —                                                                  |
+
+The full, ordered `[]*WorkerResult` is always available via `wrapper.Body()`, regardless of which status was resolved — no per-task outcome is ever discarded.
+
+### Quick Start: Fan-Out a Batch of Named Tasks
+
+```go
+w := replify.RunWorkerGroup(ctx, 4, []*replify.WorkerTask{
+    replify.NewWorkerTask("users", func(ctx context.Context) (any, error) {
+        return fetchUsers(ctx)
+    }),
+    replify.NewWorkerTask("orders", func(ctx context.Context) (any, error) {
+        return fetchOrders(ctx)
+    }),
+    replify.NewWorkerTask("invoices", func(ctx context.Context) (any, error) {
+        return fetchInvoices(ctx)
+    }),
+})
+
+switch w.StatusCode() {
+case replify.StatusOK.Value():
+    // every fetch succeeded
+case replify.StatusMultiStatus.Value():
+    // some fetches failed; inspect which
+    for _, r := range w.Body().([]*replify.WorkerResult) {
+        if !r.IsSuccess() {
+            log.Printf("%s failed: %v", r.Name(), r.Cause())
+        }
+    }
+}
+
+w.Write(httpResponseWriter)
+```
+
+### Quick Start: Persistent Worker Pool for Background Jobs
+
+```go
+w := replify.RunWorkerPool(ctx, 8, []*replify.PoolJob{
+    replify.NewPoolJob("email-1", func(ctx context.Context) error { return sendEmail(ctx, order1) }),
+    replify.NewPoolJob("email-2", func(ctx context.Context) error { return sendEmail(ctx, order2) }),
+    replify.NewPoolJob("email-3", func(ctx context.Context) error { return sendEmail(ctx, order3) }),
+})
+
+w.Slogging() // log the aggregated outcome in one line
+```
+
+### Quick Start: Incremental Submission with the Lower-Level Builders
+
+Use `WorkerGroup`/`Pool` directly (instead of the one-call `Run*` helpers) when tasks aren't known upfront as a fixed slice — e.g. generated in a loop reading from a channel, or a long-lived pool that outlives a single request:
+
+```go
+g, gctx := replify.NewWorkerGroupWithContext(ctx, workergroup.WithLimit(4))
+for _, id := range userIDs {
+    id := id
+    g.Go(fmt.Sprintf("user-%d", id), func(ctx context.Context) (any, error) {
+        return fetchUser(gctx, id)
+    })
+}
+w := g.Wait()
+```
+
+```go
+// A pool that lives for the lifetime of the process, scaled on demand.
+pool := replify.NewPool(ctx, 4)
+defer pool.Close()
+
+pool.ScaleTo(16) // scale up under load, safe even while jobs are running
+_ = pool.Submit(ctx, "resize-thumbnail", func(ctx context.Context) error {
+    return resizeThumbnail(ctx, imagePath)
+})
+```
+
+### Real-World Use Cases
+
+| Use case                                                                        | Recommended API                                                                             |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Dashboard/BFF endpoint aggregating N downstream microservice calls              | `RunWorkerGroup` — bounded concurrency, partial failure visible as `207`                    |
+| Health check endpoint pinging several dependencies                              | `RunWorkerGroup` — one failed dependency doesn't hide the others' status                    |
+| Bulk batch processing (CSV import, bulk email, bulk notifications)              | `RunWorkerGroup` or `RunWorkerPool` — per-row/per-item success/failure tracked individually |
+| Background job queue (order processing, webhook delivery, thumbnail generation) | `Pool` — long-lived, independently scalable workers consuming a queue                       |
+| Request-scoped parallel I/O (DB + cache + external API in one handler)          | `RunWorkerGroup` with a request-bound `context.Context` for automatic cancellation          |
+| Scheduled/cron-triggered fan-out jobs (nightly reconciliation across accounts)  | `RunWorkerGroup` with `concurrency` tuned to the downstream system's rate limit             |
+| Rate-limited work against a fragile downstream (payment gateway, SMS provider)  | `WorkerGroup`/`Pool` with `workergroup.WithLimit` / `ScaleTo` to bound concurrency          |
+| A single job that must not take down a whole worker loop                        | `workergroup.WithPanicRecovery` / `WithPoolPanicRecovery` — see `ErrWorkerPanicked`         |
+| Sequential execution that still benefits from the aggregated wrapper            | `RunWorkerGroup(ctx, 1, tasks)` — same result shape, no actual concurrency                  |
+
+### Real-World Use Case Examples
+
+Each example below corresponds to a row in the table above and uses the actual replify API — swap in your own service clients, database/cache handles, and job payloads.
+
+---
+
+**1. Dashboard/BFF endpoint aggregating N downstream microservice calls**
+
+```go
+func DashboardHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+
+	result := replify.RunWorkerGroup(r.Context(), 4, []*replify.WorkerTask{
+		replify.NewWorkerTask("profile", func(ctx context.Context) (any, error) {
+			return userServiceClient.GetProfile(ctx, userID)
+		}),
+		replify.NewWorkerTask("orders", func(ctx context.Context) (any, error) {
+			return orderServiceClient.RecentOrders(ctx, userID)
+		}),
+		replify.NewWorkerTask("notifications", func(ctx context.Context) (any, error) {
+			return notificationServiceClient.Unread(ctx, userID)
+		}),
+		replify.NewWorkerTask("recommendations", func(ctx context.Context) (any, error) {
+			return recommendationServiceClient.For(ctx, userID)
+		}),
+	})
+
+	// Reshape the ordered []*WorkerResult into a friendly object keyed by task
+	// name. A 207 here means the dashboard is still usable, just missing a widget.
+	dashboard := map[string]any{}
+	for _, r := range result.Body().([]*replify.WorkerResult) {
+		if r.IsSuccess() {
+			dashboard[r.Name()] = r.Value()
+		}
+	}
+
+	result.WithBody(dashboard).Write(w)
+}
+```
+
+---
+
+**2. Health check endpoint pinging several dependencies**
+
+```go
+func HealthzHandler(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	result := replify.RunWorkerGroup(ctx, 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("database", func(ctx context.Context) (any, error) {
+			return nil, db.PingContext(ctx)
+		}),
+		replify.NewWorkerTask("cache", func(ctx context.Context) (any, error) {
+			return nil, redisClient.Ping(ctx).Err()
+		}),
+		replify.NewWorkerTask("message-queue", func(ctx context.Context) (any, error) {
+			return nil, mqClient.HealthCheck(ctx)
+		}),
+	})
+
+	// 200 when every dependency is healthy, 207 when some are degraded, and
+	// 500 when every dependency is down — computed automatically.
+	result.Write(w)
+}
+```
+
+---
+
+**3. Bulk batch processing (CSV import, bulk email, bulk notifications)**
+
+```go
+func ImportUsersFromCSV(ctx context.Context, rows []UserRow) {
+	var tasks []*replify.WorkerTask
+	for _, row := range rows {
+		row := row
+		tasks = append(tasks, replify.NewWorkerTask(row.Email, func(ctx context.Context) (any, error) {
+			return nil, db.UpsertUser(ctx, row)
+		}))
+	}
+
+	// Bound concurrency to 10 so the import can't overwhelm the database pool.
+	result := replify.RunWorkerGroup(ctx, 10, tasks)
+
+	var failedEmails []string
+	for _, r := range result.Body().([]*replify.WorkerResult) {
+		if !r.IsSuccess() {
+			failedEmails = append(failedEmails, r.Name())
+		}
+	}
+	result.WithDebuggingKV("failed_emails", failedEmails).Slogging()
+}
+```
+
+---
+
+**4. Background job queue (order processing, webhook delivery, thumbnail generation)**
+
+```go
+// Created once at application startup; long-lived for the process's lifetime.
+var jobPool = replify.NewPool(context.Background(), 8)
+
+func EnqueueOrderHandler(w http.ResponseWriter, r *http.Request) {
+	orderID := r.PathValue("id")
+
+	err := jobPool.Submit(r.Context(), "process-order-"+orderID, func(ctx context.Context) error {
+		return processOrder(ctx, orderID)
+	})
+	if err != nil {
+		replify.New().ServiceUnavailable().WithErrorAck(err).Write(w)
+		return
+	}
+	replify.New().Accepted().WithMessage("order queued for processing").Write(w)
+}
+
+// Scale the pool up or down live, e.g. from a metrics-driven autoscaler —
+// safe even while jobs submitted earlier are still running.
+func ScaleOrderWorkers(n int) error {
+	return jobPool.ScaleTo(n)
+}
+
+func GracefulShutdown() {
+	jobPool.Close()           // stop accepting new jobs
+	jobPool.Wait().Slogging() // wait for the queue to drain, log the outcome
+}
+```
+
+---
+
+**5. Request-scoped parallel I/O (DB + cache + external API in one handler)**
+
+```go
+func GetUserProfileHandler(w http.ResponseWriter, r *http.Request) {
+	userID := r.PathValue("id")
+
+	// r.Context() is canceled if the client disconnects mid-request;
+	// RunWorkerGroup surfaces that as 499 Client Closed Request automatically.
+	result := replify.RunWorkerGroup(r.Context(), 0, []*replify.WorkerTask{
+		replify.NewWorkerTask("db", func(ctx context.Context) (any, error) {
+			return userRepo.FindByID(ctx, userID)
+		}),
+		replify.NewWorkerTask("cache-warm", func(ctx context.Context) (any, error) {
+			return nil, cache.Touch(ctx, "user:"+userID)
+		}),
+		replify.NewWorkerTask("recommendations-api", func(ctx context.Context) (any, error) {
+			return recommendationsClient.Fetch(ctx, userID)
+		}),
+	})
+
+	result.Write(w)
+}
+```
+
+---
+
+**6. Scheduled/cron-triggered fan-out jobs (nightly reconciliation across accounts)**
+
+```go
+func NightlyReconciliation(ctx context.Context, accountIDs []string) {
+	var tasks []*replify.WorkerTask
+	for _, id := range accountIDs {
+		id := id
+		tasks = append(tasks, replify.NewWorkerTask(id, func(ctx context.Context) (any, error) {
+			return nil, reconcileAccount(ctx, id)
+		}))
+	}
+
+	// Keep concurrency within the ledger service's documented rate limit.
+	result := replify.RunWorkerGroup(ctx, 5, tasks)
+	result.WithDebuggingKV("accounts_total", len(accountIDs)).Slogging()
+
+	if result.StatusCode() == replify.StatusMultiStatus.Value() {
+		for _, r := range result.Body().([]*replify.WorkerResult) {
+			if !r.IsSuccess() {
+				alerting.Notify("reconciliation failed for account %s: %v", r.Name(), r.Cause())
+			}
+		}
+	}
+}
+```
+
+---
+
+**7. Rate-limited work against a fragile downstream (payment gateway, SMS provider)**
+
+```go
+func SendBulkSMS(ctx context.Context, recipients []string, message string) {
+	g, _ := replify.NewWorkerGroupWithContext(ctx, workergroup.WithLimit(5))
+
+	for _, phone := range recipients {
+		phone := phone
+		g.Go(phone, func(ctx context.Context) (any, error) {
+			return nil, smsProvider.Send(ctx, phone, message)
+		})
+	}
+
+	// If the provider starts returning 429s, a concurrent watchdog can safely
+	// throttle the group further — SetLimit is promoted from the embedded
+	// *workergroup.Group and is safe to call while goroutines are active.
+	go watchForThrottling(func() { g.SetLimit(1) })
+
+	g.Wait().Slogging()
+}
+```
+
+---
+
+**8. A single job that must not take down a whole worker loop**
+
+```go
+func ProcessVideoRenderQueue(ctx context.Context, jobs []RenderJob) {
+	panicRecovery := workergroup.WithPoolPanicRecovery(func(recovered any, stack []byte) {
+		log.Printf("render job panicked: %v\n%s", recovered, stack)
+	})
+	pool := replify.NewPool(ctx, 4, panicRecovery)
+	defer pool.Close()
+
+	for _, job := range jobs {
+		job := job
+		_ = pool.Submit(ctx, job.ID, func(ctx context.Context) error {
+			return renderVideo(ctx, job) // a bug here must not take down the other 3 workers
+		})
+	}
+
+	result := pool.Wait()
+	for _, r := range result.Body().([]*replify.WorkerResult) {
+		if errors.Is(r.Cause(), replify.ErrWorkerPanicked) {
+			log.Printf("job %q recovered from a panic and was marked failed", r.Name())
+		}
+	}
+}
+```
+
+---
+
+**9. Sequential execution that still benefits from the aggregated wrapper**
+
+```go
+func RunMigrationPipeline(ctx context.Context) {
+	result := replify.RunWorkerGroup(ctx, 1, []*replify.WorkerTask{
+		replify.NewWorkerTask("backup", func(ctx context.Context) (any, error) {
+			return nil, backupDatabase(ctx)
+		}),
+		replify.NewWorkerTask("migrate", func(ctx context.Context) (any, error) {
+			return nil, runMigrations(ctx)
+		}),
+		replify.NewWorkerTask("verify", func(ctx context.Context) (any, error) {
+			return nil, verifySchema(ctx)
+		}),
+	})
+
+	// concurrency == 1 guarantees backup → migrate → verify order (Index
+	// matches call order exactly), yet the outcome is still the same
+	// 200/207/500 aggregated wrapper as any other RunWorkerGroup call.
+	if result.StatusCode() != replify.StatusOK.Value() {
+		log.Fatalf("migration pipeline failed: %s", result.JSON())
+	}
+}
+```
+
+### When to Use
+
+- You need to fan out to multiple independent operations and return one HTTP-shaped response that distinguishes **all succeeded** / **some failed** / **all failed**, instead of a single opaque error.
+- You need per-task identity (`WorkerResult.Name()`), per-task duration, and the original (unwrapped) per-task error for `errors.Is`/`errors.As`, not just an aggregated message.
+- You're building a persistent background worker pool that must scale up/down live in response to load (`ScaleTo`/`ScaleBy`), without the `errgroup`-style restriction against reconfiguring while goroutines are active.
+- Context cancellation or a deadline should produce a clearly distinguishable status (`499`/`504`) rather than being folded into a generic task error.
+- You want the outcome of concurrent work to flow straight into the same logging (`Logging`/`Slogging`), serialization (`JSON`/`Respond`), and HTTP-writing (`Write`) pipeline the rest of your handler already uses.
+
+### When NOT to Use
+
+- **A single synchronous call** — wrapping one function call in a `WorkerGroup` adds goroutine, mutex, and allocation overhead for no benefit; just call the function.
+- **Tight, CPU-bound inner loops** where the per-task bookkeeping (`WorkerResult` allocation, mutex-protected slice append) is measurable overhead — use `pkg/workergroup` directly, or a plain `sync.WaitGroup`, if you don't need the aggregated `*wrapper`.
+- **Strict completion-order guarantees** — `[]*WorkerResult` is ordered by the order tasks _began_ running, which is only guaranteed to match submission order when `concurrency == 1`; don't rely on it for anything stronger.
+- **Streaming partial results back to a client as they complete** — `Wait()` blocks until every task finishes and returns one final `*wrapper`; if callers need incremental/streaming responses, use `pkg/workergroup` directly (or `Pool.Submit` from multiple goroutines) and stream yourself.
+- **Extremely hot, latency-sensitive paths** where every allocation is budgeted — prefer `pkg/workergroup`'s `Group`/`WorkerPool` directly, without the replify result-tracking layer.
+- **Non-idempotent, exactly-once semantics** — `workergroup.CollectErrors` (the default for `RunWorkerGroup`/`RunWorkerPool`) deliberately keeps running the remaining tasks after one fails; if a failure must stop everything immediately, configure `workergroup.WithErrorMode(workergroup.FirstError)` via the lower-level `WorkerGroup`/`Pool` builders instead.
+
 ## Contributing
 
 To contribute to this project, follow these steps:
@@ -1677,6 +2069,7 @@ Part of the **replify** ecosystem:
 - [ref](https://github.com/polarixa/replify/pkg/ref) - Pointer utilities
 - [strutil](https://github.com/polarixa/replify/pkg/strutil) - String utilities
 - [truncate](https://github.com/polarixa/replify/pkg/truncate) - String truncation utilities
+- [workergroup](https://github.com/polarixa/replify/pkg/workergroup) - OOP-style, live-scalable concurrency (error groups and worker pools)
 
 ## Support
 
