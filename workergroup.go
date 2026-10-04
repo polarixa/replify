@@ -852,6 +852,60 @@ func (p *Pool) Submit(ctx context.Context, name string, job workergroup.Job) err
 	return p.WorkerPool.Submit(ctx, p.wrap(name, job))
 }
 
+// SubmitReply adds a named job to the pool queue exactly as [Pool.Submit]
+// does, but reports the outcome as a *wrapper instead of a plain error —
+// convenient for call sites (e.g. an HTTP handler) that want to write a
+// response immediately after enqueueing, through the same wrapper pipeline
+// used everywhere else in replify.
+//
+// SubmitReply still performs exactly one blocking [Pool.Submit] call, so its
+// blocking/cancellation/closed-pool semantics are unchanged; only the return
+// shape differs. Because every call — including the overwhelmingly common
+// success case — allocates a *wrapper, prefer [Pool.Submit] in hot,
+// high-frequency submission loops (e.g. [RunWorkerPool]'s internal loop) and
+// reserve SubmitReply for low-frequency, response-producing call sites.
+//
+// Returns:
+//   - [Accepted] (202) when the job was queued successfully.
+//   - [GatewayTimeout] (504) when ctx's deadline was exceeded.
+//   - [ClientClosedRequest] (499) when ctx or the pool's own Context was canceled.
+//   - [ServiceUnavailable] (503) when the pool has already been [Pool.Close]d
+//     ([workergroup.ErrPoolClosed]).
+//   - [InternalServerError] (500) for any other submission error.
+//
+// In every error case, the original error is attached via WithErrorAck,
+// preserving [errors.Is] / [errors.As] compatibility.
+func (p *Pool) SubmitReply(ctx context.Context, name string, job workergroup.Job) *wrapper {
+	err := p.Submit(ctx, name, job)
+	w := New().WithDebuggingKV("job", name)
+
+	if err == nil {
+		return w.Accepted().WithMessagef("job %q queued for processing", name)
+	}
+
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return w.GatewayTimeout().
+			WithErrorAck(err).
+			WithReasonCode(ReasonCodeJobTimeout).
+			WithMessagef("job %q: context deadline exceeded", name)
+	case errors.Is(err, context.Canceled):
+		return w.ClientClosedRequest().
+			WithErrorAck(err).
+			WithReasonCode(ReasonCodeJobCancelled).
+			WithMessagef("job %q: context canceled", name)
+	case errors.Is(err, workergroup.ErrPoolClosed):
+		return w.ServiceUnavailable().
+			WithErrorAck(err).
+			WithReasonCode(ReasonCodeServiceUnavailable).
+			WithMessagef("job %q: pool is closed", name)
+	default:
+		return w.InternalServerError().
+			WithErrorAck(err).
+			WithMessagef("job %q: failed to submit", name)
+	}
+}
+
 // TrySubmit adds a named job to the pool queue only if doing so would not
 // block, exactly as [workergroup.WorkerPool.TrySubmit] does. It reports
 // whether the job was accepted. When it was, the job's outcome is recorded

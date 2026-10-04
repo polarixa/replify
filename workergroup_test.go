@@ -611,6 +611,54 @@ func TestPool_SubmitFailureIsRecorded(t *testing.T) {
 	}
 }
 
+func TestPool_SubmitReply_Success(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	p := replify.NewPool(ctx, 2)
+	defer p.Close()
+
+	w := p.SubmitReply(ctx, "job-1", func(ctx context.Context) error { return nil })
+	if w.StatusCode() != replify.StatusAccepted.Value() {
+		t.Fatalf("expected 202, got %d", w.StatusCode())
+	}
+	if w.IsError() {
+		t.Fatalf("expected no error, got %v", w.Error())
+	}
+}
+
+func TestPool_SubmitReply_ContextCanceled(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel both the pool's own ctx and the per-call ctx before any worker can race for the job
+
+	p := replify.NewPool(ctx, 1)
+	w := p.SubmitReply(ctx, "job-1", func(ctx context.Context) error { return nil })
+
+	if w.StatusCode() != replify.StatusClientClosedRequest.Value() {
+		t.Fatalf("expected 499, got %d", w.StatusCode())
+	}
+	if !errors.Is(w.Cause(), context.Canceled) {
+		t.Fatalf("expected errors.Is to find context.Canceled in %v", w.Cause())
+	}
+}
+
+func TestPool_SubmitReply_PoolClosed(t *testing.T) {
+	t.Parallel()
+
+	p := replify.NewPool(context.Background(), 1)
+	p.Close()
+
+	w := p.SubmitReply(context.Background(), "job-1", func(ctx context.Context) error { return nil })
+	if w.StatusCode() != replify.StatusServiceUnavailable.Value() {
+		t.Fatalf("expected 503, got %d", w.StatusCode())
+	}
+	if !errors.Is(w.Cause(), workergroup.ErrPoolClosed) {
+		t.Fatalf("expected errors.Is to find ErrPoolClosed in %v", w.Cause())
+	}
+}
+
 // --- Example -------------------------------------------------------------------
 
 // ExampleRunWorkerGroup demonstrates running a batch of named tasks
