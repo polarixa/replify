@@ -124,3 +124,52 @@ func IsBase64Any(s string) bool {
 		base64.RawURLEncoding,
 	).IsValid(s)
 }
+
+// Base64Encode encodes a byte slice into a standard Base64 string.
+//
+// Parameters:
+//   - value: The byte slice to encode.
+//
+// Returns:
+//   - The standard Base64-encoded string.
+func Base64Encode(value []byte) string {
+	return base64.StdEncoding.EncodeToString(value)
+}
+
+// Base64Decode decodes a standard Base64 string into a byte slice.
+//
+// Parameters:
+//   - value: The Base64-encoded string to decode.
+//
+// Returns:
+//   - The decoded byte slice, or an error if the input is not valid Base64.
+func Base64Decode(value string) ([]byte, error) {
+	return base64.StdEncoding.DecodeString(value)
+}
+
+// Base64URLEncode encodes a byte slice into a URL-safe Base64 string.
+//
+// Parameters:
+//   - value: The byte slice to encode.
+//
+// Returns:
+//   - The URL-safe Base64-encoded string.
+func Base64URLEncode(value []byte) string {
+	return base64.URLEncoding.EncodeToString(value)
+}
+
+// Base64URLDecode decodes a URL-safe Base64 string into a byte slice.
+// It automatically falls back to Raw URL-safe decoding if standard URL-safe decoding fails due to missing padding.
+//
+// Parameters:
+//   - value: The URL-safe Base64-encoded string to decode.
+//
+// Returns:
+//   - The decoded byte slice, or an error if the input is not valid URL-safe Base64.
+func Base64URLDecode(value string) ([]byte, error) {
+	decoded, err := base64.URLEncoding.DecodeString(value)
+	if err == nil {
+		return decoded, nil
+	}
+	return base64.RawURLEncoding.DecodeString(value)
+}
