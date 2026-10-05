@@ -531,3 +531,33 @@ func WithMetaFromRequest(request *http.Request) ROption {
 		w.WithMetaFromRequest(request)
 	}
 }
+
+// WithBodyBase64 returns an [ROption] that sets the response body payload directly to a Base64-encoded string.
+// It marks the body as Base64-encoded so that subsequent decoding operations are aware of its state.
+//
+// Parameters:
+//   - body: The Base64-encoded string to use as the response body payload.
+//
+// Returns:
+//   - An [ROption] that applies the Base64-encoded body to the wrapper.
+func WithBodyBase64(body string) ROption {
+	return func(w *wrapper) {
+		w.WithBody(body)
+		w.bodyBase64 = true
+	}
+}
+
+// WithBodyBase64Bytes returns an [ROption] that sets the response body payload directly to a Base64-encoded byte slice.
+// It marks the body as Base64-encoded so that subsequent decoding operations are aware of its state.
+//
+// Parameters:
+//   - body: The Base64-encoded byte slice to use as the response body payload.
+//
+// Returns:
+//   - An [ROption] that applies the Base64-encoded body to the wrapper.
+func WithBodyBase64Bytes(body []byte) ROption {
+	return func(w *wrapper) {
+		w.WithBody(string(body))
+		w.bodyBase64 = true
+	}
+}
