@@ -2051,7 +2051,13 @@ To contribute to this project, follow these steps:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the **Apache License 2.0** - see the [LICENSE](LICENSE) file for details.
+
+**For Enterprise & Commercial Use:**
+`replify` is designed to be safely integrated into commercial, closed-source, and SaaS applications. The Apache 2.0 license provides an explicit patent grant, ensuring legal safety for enterprise adoption.
+
+**Contributions:**
+We welcome Pull Requests! By contributing to `replify`, you agree that your contributions will be licensed under the project's Apache License 2.0, and you grant `polarixa` the rights to use and distribute your contributions as part of the ecosystem.
 
 ## Related Packages
 
