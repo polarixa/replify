@@ -2470,6 +2470,24 @@ func (w *wrapper) WithSkipBody(skip bool) *wrapper {
 	return w
 }
 
+// EnableSkipBody is a convenience method that sets the skip body flag to true,
+// effectively suppressing the body payload from output in [String], [build], and [Slogging].
+//
+// Returns:
+//   - A pointer to the [wrapper] instance, enabling method chaining.
+func (w *wrapper) EnableSkipBody() *wrapper {
+	return w.WithSkipBody(true)
+}
+
+// DisableSkipBody is a convenience method that sets the skip body flag to false,
+// effectively restoring the body payload in output for [String], [build], and [Slogging].
+//
+// Returns:
+//   - A pointer to the [wrapper] instance, enabling method chaining.
+func (w *wrapper) DisableSkipBody() *wrapper {
+	return w.WithSkipBody(false)
+}
+
 // IsBodySkipped reports whether the body payload is currently suppressed
 // from output by [String], [build], and [Slogging].
 //
