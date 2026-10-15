@@ -1823,6 +1823,12 @@ func (w *wrapper) Clone() *wrapper {
 		data:       w.data,
 		path:       w.path,
 		errors:     w.errors,
+		skipBody:   w.skipBody,
+		filepath:   w.filepath,
+		filename:   w.filename,
+		span:       w.span,
+		bodyBase64: w.bodyBase64,
+		request:    w.request,
 	}
 
 	// Clone header
