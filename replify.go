@@ -3128,6 +3128,24 @@ func (w *wrapper) WithSpan(v bool) *wrapper {
 	return w
 }
 
+// EnableSpan is a convenience method that sets the span flag to true,
+// indicating that the response should include span information.
+//
+// Returns:
+//   - A pointer to the [wrapper] instance, enabling method chaining.
+func (w *wrapper) EnableSpan() *wrapper {
+	return w.WithSpan(true)
+}
+
+// DisableSpan is a convenience method that sets the span flag to false,
+// indicating that the response should not include span information.
+//
+// Returns:
+//   - A pointer to the [wrapper] instance, enabling method chaining.
+func (w *wrapper) DisableSpan() *wrapper {
+	return w.WithSpan(false)
+}
+
 // MustHash generates a hash value for the [wrapper] instance.
 //
 // This method generates a hash value for the [wrapper] instance using the `MustHash` method.
