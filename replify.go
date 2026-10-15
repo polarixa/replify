@@ -1882,10 +1882,11 @@ func (w *wrapper) Clone() *wrapper {
 
 // Reset resets the [wrapper] instance to its initial state.
 //
-// This function sets the [wrapper] instance to its initial state by resetting
-// the `statusCode`, `total`, `message`, `path`, `cacheHash`, `data`, `debug`,
-// [header], `errors`, [pagination], and `cachedWrap` fields to their default values.
-// It also resets the [meta] instance to its initial state.
+// This function zeroes every field of the [wrapper] in a single assignment
+// (re-seeding [meta] with its defaults), rather than resetting fields one by
+// one. This keeps Reset automatically correct whenever fields are added to,
+// renamed in, or removed from [wrapper] — there is no field list to keep in
+// sync by hand.
 //
 // Returns:
 //   - A pointer to the reset [wrapper] instance.
@@ -1894,33 +1895,7 @@ func (w *wrapper) Reset() *wrapper {
 	if !w.Available() {
 		return New()
 	}
-
-	// Reset status code and total
-	w.total = 0
-	w.statusCode = 0
-
-	// Reset message, path, and cache hash
-	w.path = ""
-	w.message = ""
-	w.cacheHash = ""
-
-	// Reset data, debug, header, errors, pagination, and cached wrap
-	w.data = nil
-	w.debug = nil
-	w.header = nil
-	w.errors = nil
-	w.pagination = nil
-	w.cachedWrap = nil
-	w.issue = nil
-	w.cursor = nil
-	w.request = nil
-	w.links = nil
-	w.signature = nil
-	w.reason = nil
-
-	// Reset meta
-	w.meta = defaultMetaValues()
-
+	*w = wrapper{meta: defaultMetaValues()}
 	return w
 }
 
