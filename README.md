@@ -184,7 +184,7 @@ func main() {
         WithMessage("User retrieved successfully").
         WithBody(map[string]string{"id": "123", "name": "John Doe"})
 
-    fmt.Println(w.JSONPretty()) // {"data":{"id":"123","name":"John Doe"},"header":{"code":200,"text":"OK"},"message":"User retrieved successfully","meta":{...},"status_code":200,"total":0}
+    fmt.Println(w.JSON()) // {"data":{"id":"123","name":"John Doe"},"header":{"code":200,"text":"OK","type":"Successful"},"message":"User retrieved successfully","meta":{"api_version":"v0.0.1","locale":"en_US","request_id":"db848ff9djinl03ik1d0","requested_time":"2026-10-15 10:10:53.721643"},"status_code":200,"total":0}
 }
 ```
 
@@ -201,14 +201,15 @@ func main() {
   },
   "header": {
     "code": 200,
-    "text": "OK"
+    "text": "OK",
+    "type": "Successful"
   },
   "message": "User retrieved successfully",
   "meta": {
     "api_version": "v0.0.1",
     "locale": "en_US",
-    "request_id": "d7e5ce24b796da94770911db36565bf9",
-    "requested_time": "2026-01-29T10:07:05.751501+07:00"
+    "request_id": "db848ff9djinl03ik1d0",
+    "requested_time": "2026-10-15 10:10:53.721643"
   },
   "status_code": 200,
   "total": 0
