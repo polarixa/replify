@@ -14,7 +14,7 @@ import (
 // Returns:
 //   - The updated [wrapper] instance with the body encoded in Base64.
 func (w *wrapper) EncodeBodyBase64() *wrapper {
-	if !w.IsBodyPresent() {
+	if !w.IsBodyPresent() || w.bodyBase64 {
 		return w
 	}
 	// Suppress the current body before encoding it in Base64.
@@ -64,7 +64,7 @@ func (w *wrapper) DecodeBodyBase64() *wrapper {
 // Returns:
 //   - The updated [wrapper] instance with the body encoded in URL-safe Base64.
 func (w *wrapper) EncodeBodyBase64URL() *wrapper {
-	if !w.IsBodyPresent() {
+	if !w.IsBodyPresent() || w.bodyBase64 {
 		return w
 	}
 	// Suppress the current body before encoding it in URL-safe Base64.
@@ -114,7 +114,7 @@ func (w *wrapper) DecodeBodyBase64URL() *wrapper {
 // Returns:
 //   - The updated [wrapper] instance with the body encoded in unpadded Base64.
 func (w *wrapper) EncodeBodyBase64Raw() *wrapper {
-	if !w.IsBodyPresent() {
+	if !w.IsBodyPresent() || w.bodyBase64 {
 		return w
 	}
 	w.WithBodySuppressed(w.Body())
