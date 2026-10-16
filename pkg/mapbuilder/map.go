@@ -41,7 +41,7 @@ func (b *MapBuilder) Add(key string, value any) *MapBuilder {
 		return b
 	}
 	if strutil.IsEmpty(key) {
-		b.err = errors.New("Add: empty key")
+		b.err = errors.New("mapbuilder.Add: empty key")
 		return b
 	}
 	b.data[key] = value
@@ -56,7 +56,7 @@ func (b *MapBuilder) AddAll(values map[string]any) *MapBuilder {
 	}
 	for k := range values {
 		if strutil.IsEmpty(k) {
-			b.err = errors.New("AddAll: empty key")
+			b.err = errors.New("mapbuilder.AddAll: empty key")
 			return b
 		}
 	}
@@ -71,7 +71,7 @@ func (b *MapBuilder) AddIfAbsent(key string, value any) *MapBuilder {
 		return b
 	}
 	if strutil.IsEmpty(key) {
-		b.err = errors.New("AddIfAbsent: empty key")
+		b.err = errors.New("mapbuilder.AddIfAbsent: empty key")
 		return b
 	}
 	if _, exists := b.data[key]; !exists {
@@ -89,7 +89,7 @@ func (b *MapBuilder) setPath(op, path string, value any, onlyIfAbsent bool) *Map
 	}
 	parts, err := parsePath(path)
 	if err != nil {
-		b.err = fmt.Errorf("%s: %w", op, err)
+		b.err = fmt.Errorf("mapbuilder.%s: %w", op, err)
 		return b
 	}
 
@@ -158,7 +158,7 @@ func (b *MapBuilder) Append(key string, values ...any) *MapBuilder {
 		return b
 	}
 	if strutil.IsEmpty(key) {
-		b.err = errors.New("Append: empty key")
+		b.err = errors.New("mapbuilder.Append: empty key")
 		return b
 	}
 	if len(values) == 0 {
@@ -166,7 +166,7 @@ func (b *MapBuilder) Append(key string, values ...any) *MapBuilder {
 	}
 	newSlice, err := appendToSlice(b.data[key], values)
 	if err != nil {
-		b.err = fmt.Errorf("Append: %w", err)
+		b.err = fmt.Errorf("mapbuilder.Append: %w", err)
 		return b
 	}
 	b.data[key] = newSlice
@@ -185,7 +185,7 @@ func (b *MapBuilder) AppendPath(path string, values ...any) *MapBuilder {
 	}
 	parts, err := parsePath(path)
 	if err != nil {
-		b.err = fmt.Errorf("AppendPath: %w", err)
+		b.err = fmt.Errorf("mapbuilder.AppendPath: %w", err)
 		return b
 	}
 
@@ -197,7 +197,7 @@ func (b *MapBuilder) AppendPath(path string, values ...any) *MapBuilder {
 		if exists {
 			nextMap, ok := next.(map[string]any)
 			if !ok {
-				b.err = fmt.Errorf("AppendPath: path segment %q is not a map", key)
+				b.err = fmt.Errorf("mapbuilder.AppendPath: path segment %q is not a map", key)
 				return b
 			}
 			current = nextMap
@@ -223,7 +223,7 @@ func (b *MapBuilder) AppendPath(path string, values ...any) *MapBuilder {
 	lastKey := parts[len(parts)-1]
 	newSlice, err := appendToSlice(current[lastKey], values)
 	if err != nil {
-		b.err = fmt.Errorf("AppendPath: %w", err)
+		b.err = fmt.Errorf("mapbuilder.AppendPath: %w", err)
 		return b
 	}
 	current[lastKey] = newSlice
@@ -260,7 +260,7 @@ func (b *MapBuilder) MergePath(path string, values map[string]any) *MapBuilder {
 	}
 	parts, err := parsePath(path)
 	if err != nil {
-		b.err = fmt.Errorf("MergePath: %w", err)
+		b.err = fmt.Errorf("mapbuilder.MergePath: %w", err)
 		return b
 	}
 
@@ -272,7 +272,7 @@ func (b *MapBuilder) MergePath(path string, values map[string]any) *MapBuilder {
 		if exists {
 			nextMap, ok := next.(map[string]any)
 			if !ok {
-				b.err = fmt.Errorf("MergePath: path segment %q is not a map", key)
+				b.err = fmt.Errorf("mapbuilder.MergePath: path segment %q is not a map", key)
 				return b
 			}
 			current = nextMap
@@ -319,7 +319,7 @@ func (b *MapBuilder) RemovePath(path string) *MapBuilder {
 	}
 	parts, err := parsePath(path)
 	if err != nil {
-		b.err = fmt.Errorf("RemovePath: %w", err)
+		b.err = fmt.Errorf("mapbuilder.RemovePath: %w", err)
 		return b
 	}
 
