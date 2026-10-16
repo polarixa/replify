@@ -1316,7 +1316,7 @@ func resolveURL(r *http.Request, relativePath string) string {
 // Returns:
 //   - The scheme as a string ("http" or "https").
 func resolveScheme(r *http.Request) string {
-	key := "X-Forwarded-Proto"
+	key := HeaderXForwardedProto.String()
 	if proto := firstForwardedValue(r.Header.Get(key)); strutil.IsNotEmpty(proto) {
 		return proto
 	}
@@ -1335,7 +1335,7 @@ func resolveScheme(r *http.Request) string {
 // Returns:
 //   - The host as a string.
 func resolveHost(r *http.Request) string {
-	key := "X-Forwarded-Host"
+	key := HeaderXForwardedHost.String()
 	if host := firstForwardedValue(r.Header.Get(key)); strutil.IsNotEmpty(host) {
 		return host
 	}
