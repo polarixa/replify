@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/polarixa/replify/pkg/mapbuilder"
 )
 
 // Wrap creates a new [wrapper] instance and applies each provided [ROption]
@@ -79,6 +81,14 @@ func WithBody(v any) ROption {
 func WithBodySuppressed(v any) ROption {
 	return func(w *wrapper) {
 		w.WithBodySuppressed(v)
+	}
+}
+
+// WithBodyBuilder returns an [ROption] that sets the response body using a [mapbuilder.MapBuilder].
+// This allows for building complex response bodies in a structured manner.
+func WithBodyBuilder(b *mapbuilder.MapBuilder) ROption {
+	return func(w *wrapper) {
+		w.WithBodyBuilder(b)
 	}
 }
 
