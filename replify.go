@@ -126,7 +126,8 @@ func (w *wrapper) StatusCode() int {
 //   - A string formatted as "statusCode (statusText)", where `statusCode` is the
 //     numeric HTTP status code and `statusText` is the corresponding textual description.
 func (w *wrapper) StatusText() string {
-	return fmt.Sprintf("%d (%s)", w.StatusCode(), http.StatusText(w.StatusCode()))
+	code := w.StatusCode()
+	return fmt.Sprintf("%d (%s)", code, http.StatusText(code))
 }
 
 // Message retrieves the message associated with the [wrapper] instance.
@@ -4637,7 +4638,8 @@ func (s StatusCode) Value() int {
 // Returns:
 //   - A string representing the StatusCode in a human-readable format.
 func (s StatusCode) StatusText() string {
-	return fmt.Sprintf("%d (%s)", s.Value(), http.StatusText(s.Value()))
+	code := s.Value()
+	return fmt.Sprintf("%d (%s)", code, http.StatusText(code))
 }
 
 // Equals checks whether the current [StatusCode] is equal to any of the provided [StatusCode] values.
