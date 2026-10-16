@@ -17,6 +17,7 @@ import (
 	"github.com/polarixa/replify/pkg/encoding"
 	"github.com/polarixa/replify/pkg/fj"
 	"github.com/polarixa/replify/pkg/hashy"
+	"github.com/polarixa/replify/pkg/mapbuilder"
 	"github.com/polarixa/replify/pkg/slogger"
 	"github.com/polarixa/replify/pkg/strchain"
 	"github.com/polarixa/replify/pkg/strutil"
@@ -2069,6 +2070,34 @@ func (w *wrapper) WithBodySuppressed(v any) (*wrapper, error) {
 	}
 	w.data = as
 	return w, nil
+}
+
+// WithBodyBuilder sets the body data for the [wrapper] instance using a fluent [mapbuilder.MapBuilder].
+// It builds the map from the provided builder and assigns it to the wrapper's data field.
+// If the builder contains an error, the wrapper captures it via [WithErrorAck] and skips the body assignment.
+//
+// Parameters:
+//   - b: A pointer to the [mapbuilder.MapBuilder] instance.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (w *wrapper) WithBodyBuilder(b *mapbuilder.MapBuilder) *wrapper {
+	if !w.Available() || b == nil {
+		return w
+	}
+	if b.IsError() {
+		return w.
+			WithErrorAck(b.Cause()).
+			WithDebuggingKV("malformed_mapbuilder", true) // Indicates that the mapbuilder contains errors and could not be used to build the map.
+	}
+	m, err := b.Build()
+	if err != nil {
+		return w.
+			WithErrorAck(err).
+			WithDebuggingKV("invalid_mapbuilder", true) // Indicates that the mapbuilder could not be built into a valid map.
+	}
+	w.data = m
+	return w
 }
 
 // WithPath sets the request path for the [wrapper] instance.
