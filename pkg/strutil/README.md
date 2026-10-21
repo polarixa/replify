@@ -1,42 +1,61 @@
 # strutil
 
-**strutil** is a comprehensive Go string utility library providing 100+ functions for common string manipulation, validation, transformation, and formatting operations. It eliminates boilerplate code and provides a consistent, well-tested API for string handling in Go applications.
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D%201.24-blue)](https://go.dev/)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](../../LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/polarixa/replify/pkg/strutil.svg)](https://pkg.go.dev/github.com/polarixa/replify/pkg/strutil)
+
+**strutil** is a comprehensive Go string utility package exposing 124 pure functions for validation, transformation, analysis, formatting, and manipulation. It removes boilerplate and gives Go projects one consistent, well-tested vocabulary for string handling.
 
 ## Overview
 
-The `strutil` package offers a rich collection of string utilities that Go's standard library doesn't provide out of the box. It addresses common pain points like:
+The package covers the string operations that `strings` leaves out or handles inconsistently:
 
-- **Validation**: Check if strings are empty, blank, numeric, alpha, etc.
-- **Transformation**: Convert case, trim, pad, truncate, slugify, and more
-- **Analysis**: Count occurrences, check prefixes/suffixes, pattern matching
-- **Formatting**: Wrap, repeat, abbreviate, capitalize, title case
-- **Manipulation**: Remove, replace, reverse, chop, chomp
-- **Comparison**: Case-insensitive checks, contains operations
-- **Hashing**: SHA-256 hashing utilities
+- **Validation** — emptiness, blankness, numeric/alpha/alphanumeric/whitespace classification
+- **Transformation** — case conversion, camel/snake conversion, trimming, padding, slugging
+- **Analysis** — prefix/suffix checks, substring matching, word detection, initials
+- **Formatting** — centering, abbreviation, truncation, indentation, one-lining
+- **Manipulation** — removal, replacement, reversal, repetition, slicing, overlay
+- **Joining** — typed joins for `string`, `int`, `int64`, `uint64`, `float64`, `bool`
+- **Hashing** — SHA-256 hex digests
+- **Encoding helpers** — safe/unsafe `[]byte` ↔ `string` conversion
 
-**Problem Solved:** Writing repetitive string manipulation code is tedious and error-prone. `strutil` provides battle-tested, optimized functions that make string operations readable, maintainable, and consistent across your codebase.
+**Key features:**
+
+- 🧩 **124 exported functions** — a single, discoverable surface for string work
+- 🎯 **Rune-aware** — length, padding, reversal, and truncation count Unicode code points, not bytes
+- 🔒 **Pure and thread-safe** — no package-level mutable state, safe for concurrent use
+- 🧪 **Zero external dependencies** — standard library only (plus `pkg/truncate` for `Truncate`)
+- 📦 **Single import** — `github.com/polarixa/replify/pkg/strutil`
 
 ## Use Cases
 
 ### When to Use
 
-- ✅ **Input validation** - check for empty, blank, or specific patterns
-- ✅ **Data sanitization** - clean user input, normalize whitespace
-- ✅ **Text formatting** - title case, sentence case, slugs
-- ✅ **String analysis** - check character types, count occurrences
-- ✅ **URL/SEO-friendly strings** - slugify names, titles
-- ✅ **API responses** - format and validate string data
-- ✅ **Configuration parsing** - validate and normalize config values
-- ✅ **Template processing** - manipulate strings for templates
-- ✅ **Testing** - generate test data, validate outputs
+- ✅ **Input validation** — reject blank, non-numeric, or malformed fields
+- ✅ **Data sanitization** — strip quotes, collapse whitespace, drop control characters
+- ✅ **Text formatting** — title case, camel case, snake case, initials
+- ✅ **URL/SEO slugs** — `Slugify` produces clean, accent-free, URL-safe paths
+- ✅ **Display truncation** — cap labels and log lines without splitting multi-byte characters
+- ✅ **Data extraction** — pull fields out of delimited records, slice substrings, overlay patches
+- ✅ **Cache keys** — deterministic SHA-256 digests of composite strings
+- ✅ **Report building** — join typed columns into CSV-ish output
 
 ### When Not to Use
 
-- ❌ **Complex parsing** - use `encoding/*` packages for JSON, XML, etc.
-- ❌ **Regular expressions** - use `regexp` package directly for complex patterns
-- ❌ **Performance-critical hot paths** - use standard library or manual optimization
-- ❌ **Internationalization** - use `golang.org/x/text` for i18n/l10n
-- ❌ **Binary data** - use `bytes` package for byte operations
+- ❌ **Structured parsing** — use `encoding/json`, `encoding/xml`, or a dedicated parser
+- ❌ **Complex pattern matching** — use the `regexp` package directly
+- ❌ **Unicode-aware case folding / normalization** — use `golang.org/x/text`
+- ❌ **Binary data** — use `bytes`; most `strutil` helpers are byte-oriented
+- ❌ **Locale-sensitive formatting** — use `golang.org/x/text/width`, `currency`, or `message`
+
+## Requirements
+
+| Requirement | Version    |
+| ----------- | ---------- |
+| Go          | 1.24+ (CI matrix covers 1.23 – 1.25) |
+| OS          | Any — pure Go, no cgo, no platform-specific code |
+
+No database, service, or environment variable is required.
 
 ## Installation
 
@@ -44,568 +63,832 @@ The `strutil` package offers a rich collection of string utilities that Go's sta
 go get github.com/polarixa/replify
 ```
 
-Import the package in your Go code:
+Import the package:
 
 ```go
 import "github.com/polarixa/replify/pkg/strutil"
 ```
 
-**Requirements:** Go 1.13 or higher
-
-## Usage
-
-### Basic Operations
+## Quick Start
 
 ```go
 package main
 
 import (
-    "fmt"
-    "github.com/polarixa/replify/pkg/strutil"
+	"fmt"
+
+	"github.com/polarixa/replify/pkg/strutil"
 )
 
 func main() {
-    // Check if empty
-    isEmpty := strutil.IsEmpty("   ")
-    fmt.Println(isEmpty) // true
+	// Validation
+	fmt.Println(strutil.IsEmpty("   ")) // true
+	fmt.Println(strutil.IsAlpha("abc")) // true
 
-    // Check if not empty
-    isNotEmpty := strutil.IsNotEmpty("hello")
-    fmt.Println(isNotEmpty) // true
+	// Transformation
+	fmt.Println(strutil.Title("hello world"))       // "Hello World"
+	fmt.Println(strutil.Slugify("Hello World!"))     // "hello-world"
+	fmt.Println(strutil.ToSnakeCase("Hello World"))  // "hello_world"
 
-    // Title case
-    title := strutil.Title("hello world")
-    fmt.Println(title) // "Hello World"
+	// Formatting
+	fmt.Println(strutil.PadLeft("5", 3, "0"))    // "005"
+	fmt.Println(strutil.Truncate("long text", 6)) // "long …"
+	fmt.Println(strutil.Center("Hi", 6, "*"))   // "**Hi**"
 
-    // Slugify (URL-friendly)
-    slug := strutil.Slugify("Hello World! This is a Test.")
-    fmt.Println(slug) // "hello-world-this-is-a-test"
+	// Manipulation
+	fmt.Println(strutil.ReplaceAll("hello", "l", "L")) // "heLLo"
+	fmt.Println(strutil.Reverse("hello"))              // "olleh"
+	fmt.Println(strutil.Initials("John Smith"))        // "JS"
 
-    // Truncate
-    short := strutil.Truncate("This is a long sentence", 10)
-    fmt.Println(short) // "This is a..."
+	// Hashing
+	fmt.Println(strutil.Hash256("password123"))
+	// ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f
 }
 ```
 
 ## Examples
 
-### 1. Validation and Checking
+### 1. Emptiness and Blankness
+
+`IsEmpty` and `IsBlank` behave identically — both treat whitespace-only strings as empty.
 
 ```go
-// Empty and blank checks
-strutil.IsEmpty("")           // true
-strutil.IsEmpty("   ")        // true
-strutil.IsNotEmpty("hello")   // true
-strutil.IsBlank("   ")        // true
-strutil.IsNotBlank("hello")   // true
+strutil.IsEmpty("")            // true
+strutil.IsEmpty("   ")         // true
+strutil.IsEmpty("hello")       // false
+strutil.IsNotEmpty("hello")    // true
+strutil.IsBlank("   ")         // true
+strutil.IsNotBlank("hello")    // true
 
-// Check any/all empty
-strutil.IsAnyEmpty("hello", "", "world")   // true
-strutil.IsNoneEmpty("hello", "world")      // true
-strutil.IsAllEmpty("", "   ", "")          // true
-
-// Character type checks
-strutil.IsAlpha("abc")                 // true
-strutil.IsAlpha("abc123")              // false
-strutil.IsNumeric("12345")             // true
-strutil.IsAlphanumeric("abc123")       // true
-strutil.IsWhitespace("   ")            // true
-
-// Case checks
-strutil.IsAllLowerCase("hello")        // true
-strutil.IsAllUpperCase("HELLO")        // true
+strutil.IsAnyEmpty("a", "", "b")  // true
+strutil.IsNoneEmpty("a", "b")     // true
+strutil.IsAllEmpty("", "  ")      // true
+strutil.IsAnyBlank("a", "  ")     // true
+strutil.IsNoneBlank("a", "b")     // true
 ```
 
-### 2. String Transformation
+Pointer variants treat a `nil` pointer as empty/blank:
 
 ```go
-// Case conversion
-strutil.ToLower("HELLO")               // "hello"
-strutil.ToUpper("hello")               // "HELLO"
-strutil.Capitalize("hello world")      // "Hello world"
-strutil.Title("hello world")           // "Hello World"
+var p *string
+strutil.IsEmptyPtr(p)    // true
+strutil.IsNotEmptyPtr(p) // false
 
-// Whitespace handling
-strutil.Strip("  hello  ")             // "hello"
-strutil.StripStart("  hello  ")        // "hello  "
-strutil.StripEnd("  hello  ")          // "  hello"
-
-// Trimming
-text := "Hello, World!"
-strutil.Trim(text)                     // "Hello, World!"
-strutil.TrimLeft("###hello", "#")      // "hello"
-strutil.TrimRight("hello###", "#")     // "hello"
-
-// Newline handling
-strutil.Chomp("hello\n")               // "hello"
-strutil.Chomp("hello\r\n")             // "hello"
-strutil.Chop("hello\n")                // "hello"
-strutil.Chop("world")                  // "worl"
+strutil.IsAnyEmptyPtr(nil, &s)    // true
+strutil.IsNoneEmptyPtr(&a, &b)    // true
+strutil.IsAnyBlankPtr(nil)        // true
+strutil.IsNoneBlankPtr(&s)        // true
 ```
 
-### 3. Prefix and Suffix Operations
+There is no `IsAllBlankPtr` — the blank family only covers `IsBlank`, `IsNotBlank`,
+`IsAnyBlank`, and `IsNoneBlank` in pointer form.
+
+### 2. Character Classification
 
 ```go
-// Check prefix/suffix
-strutil.StartsWith("Hello", "He")              // true
-strutil.EndsWith("Hello", "lo")                // true
-strutil.StartsWithIgnoreCase("Hello", "he")    // true
-strutil.EndsWithIgnoreCase("Hello", "LO")      // true
-
-// Check multiple
-strutil.StartsWithAny("Hello", "Hi", "He")     // true
-strutil.EndsWithAny("Hello", "lo", "llo")      // true
-
-// Remove prefix/suffix
-strutil.RemoveStart("Hello", "He")             // "llo"
-strutil.RemoveEnd("Hello", "lo")               // "Hel"
-strutil.RemoveStartIgnoreCase("Hello", "he")   // "llo"
-strutil.RemoveEndIgnoreCase("Hello", "LO")     // "Hel"
-
-// Add if missing
-strutil.PrependIfMissing("world", "hello ")    // "hello world"
-strutil.AppendIfMissing("hello", " world")     // "hello world"
+strutil.IsAlpha("abc")             // true
+strutil.IsAlpha("abc123")          // false
+strutil.IsNumeric("12345")         // true
+strutil.IsAlphanumeric("abc123")   // true
+strutil.IsAlphaSpace("ab c")       // true
+strutil.IsAlphanumericSpace("ab 1") // true
+strutil.IsNumericSpace("12 3")     // true
+strutil.IsWhitespace("   ")        // true
+strutil.IsAllLowerCase("hello")    // true
+strutil.IsAllUpperCase("HELLO")    // true
 ```
 
-### 4. Substring Operations
+Pointer variants: `IsAlphaPtr`, `IsNumericPtr`, `IsNumericSpacePtr`, `IsWhitespacePtr`.
+
+### 3. Trimming and Whitespace Normalization
+
+There are two families with different semantics — pick deliberately.
 
 ```go
-text := "Hello World"
+// Cutset family: the second argument is a LITERAL prefix/suffix,
+// stripped repeatedly — not a set of characters (unlike strings.TrimLeft).
+strutil.TrimLeft("###hello", "#")    // "hello"
+strutil.TrimRight("hello###", "#")   // "hello"
+strutil.TrimLeft("abcabd", "abc")    // "abd" — whole "abc" literals only
+strutil.TrimLeft("lllello", "l")     // "ello" — a single-char cutset behaves as usual
 
-// Contains checks
-strutil.Contains(text, "World")                // true
-strutil.ContainsIgnoreCase(text, "world")      // true
-strutil.ContainsAny(text, "Foo", "World")      // true
-strutil.ContainsNone(text, "xyz", "123")       // true
+// Trim: strips leading/trailing bytes <= ' ' (ASCII whitespace).
+strutil.Trim("  hello  ")           // "hello"
 
+// Strip family: regex-based, handles Unicode whitespace.
+strutil.Strip("  hello  ")          // "hello"
+strutil.StripStart("  hello  ")     // "hello  "
+strutil.StripEnd("  hello  ")       // "  hello"
+
+// Whitespace collapsing.
+strutil.TrimWhitespace("  a   b  ") // " a b " — collapses runs, keeps one edge space
+strutil.CleanSpaces("  a   b  ")    // "a b"     — collapses runs, then trims
 ```
 
-### 5. String Manipulation
+Repeated-prefix/suffix helpers:
 
 ```go
-// Remove operations
-strutil.Remove("hello world", "world")         // "hello "
-strutil.RemoveAll("a-b-c", "-")               // "abc"
-strutil.RemovePattern("abc123", "[0-9]+")     // "abc"
-
-// Replace operations
-strutil.Replace("hello", "l", "L", 1)          // "heLlo"
-strutil.ReplaceAll("hello", "l", "L")          // "heLLo"
-strutil.ReplaceIgnoreCase("Hello", "hello", "Hi")  // "Hi"
-
-// Reverse operations
-strutil.Reverse("hello")                       // "olleh"
-strutil.ReverseDelimited("a-b-c", "-")        // "c-b-a"
-
-// Repeat
-strutil.Repeat("abc", 3)                       // "abcabcabc"
+strutil.TrimPrefixAll("##x##", "##")   // "x##"
+strutil.TrimPrefixN("##x##", "##", 1)  // "x##"
+strutil.TrimSuffixAll("##x##", "##")   // "##x"
+strutil.TrimSuffixN("##x##", "##", 1)  // "##x"
+strutil.TrimSequenceAll("##x##", "##") // "x"
 ```
 
-### 6. Formatting and Padding
+Trailing-newline handling:
 
 ```go
-// Padding
-strutil.PadLeft("5", 3, "0")                   // "005"
-strutil.PadRight("5", 3, "0")                  // "500"
-strutil.Center("Hi", 6, " ")                   // "  Hi  "
-
-// Wrapping
-strutil.Wrap("hello", "***")                   // "***hello***"
-strutil.Unwrap("***hello***", "***")           // "hello"
-
-// Truncation
-strutil.Truncate("Long text here", 8)          // "Long tex..."
-strutil.Abbreviate("Long text", 10)            // "Long te..."
-
-// Joining
-parts := []string{"hello", "world"}
-strutil.JoinUnary(parts, "-")                  // "hello-world"
+strutil.Chomp("hello\n")    // "hello" — removes one trailing newline
+strutil.Chomp("hello\r\n")  // "hello"
+strutil.Chomp("hello")      // "hello" — unchanged when there is no newline
+strutil.Chop("hello\n")     // "hello" — chomps the newline if present
+strutil.Chop("hello")       // "hell"  — otherwise drops the last character
 ```
 
-### 7. Slugification and URL-Safe Strings
+Whitespace-only input is returned unchanged by both:
 
 ```go
-// Basic slugify
-strutil.Slugify("Hello World!")                    // "hello-world"
-strutil.SlugifySpec("Hello_World!", "_")       // "hello_world"
-
-// URL-safe strings
-title := "10 Tips for Better Code"
-slug := strutil.Slugify(title)                     // "10-tips-for-better-code"
-
-// Custom separators
-strutil.SlugifySpec("Hello World", "_")         // "hello_world"
+strutil.Chomp("\n") // "\n"
+strutil.Chop("\n")  // "\n"
 ```
 
-### 8. Hashing
+### 4. Case Conversion
 
 ```go
-// SHA-256 hash
-hash := strutil.Hash256("password123")
-// Returns: "ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f"
-
-// Use for checksums, cache keys, etc.
-data := "user-123-profile"
-cacheKey := strutil.Hash256(data)
+strutil.Capitalize("hello world")   // "Hello world" — first rune only
+strutil.UnCapitalize("Hello")       // "hello"
+strutil.Title("hello world")        // "Hello World"
+strutil.Title("hello-world foo")    // "Hello-World Foo"
+strutil.SwapCase("Hello World")     // "hELLO wORLD"
+strutil.ToCamelCase("hello world")  // "helloWorld"
+strutil.ToSnakeCase("Hello World")  // "hello_world"
 ```
 
-### 9. Default Values
+`Title` treats every non-alphanumeric character except `_` as a word separator. `ToSnakeCase` only replaces literal spaces, so it does **not** split existing camelCase:
 
 ```go
-// Return default if empty
-strutil.DefaultIfEmpty("", "default")          // "default"
-strutil.DefaultIfEmpty("value", "default")     // "value"
-
-// Return default if blank
-strutil.DefaultIfBlank("   ", "default")       // "default"
-strutil.DefaultIfBlank("value", "default")     // "value"
+strutil.ToSnakeCase("HelloWorld") // "helloworld"
 ```
 
-### 10. Advanced String Analysis
+### 5. Identifier Splitting
 
 ```go
-text := "Hello World 123"
-
-// Character class checks
-hasDigits := false
-for _, c := range text {
-    if unicode.IsDigit(c) {
-        hasDigits = true
-        break
-    }
-}
-
-// Length (Unicode-aware)
-length := strutil.Len("Hello 世界")               // 8 (not byte count)
-
-// Comparison
-strutil.Equals("hello", "hello")               // true
-strutil.EqualsIgnoreCase("Hello", "hello")     // true
+strutil.SplitCamelCase("HTTPServer")     // []string{"HTTP", "Server"}
+strutil.SplitCamelCase("userID")         // []string{"user", "ID"}
+strutil.SplitCamelCase("a")              // []string{"a"}
 ```
 
-### 11. Practical Use Cases
+### 6. Searching and Matching
 
-#### Input Validation
+```go
+strutil.Contains("Hello World", "World")       // true
+strutil.ContainsIgnoreCase("Hello", "hello")   // true
+strutil.ContainsAny("Hello", "Foo", "ello")     // true
+strutil.ContainsNone("Hello", "xyz", "123")     // true
+strutil.ContainsAnyCharacter("hello", "el")    // true
+strutil.ContainsNoneCharacter("hello", "xyz")  // true
+strutil.ContainsOnly("abc", "a", "b", "c")      // true
+strutil.ContainsAllWords("hello world", "hello", "world") // true
+```
+
+`ContainsOnly` matches **individual characters**, so pass each rune as a separate argument — `ContainsOnly("abc", "abc")` is `false`.
+
+```go
+strutil.StartsWith("Hello", "He")           // true
+strutil.StartsWithIgnoreCase("Hello", "he") // true
+strutil.StartsWithAny("Hello", "Hi", "He")  // true
+strutil.EndsWith("Hello", "lo")             // true
+strutil.EndsWithIgnoreCase("Hello", "LO")   // true
+strutil.EndsWithAny("Hello", "lo", "llo")   // true
+```
+
+### 7. Removal and Replacement
+
+```go
+// Remove deletes every occurrence of a substring.
+strutil.Remove("hello world", "world")   // "hello "
+strutil.RemoveAll("a-b-c", "-")          // "abc"
+
+// RemovePattern deletes every regex match.
+strutil.RemovePattern("abc123", "[0-9]+") // "abc"
+
+// RemoveStart / RemoveEnd strip a single leading / trailing occurrence.
+strutil.RemoveEnd("Hello", "lo")             // "Hel"
+strutil.RemoveEndIgnoreCase("Hello", "LO")   // "Hel"
+
+// RemovePrefixes strips the first matching prefix from a candidate list.
+strutil.RemovePrefixes("prefix_body", "pre") // "fix_body"
+
+// Replace — first n occurrences.
+strutil.Replace("hello", "l", "L", 1)      // "heLlo"
+strutil.ReplaceAll("hello", "l", "L")      // "heLLo"
+strutil.ReplaceIgnoreCase("Hello", "hello", "Hi") // "Hi" — first match only
+strutil.ReplaceAllStrings([]string{"a", "b"}, "a", "x") // []string{"x", "b"}
+```
+
+`RemoveStart` / `RemoveStartIgnoreCase` currently drop one extra byte (see [Known Quirks](#known-quirks-bugs)):
+
+```go
+strutil.RemoveStart("Hello", "He") // "lo" (expected "llo")
+```
+
+### 8. Conditional Affixes
+
+```go
+strutil.PrependIfMissing("world", "hello ")       // "hello world"
+strutil.PrependIfMissingIgnoreCase("world", "Hi ") // "Hi world"
+strutil.AppendIfMissing("hello", " world")        // "hello world"
+strutil.AppendIfMissingIgnoreCase("Hello", "!!!") // "Hello!!!"
+```
+
+The variadic tail lets you supply alternates — the string is left alone if it already ends with **any** of them:
+
+```go
+strutil.AppendIfMissing("report.csv", ".csv", ".xlsx")  // "report.csv"
+strutil.AppendIfMissing("report.xlsx", ".csv", ".xlsx") // "report.xlsx"
+strutil.AppendIfMissing("report", ".csv", ".xlsx")      // "report.csv"
+```
+
+### 9. Padding, Centering, Wrapping
+
+```go
+strutil.PadLeft("5", 3, "0")    // "005"
+strutil.PadRight("5", 3, "0")   // "500"
+strutil.Center("Hi", 6, "*")    // "**Hi**"
+strutil.Wrap("hello", "***")    // "***hello***"
+strutil.Unwrap("***hello***", "***") // "hello"
+```
+
+Padding uses rune counts, not bytes, and a **whitespace-only pad string is treated as no pad at all** (see [Known Quirks](#known-quirks-bugs)):
+
+```go
+strutil.PadLeft("Hi", 6, " ") // "Hi" — expected "    Hi"
+```
+
+### 10. Truncation and Abbreviation
+
+`Truncate` delegates to `pkg/truncate` with the cut-ellipsis strategy (`…`, U+2026) and is rune-safe:
+
+```go
+strutil.Truncate("This is a long sentence", 10) // "This is a…"
+strutil.Truncate("Long text here", 8)           // "Long te…"
+strutil.Truncate("hello", 3)                    // "he…"
+strutil.Truncate("hello", 0)                    // ""
+strutil.Truncate("hello", -1)                   // "hello" — negative is a no-op
+```
+
+`Abbreviate` uses a three-dot marker and leaves short strings untouched:
+
+```go
+strutil.Abbreviate("Long text here", 8)       // "Long ..."
+strutil.Abbreviate("Long text", 10)          // "Long text" — already fits
+strutil.AbbreviateWithOffset("abcdefghij", 4, 7) // "abcd..."
+```
+
+### 11. Slicing, Overlays, and Extraction
+
+```go
+strutil.Mid("Hello World", 6, 5)     // "World"
+strutil.Mid("Hello", 2, 100)         // "llo"
+strutil.Overlay("Hello", "XY", 1, 3) // "HXYlo"
+strutil.Initials("John Smith")       // "JS"
+strutil.InitialsDelimited("John-Smith", "-") // "JS"
+strutil.OnlyLetters("a1b2")          // "ab"
+strutil.OnlyDigits("a1b2")           // "12"
+strutil.RemoveDoubleQuotes(`"hi"`)   // "hi"
+strutil.RemoveAccents("Héllo Wörld")  // "Hello World"
+```
+
+### 12. Slugification
+
+```go
+strutil.Slugify("Hello World!")             // "hello-world"
+strutil.Slugify("Café Münch")               // "cafe-munch"
+strutil.SlugifySpec("Hello_World!", "_")   // "hello_world"
+strutil.Slugify("10 Tips for Better Code")  // "10-tips-for-better-code"
+```
+
+Accents are folded via `RemoveAccents` before slugging, and non-ASCII characters are dropped:
+
+```go
+strutil.Slugify("日本語") // "" — non-Latin scripts are not transliterated
+```
+
+### 13. Joining
+
+```go
+strutil.Join([]string{"a", "b"}, ",")    // "a,b"
+strutil.Slash("api", "v1", "users")      // "api/v1/users"
+strutil.JoinInt([]int{1, 2, 3}, ",")      // "1,2,3"
+strutil.JoinInt64([]int64{1, 2}, ",")    // "1,2"
+strutil.JoinUint64([]uint64{1, 2}, ",")  // "1,2"
+strutil.JoinFloat64([]float64{1.5, 2.25}, ",") // "1.5,2.25"
+strutil.JoinBool([]bool{true, false}, ",")      // "true,false"
+```
+
+`Join` normalizes separator boundaries so you never get doubled or missing separators:
+
+```go
+strutil.Join([]string{"a/", "/b"}, "/") // "a/b"
+```
+
+`JoinFloat64WithFormatAndPrecision` lets you pick the formatting verb — but its third
+argument is passed straight through to `strconv.FormatFloat` as a **bit size**, so it only
+accepts `32` or `64` (any other value panics). See [Known Quirks](#known-quirks-bugs).
+
+```go
+strutil.JoinFloat64WithFormatAndPrecision([]float64{1.5, 2.25}, 'f', 64, ",") // "1.5,2.25"
+```
+
+Note that `JoinFloat64` formats at 32-bit precision, so high-precision values are rounded:
+
+```go
+strutil.JoinFloat64([]float64{3.14159265358979}, ",") // "3.1415927"
+```
+
+### 14. Repetition, Reversal, and Reflow
+
+```go
+strutil.Repeat("abc", 3)                  // "abcabcabc"
+strutil.RepeatWithSeparator("a", "-", 3)  // "a-a-a"
+strutil.Reverse("hello")                  // "olleh"
+strutil.Reverse("世界")                    // "界世" — rune-safe
+strutil.ReverseDelimited("a-b-c", "-")    // "c-b-a"
+strutil.Indent("a\nb\n", "  ")            // "  a\n  b\n  "
+strutil.Oneline("a\nb\r\nc")              // "a b c"
+```
+
+`Oneline` replaces every Unicode line-break sequence (`\n`, `\r`, `\r\n`, `\t`, `\v`, `\f`, NEL, LS, PS) with a single space.
+
+### 15. Defaults, Comparison, and Utilities
+
+```go
+strutil.DefaultIfEmpty("", "default")      // "default"
+strutil.DefaultIfBlank("   ", "default")   // "default"
+strutil.Equals("hi", "hi")                 // true
+strutil.EqualsIgnoreCase("Hi", "hi")       // true
+strutil.Len("Hello 世界")                   // 8 — rune count, not bytes
+strutil.Hash256("password123")
+// ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f
+strutil.TailLines([]string{"a", "b", "c"}, 2) // []string{"b", "c"}
+strutil.Quote("hi")                           // `hi`
+strutil.SafeStr([]byte("hi"))                 // "hi"
+strutil.SafeBytes("hi")                       // []byte("hi")
+```
+
+### 16. Practical Patterns
+
+#### Input validation
 
 ```go
 func validateUsername(username string) error {
-    if strutil.IsBlank(username) {
-        return errors.New("username cannot be blank")
-    }
-    if !strutil.IsAlphanumeric(strings.ReplaceAll(username, "_", "")) {
-        return errors.New("username must be alphanumeric")
-    }
-    if strutil.Len(username) < 3 {
-        return errors.New("username must be at least 3 characters")
-    }
-    return nil
+	if strutil.IsBlank(username) {
+		return errors.New("username cannot be blank")
+	}
+	if !strutil.IsAlphanumeric(strings.ReplaceAll(username, "_", "")) {
+		return errors.New("username must be alphanumeric")
+	}
+	if strutil.Len(username) < 3 {
+		return errors.New("username must be at least 3 characters")
+	}
+	return nil
 }
 ```
 
-#### Creating URL Slugs
+#### Creating URL slugs
 
 ```go
 func createPostSlug(title string) string {
-    // "My Awesome Post Title!" -> "my-awesome-post-title"
-    slug := strutil.Slugify(title)
+	// "My Awesome Post Title!" -> "my-awesome-post-title"
+	slug := strutil.Slugify(title)
 
-    // Ensure maximum length
-    if len(slug) > 50 {
-        slug = strutil.Truncate(slug, 50)
-        slug = strutil.TrimRight(slug, "-")
-    }
+	// Ensure maximum length
+	if strutil.Len(slug) > 50 {
+		slug = strutil.Truncate(slug, 50)
+		slug = strutil.TrimRight(slug, "-")
+	}
 
-    return slug
+	return slug
 }
 ```
 
-#### Sanitizing User Input
+#### Sanitizing user input
 
 ```go
 func sanitizeInput(input string) string {
-    // Remove extra whitespace
-    cleaned := strings.TrimSpace(input)
-
-    // Normalize multiple spaces to single space
-    cleaned = strutil.RegexpDupSpaces.ReplaceAllString(cleaned, " ")
-
-    // Remove newlines
-    cleaned = strutil.RemoveAll(cleaned, "\n")
-    cleaned = strutil.RemoveAll(cleaned, "\r")
-
-    return cleaned
+	cleaned := strutil.CleanSpaces(input) // collapses runs, trims edges
+	cleaned = strutil.RemoveDoubleQuotes(cleaned)
+	return cleaned
 }
 ```
 
-#### Formatting Names
+#### Formatting names
 
 ```go
 func formatName(firstName, lastName string) string {
-    // Capitalize each name
-    first := strutil.Capitalize(strings.ToLower(firstName))
-    last := strutil.Capitalize(strings.ToLower(lastName))
-
-    return first + " " + last
+	first := strutil.Capitalize(strings.ToLower(firstName))
+	last := strutil.Capitalize(strings.ToLower(lastName))
+	return first + " " + last
 }
 ```
 
-#### Generating Cache Keys
+#### Generating cache keys
 
 ```go
 func generateCacheKey(prefix string, params ...string) string {
-    // Create a stable cache key
-    combined := prefix + "-" + strutil.Join(params, "-")
-    return strutil.Hash256(combined)
+	return strutil.Hash256(prefix + "-" + strutil.Join(params, "-"))
+}
+```
+
+#### Flattening a log record
+
+```go
+func oneLine(level, msg string) string {
+	return strutil.Oneline(level + " " + msg) // never emits a newline
 }
 ```
 
 ## API Reference
 
-### Validation Functions
+### Validation — Emptiness
 
-| Function                        | Description                            | Example                            |
-| ------------------------------- | -------------------------------------- | ---------------------------------- |
-| `IsEmpty(s string) bool`        | Check if string is empty or whitespace | `IsEmpty("   ") // true`           |
-| `IsNotEmpty(s string) bool`     | Check if string is not empty           | `IsNotEmpty("hi") // true`         |
-| `IsBlank(s string) bool`        | Check if string is blank               | `IsBlank("   ") // true`           |
-| `IsNotBlank(s string) bool`     | Check if string is not blank           | `IsNotBlank("hi") // true`         |
-| `IsAnyEmpty(...string) bool`    | Check if any string is empty           | `IsAnyEmpty("a", "", "b") // true` |
-| `IsNoneEmpty(...string) bool`   | Check if none are empty                | `IsNoneEmpty("a", "b") // true`    |
-| `IsAllEmpty(...string) bool`    | Check if all are empty                 | `IsAllEmpty("", " ") // true`      |
-| `IsAlpha(s string) bool`        | Check if only letters                  | `IsAlpha("abc") // true`           |
-| `IsNumeric(s string) bool`      | Check if only digits                   | `IsNumeric("123") // true`         |
-| `IsAlphanumeric(s string) bool` | Check if letters and digits            | `IsAlphanumeric("abc123") // true` |
-| `IsWhitespace(s string) bool`   | Check if only whitespace               | `IsWhitespace("   ") // true`      |
-| `IsAllLowerCase(s string) bool` | Check if all lowercase                 | `IsAllLowerCase("abc") // true`    |
-| `IsAllUpperCase(s string) bool` | Check if all uppercase                 | `IsAllUpperCase("ABC") // true`    |
+| Function                              | Description                                   | Example                             |
+| ------------------------------------- | --------------------------------------------- | ----------------------------------- |
+| `IsEmpty(s string) bool`              | True when `s` is empty or whitespace-only      | `IsEmpty("  ") // true`             |
+| `IsEmptyPtr(s *string) bool`          | Pointer variant; `nil` is empty               | `IsEmptyPtr(nil) // true`           |
+| `IsNotEmpty(s string) bool`           | Negation of `IsEmpty`                          | `IsNotEmpty("hi") // true`          |
+| `IsNotEmptyPtr(s *string) bool`       | Pointer variant of `IsNotEmpty`               | `IsNotEmptyPtr(nil) // false`       |
+| `IsAnyEmpty(strings ...string) bool`   | True when any argument is empty               | `IsAnyEmpty("a", "") // true`        |
+| `IsAnyEmptyPtr(strings ...*string) bool` | Pointer variant of `IsAnyEmpty`             | `IsAnyEmptyPtr(nil) // true`         |
+| `IsNoneEmpty(strings ...string) bool`  | True when no argument is empty                | `IsNoneEmpty("a", "b") // true`     |
+| `IsNoneEmptyPtr(strings ...*string) bool` | Pointer variant of `IsNoneEmpty`          | `IsNoneEmptyPtr(nil) // false`       |
+| `IsAllEmpty(ss ...string) bool`       | True when every argument is empty             | `IsAllEmpty("", "  ") // true`       |
+| `IsBlank(s string) bool`              | True when `s` is empty or whitespace-only      | `IsBlank("  ") // true`              |
+| `IsBlankPtr(s *string) bool`          | Pointer variant of `IsBlank`                  | `IsBlankPtr(nil) // true`            |
+| `IsNotBlank(s string) bool`           | Negation of `IsBlank`                          | `IsNotBlank("hi") // true`           |
+| `IsNotBlankPtr(s *string) bool`       | Pointer variant of `IsNotBlank`               | `IsNotBlankPtr(nil) // false`        |
+| `IsAnyBlank(strings ...string) bool`   | True when any argument is blank               | `IsAnyBlank("a", " ") // true`       |
+| `IsAnyBlankPtr(strings ...*string) bool` | Pointer variant of `IsAnyBlank`             | `IsAnyBlankPtr(nil) // true`         |
+| `IsNoneBlank(strings ...string) bool`  | True when no argument is blank                | `IsNoneBlank("a", "b") // true`      |
+| `IsNoneBlankPtr(strings ...*string) bool` | Pointer variant of `IsNoneBlank`          | `IsNoneBlankPtr(nil) // false`       |
 
-### Transformation Functions
+### Validation — Character Classes
 
-| Function                         | Description                        | Example                           |
-| -------------------------------- | ---------------------------------- | --------------------------------- |
-| `ToLower(s string) string`       | Convert to lowercase               | `ToLower("HI") // "hi"`           |
-| `ToUpper(s string) string`       | Convert to uppercase               | `ToUpper("hi") // "HI"`           |
-| `Capitalize(s string) string`    | Capitalize first letter            | `Capitalize("hi") // "Hi"`        |
-| `Title(s string) string`         | Title case (each word)             | `Title("hi world") // "Hi World"` |
-| `Reverse(s string) string`       | Reverse string                     | `Reverse("abc") // "cba"`         |
-| `Strip(s string) string`         | Remove leading/trailing whitespace | `Strip(" hi ") // "hi"`           |
-| `StripStart(s string) string`    | Remove leading whitespace          | `StripStart(" hi") // "hi"`       |
-| `StripEnd(s string) string`      | Remove trailing whitespace         | `StripEnd("hi ") // "hi"`         |
-| `Repeat(s string, n int) string` | Repeat string n times              | `Repeat("a", 3) // "aaa"`         |
+| Function                                | Description                                | Example                          |
+| --------------------------------------- | ------------------------------------------ | -------------------------------- |
+| `IsAlpha(s string) bool`                | Letters only                               | `IsAlpha("abc") // true`         |
+| `IsAlphanumeric(s string) bool`         | Letters and digits                         | `IsAlphanumeric("a1") // true`   |
+| `IsAlphaSpace(s string) bool`           | Letters and whitespace                     | `IsAlphaSpace("a b") // true`    |
+| `IsAlphanumericSpace(s string) bool`    | Letters, digits, and whitespace            | `IsAlphanumericSpace("a 1") // true` |
+| `IsNumeric(s string) bool`              | Digits only                                | `IsNumeric("12") // true`        |
+| `IsNumericSpace(s string) bool`         | Digits and whitespace                      | `IsNumericSpace("1 2") // true`   |
+| `IsWhitespace(s string) bool`           | Whitespace only                            | `IsWhitespace("  ") // true`      |
+| `IsAllLowerCase(s string) bool`         | Every rune is lowercase                    | `IsAllLowerCase("ab") // true`    |
+| `IsAllUpperCase(s string) bool`         | Every rune is uppercase                    | `IsAllUpperCase("AB") // true`    |
+| `IsNumericPtr(s *string) bool`          | Pointer variant of `IsNumeric`             | `IsNumericPtr(nil) // false`       |
+| `IsNumericSpacePtr(s *string) bool`     | Pointer variant of `IsNumericSpace`        | `IsNumericSpacePtr(nil) // false`  |
+| `IsWhitespacePtr(s *string) bool`        | Pointer variant of `IsWhitespace`          | `IsWhitespacePtr(nil) // false`     |
 
-### String Analysis
+The character-class family has no pointer variants for `IsAlpha`, `IsAlphanumeric`,
+`IsAlphaSpace`, `IsAlphanumericSpace`, `IsAllLowerCase`, or `IsAllUpperCase`.
+Every pointer variant in this family returns `false` for a `nil` pointer.
 
-| Function                                      | Description                    | Example                                    |
-| --------------------------------------------- | ------------------------------ | ------------------------------------------ |
-| `Contains(s, sub string) bool`                | Check if contains substring    | `Contains("hi", "i") // true`              |
-| `ContainsIgnoreCase(s, sub string) bool`      | Contains (case-insensitive)    | `ContainsIgnoreCase("Hi", "hi") // true`   |
-| `ContainsAny(s string, ...string) bool`       | Contains any substring         | `ContainsAny("hi", "x", "i") // true`      |
-| `ContainsNone(s string, ...string) bool`      | Contains none                  | `ContainsNone("hi", "x", "y") // true`     |
-| `StartsWith(s, prefix string) bool`           | Starts with prefix             | `StartsWith("hi", "h") // true`            |
-| `EndsWith(s, suffix string) bool`             | Ends with suffix               | `EndsWith("hi", "i") // true`              |
-| `StartsWithIgnoreCase(s, prefix string) bool` | Starts with (case-insensitive) | `StartsWithIgnoreCase("Hi", "hi") // true` |
-| `EndsWithIgnoreCase(s, suffix string) bool`   | Ends with (case-insensitive)   | `EndsWithIgnoreCase("Hi", "HI") // true`   |
-| `CountMatches(s, sub string) int`             | Count substring occurrences    | `CountMatches("aaa", "a") // 3`            |
-| `IndexOf(s, sub string) int`                  | Find first index               | `IndexOf("hello", "l") // 2`               |
-| `LastIndexOf(s, sub string) int`              | Find last index                | `LastIndexOf("hello", "l") // 3`           |
+### Searching
 
-### String Manipulation
+| Function                                        | Description                                | Example                              |
+| ----------------------------------------------- | ------------------------------------------ | ------------------------------------ |
+| `Contains(s, search string) bool`               | Substring test                             | `Contains("hi", "i") // true`        |
+| `ContainsIgnoreCase(s, search string) bool`     | Case-insensitive substring test            | `ContainsIgnoreCase("Hi", "hi") // true` |
+| `ContainsAny(s string, search ...string) bool`  | Contains any of the given substrings       | `ContainsAny("hi", "x", "i") // true` |
+| `ContainsNone(s string, search ...string) bool` | Contains none of the given substrings      | `ContainsNone("hi", "x") // true`    |
+| `ContainsAnyCharacter(s, search string) bool`   | Contains any character of `search`         | `ContainsAnyCharacter("hello", "el") // true` |
+| `ContainsNoneCharacter(s, search string) bool` | Contains no character of `search`          | `ContainsNoneCharacter("hello", "xyz") // true` |
+| `ContainsOnly(s string, search ...string) bool` | Every rune appears in `search` (per rune)  | `ContainsOnly("ab", "a", "b") // true` |
+| `ContainsAllWords(s string, words ...string) bool` | All words present as whole words       | `ContainsAllWords("a b", "a", "b") // true` |
+| `StartsWith(s, prefix string) bool`            | Prefix test                                | `StartsWith("hi", "h") // true`      |
+| `StartsWithIgnoreCase(s, prefix string) bool`  | Case-insensitive prefix test               | `StartsWithIgnoreCase("Hi", "hi") // true` |
+| `StartsWithAny(s string, prefixes ...string) bool` | Any of the given prefixes              | `StartsWithAny("Hi", "Hi", "He") // true` |
+| `EndsWith(s, suffix string) bool`              | Suffix test                                | `EndsWith("hi", "i") // true`        |
+| `EndsWithIgnoreCase(s, suffix string) bool`    | Case-insensitive suffix test               | `EndsWithIgnoreCase("Hi", "HI") // true` |
+| `EndsWithAny(s string, suffixes ...string) bool` | Any of the given suffixes                | `EndsWithAny("Hi", "Hi", "He") // true` |
 
-| Function                                    | Description             | Example                                |
-| ------------------------------------------- | ----------------------- | -------------------------------------- |
-| `Remove(s, remove string) string`           | Remove all occurrences  | `Remove("hello", "l") // "heo"`        |
-| `RemoveStart(s, prefix string) string`      | Remove prefix           | `RemoveStart("hello", "he") // "llo"`  |
-| `RemoveEnd(s, suffix string) string`        | Remove suffix           | `RemoveEnd("hello", "lo") // "hel"`    |
-| `Replace(s, old, new string, n int) string` | Replace n occurrences   | `Replace("aaa", "a", "b", 2) // "bba"` |
-| `ReplaceAll(s, old, new string) string`     | Replace all             | `ReplaceAll("aaa", "a", "b") // "bbb"` |
-| `Chomp(s string) string`                    | Remove trailing newline | `Chomp("hi\n") // "hi"`                |
-| `Chop(s string) string`                     | Remove last char        | `Chop("hello") // "hell"`              |
-| `Wrap(s, wrapWith string) string`           | Wrap string             | `Wrap("hi", "*") // "*hi*"`            |
-| `Truncate(s string, maxLen int) string`     | Truncate with ellipsis  | `Truncate("hello", 3) // "hel..."`     |
+### Trimming and Normalization
 
-### Formatting
+| Function                                     | Description                                   | Example                             |
+| -------------------------------------------- | --------------------------------------------- | ----------------------------------- |
+| `Trim(s string) string`                      | Trims leading/trailing bytes `<= ' '`         | `Trim("  hi  ") // "hi"`            |
+| `TrimLeft(s, cutset string) string`          | Trims repeated literal prefixes       | `TrimLeft("###hi", "#") // "hi"`     |
+| `TrimRight(s, cutset string) string`         | Trims repeated literal suffixes       | `TrimRight("hi###", "#") // "hi"`    |
+| `TrimPrefixAll(s, prefix string) string`     | Removes every leading occurrence of `prefix`  | `TrimPrefixAll("##x", "#") // "x"`  |
+| `TrimPrefixN(s, prefix string, n int) string`| Removes up to `n` leading occurrences          | `TrimPrefixN("###x", "#", 3) // "x"`|
+| `TrimSuffixAll(s, suffix string) string`     | Removes every trailing occurrence of `suffix` | `TrimSuffixAll("x##", "#") // "x"`  |
+| `TrimSuffixN(s, suffix string, n int) string`| Removes up to `n` trailing occurrences         | `TrimSuffixN("x###", "#", 3) // "x"`|
+| `TrimSequenceAll(s, sequence string) string` | Removes the sequence from both ends           | `TrimSequenceAll("##x##", "##") // "x"` |
+| `TrimWhitespace(s string) string`            | Collapses whitespace runs to one space        | `TrimWhitespace("a  b") // "a b"`   |
+| `CleanSpaces(s string) string`               | Collapses runs, then trims edges              | `CleanSpaces("  a  b  ") // "a b"`  |
+| `Strip(s string) string`                     | Regex trims Unicode whitespace from both ends | `Strip("  hi  ") // "hi"`           |
+| `StripStart(s string) string`                | Regex trims leading Unicode whitespace        | `StripStart("  hi") // "hi"`        |
+| `StripEnd(s string) string`                  | Regex trims trailing Unicode whitespace       | `StripEnd("hi  ") // "hi"`          |
+| `RemovePrefixes(s string, prefixes ...string) string` | Removes the first matching prefix     | `RemovePrefixes("ab", "a") // "b"`  |
+| `Chomp(s string) string`                    | Removes one trailing newline            | `Chomp("hi\n") // "hi"`             |
+| `Chop(s string) string`                     | Removes the trailing newline, else the last character | `Chop("hi") // "h"` |
+| `RemoveDoubleQuotes(s string) string`        | Removes every `"` character                  | `RemoveDoubleQuotes(`"hi"`) // "hi"`|
+| `StripNonWhitespace(s string) string`        | ⚠️ Currently returns only the whitespace characters — see [Known Quirks](#known-quirks-bugs) | `StripNonWhitespace("abc") // ""` |
 
-| Function                                          | Description                | Example                                      |
-| ------------------------------------------------- | -------------------------- | -------------------------------------------- |
-| `PadLeft(s string, size int, pad string) string`  | Pad on left                | `PadLeft("5", 3, "0") // "005"`              |
-| `PadRight(s string, size int, pad string) string` | Pad on right               | `PadRight("5", 3, "0") // "500"`             |
-| `Center(s string, size int, pad string) string`   | Center string              | `Center("hi", 6, " ") // "  hi  "`           |
-| `Slugify(s string) string`                        | Create URL slug            | `Slugify("Hi!") // "hi"`                     |
-| `SlugifySpec(s, sep string) string`               | Slug with custom separator | `SlugifySpec("Hi", "_") // "hi"`             |
-| `Abbreviate(s string, maxLen int) string`         | Abbreviate string          | `Abbreviate("hello world", 8) // "hello..."` |
+### Slugification
 
-### Utilities
+| Function                              | Description                                   | Example                                |
+| ------------------------------------- | --------------------------------------------- | -------------------------------------- |
+| `Slugify(s string) string`            | Lowercase, accent-folded, `-`-separated slug  | `Slugify("Hello World!") // "hello-world"` |
+| `SlugifySpec(str, delimiter string) string` | Slug with a custom separator              | `SlugifySpec("Hello World", "_") // "hello_world"` |
 
-| Function                                  | Description               | Example                                 |
-| ----------------------------------------- | ------------------------- | --------------------------------------- |
-| `Len(s string) int`                       | UTF-8 character count     | `Len("hello") // 5`                     |
-| `Hash256(s string) string`                | SHA-256 hash              | `Hash256("text")`                       |
-| `Join(slice []string, sep string) string` | Join with separator       | `Join([]string{"a","b"}, ",") // "a,b"` |
-| `DefaultIfEmpty(s, def string) string`    | Return default if empty   | `DefaultIfEmpty("", "x") // "x"`        |
-| `DefaultIfBlank(s, def string) string`    | Return default if blank   | `DefaultIfBlank(" ", "x") // "x"`       |
-| `Equals(a, b string) bool`                | String equality           | `Equals("hi", "hi") // true`            |
-| `EqualsIgnoreCase(a, b string) bool`      | Case-insensitive equality | `EqualsIgnoreCase("Hi", "hi") // true`  |
+### Case Conversion
+
+| Function                          | Description                          | Example                            |
+| --------------------------------- | ------------------------------------ | ---------------------------------- |
+| `Capitalize(s string) string`     | Uppercases the first rune            | `Capitalize("hi") // "Hi"`         |
+| `UnCapitalize(s string) string`   | Lowercases the first rune            | `UnCapitalize("Hi") // "hi"`       |
+| `Title(s string) string`          | Title-cases each word                | `Title("hi world") // "Hi World"`  |
+| `SwapCase(s string) string`       | Flips the case of every letter       | `SwapCase("Hi") // "hI"`           |
+| `ToCamelCase(s string) string`    | `"hello world"` → `"helloWorld"`     | `ToCamelCase("a b") // "aB"`       |
+| `ToSnakeCase(s string) string`    | `"Hello World"` → `"hello_world"`     | `ToSnakeCase("A B") // "a_b"`       |
+| `SplitCamelCase(s string) []string` | Splits an identifier into words   | `SplitCamelCase("HTTPServer")`     |
+
+### Removal and Replacement
+
+| Function                                          | Description                              | Example                                  |
+| ------------------------------------------------- | ---------------------------------------- | ---------------------------------------- |
+| `Remove(str, remove string) string`              | Removes all occurrences of a substring   | `Remove("a-b-c", "-") // "abc"`          |
+| `RemoveAll(s, remove string) string`             | Removes all occurrences of a substring   | `RemoveAll("a-b-c", "-") // "abc"`       |
+| `RemoveStart(str, remove string) string`          | Removes one leading occurrence           | `RemoveStart("he-llo", "he-") // "lo"`   |
+| `RemoveStartIgnoreCase(str, remove string) string`| Case-insensitive leading removal        | `RemoveStartIgnoreCase("HEllo", "he") // "lo"` |
+| `RemoveEnd(str, remove string) string`            | Removes one trailing occurrence          | `RemoveEnd("Hello", "lo") // "Hel"`      |
+| `RemoveEndIgnoreCase(str, remove string) string`  | Case-insensitive trailing removal        | `RemoveEndIgnoreCase("Hello", "LO") // "Hel"` |
+| `RemovePattern(str, pattern string) string`      | Removes every regex match                | `RemovePattern("ab12", "[0-9]+") // "ab"` |
+| `Replace(s, old, new string, n int) string`      | Replaces the first `n` occurrences        | `Replace("aaa", "a", "b", 2) // "bba"`  |
+| `ReplaceAll(s, old, new string) string`          | Replaces every occurrence                 | `ReplaceAll("aaa", "a", "b") // "bbb"`  |
+| `ReplaceIgnoreCase(s, old, new string) string`   | Replaces the first case-insensitive match | `ReplaceIgnoreCase("Hello", "hello", "Hi") // "Hi"` |
+| `ReplaceAllStrings(ss []string, old, new string) []string` | Replaces in every element     | `ReplaceAllStrings([]string{"a"}, "a", "x")` |
+
+### Conditional Affixes
+
+| Function                                                     | Description                          | Example                                        |
+| ------------------------------------------------------------ | ------------------------------------ | ---------------------------------------------- |
+| `PrependIfMissing(str, prefix string, prefixes ...string) string` | Prepends `prefix` if absent     | `PrependIfMissing("world", "hello ") // "hello world"` |
+| `PrependIfMissingIgnoreCase(str, prefix string, prefixes ...string) string` | Case-insensitive prepend | `PrependIfMissingIgnoreCase("world", "Hi ")`     |
+| `AppendIfMissing(str, suffix string, suffixes ...string) string` | Appends `suffix` if absent         | `AppendIfMissing("hello", " world") // "hello world"` |
+| `AppendIfMissingIgnoreCase(str, suffix string, suffixes ...string) string` | Case-insensitive append | `AppendIfMissingIgnoreCase("Hello", "!!!")`     |
+
+### Formatting and Padding
+
+| Function                                    | Description                              | Example                              |
+| ------------------------------------------- | ---------------------------------------- | ------------------------------------ |
+| `PadLeft(s string, size int, pad string) string`  | Pads on the left to `size` runes   | `PadLeft("5", 3, "0") // "005"`      |
+| `PadRight(s string, size int, pad string) string` | Pads on the right to `size` runes  | `PadRight("5", 3, "0") // "500"`     |
+| `Center(s string, size int, pad string) string`   | Centers within `size` runes       | `Center("Hi", 6, "*") // "**Hi**"`  |
+| `Wrap(s, wrapWith string) string`          | Surrounds the string                  | `Wrap("hi", "*") // "*hi*"`          |
+| `Unwrap(s, wrapper string) string`         | Removes a surrounding wrapper          | `Unwrap("**hi**", "**") // "hi"`     |
+| `Truncate(s string, length int) string`    | Truncates with `…` (U+2026)             | `Truncate("hello", 3) // "he…"`      |
+| `Abbreviate(str string, maxWidth int) string` | Abbreviates with `...`              | `Abbreviate("Long text here", 8) // "Long ..."` |
+| `AbbreviateWithOffset(str string, offset, maxWidth int) string` | Abbreviates from an offset | `AbbreviateWithOffset("abcdefghij", 4, 7) // "abcd..."` |
+| `Indent(s string, left string) string`     | Prefixes every line                    | `Indent("a\nb", "  ")`               |
+| `Oneline(str string) string`               | Replaces line breaks with spaces        | `Oneline("a\nb") // "a b"`           |
+| `Repeat(s string, repeat int) string`      | Repeats the string                      | `Repeat("ab", 3) // "ababab"`        |
+| `RepeatWithSeparator(s, sep string, repeat int) string` | Repeats with a separator between | `RepeatWithSeparator("a", "-", 3) // "a-a-a"` |
+
+### Joining
+
+| Function                                                        | Description                          | Example                              |
+| --------------------------------------------------------------- | ------------------------------------ | ------------------------------------ |
+| `Join(elems []string, separator string) string`                 | Joins strings, normalizing separators | `Join([]string{"a", "b"}, ",") // "a,b"` |
+| `Slash(elems ...string) string`                                 | Joins with `/`                       | `Slash("a", "b") // "a/b"`           |
+| `JoinBool(a []bool, sep string) string`                         | Joins booleans                       | `JoinBool([]bool{true}, ",") // "true"` |
+| `JoinInt(a []int, sep string) string`                           | Joins integers                       | `JoinInt([]int{1, 2}, ",") // "1,2"` |
+| `JoinInt64(a []int64, sep string) string`                       | Joins int64 values                   | `JoinInt64([]int64{1}, ",") // "1"`  |
+| `JoinUint64(ints []uint64, sep string) string`                  | Joins uint64 values                  | `JoinUint64([]uint64{1}, ",") // "1"`|
+| `JoinFloat64(a []float64, sep string) string`                   | Joins float64 values at 32-bit precision | `JoinFloat64([]float64{1.5}, ",") // "1.5"` |
+| `JoinFloat64WithFormatAndPrecision(a []float64, fmt byte, precision int, sep string) string` | Joins with an explicit verb; `precision` is passed as a `strconv` bit size and must be `32` or `64` | `JoinFloat64WithFormatAndPrecision([]float64{1.5}, 'f', 64, ",") // "1.5"` |
+
+### Extraction, Slicing, and Hashing
+
+| Function                                         | Description                       | Example                              |
+| ------------------------------------------------ | --------------------------------- | ------------------------------------ |
+| `Mid(str string, pos, size int) string`          | Byte-oriented substring slice     | `Mid("Hello World", 6, 5) // "World"`|
+| `Overlay(str, overlay string, start, end int) string` | Replaces a byte range        | `Overlay("Hello", "XY", 1, 3) // "HXYlo"` |
+| `Initials(str string) string`                    | First letter of each word         | `Initials("John Smith") // "JS"`    |
+| `InitialsDelimited(str string, delimiters ...string) string` | Initials split on given delimiters | `InitialsDelimited("J-S", "-") // "JS"` |
+| `OnlyLetters(sequence string) string`            | Keeps only letters                | `OnlyLetters("a1b2") // "ab"`       |
+| `OnlyDigits(sequence string) string`             | Keeps only digits                 | `OnlyDigits("a1b2") // "12"`        |
+| `RemoveAccents(s string) string`                 | Folds Latin accents to ASCII      | `RemoveAccents("Héllo") // "Hello"` |
+| `Reverse(s string) string`                       | Reverses runes                    | `Reverse("hello") // "olleh"`       |
+| `ReverseDelimited(str, del string) string`       | Reverses delimiter-separated parts| `ReverseDelimited("a-b-c", "-") // "c-b-a"` |
+| `Hash256(s string) string`                       | SHA-256 hex digest                | `Hash256("text")`                   |
+| `TailLines(lines []string, num int) []string`    | Last `num` lines                  | `TailLines([]string{"a", "b"}, 1) // ["b"]` |
+| `Quote(arg string) string`                       | Back-quoted Go literal            | `Quote("hi") // "`hi`"`             |
+| `SafeStr(b []byte) string`                       | `[]byte` → `string` (copy)        | `SafeStr([]byte("hi")) // "hi"`     |
+| `UnsafeStr(b []byte) string`                     | `[]byte` → `string` (no copy)     | `UnsafeStr(buf) // "hi"`            |
+| `SafeBytes(s string) []byte`                     | `string` → `[]byte` (copy)        | `SafeBytes("hi") // []byte("hi")`  |
+
+### Comparison and Defaults
+
+| Function                                | Description                   | Example                            |
+| --------------------------------------- | ----------------------------- | ---------------------------------- |
+| `Equals(a, b string) bool`             | Byte equality                 | `Equals("hi", "hi") // true`       |
+| `EqualsIgnoreCase(a, b string) bool`   | Unicode case-folded equality | `EqualsIgnoreCase("Hi", "hi") // true` |
+| `DefaultIfEmpty(s, defaultValue string) string` | Default when empty     | `DefaultIfEmpty("", "x") // "x"`   |
+| `DefaultIfBlank(s, defaultValue string) string` | Default when blank     | `DefaultIfBlank(" ", "x") // "x"`  |
 
 ### Global Variables
 
-- `Len` - Alias for `utf8.RuneCountInString` (Unicode-aware length)
-- `RegexpDupSpaces` - Compiled regex for matching duplicate spaces
-- `MaxRuneBytes` - Maximum valid UTF-8 encoding bytes
+| Variable         | Type            | Description                                                        |
+| ---------------- | --------------- | ------------------------------------------------------------------ |
+| `Len`            | `func(string) int` | Alias for `utf8.RuneCountInString` — Unicode-aware length       |
+| `RegexpDupSpaces`| `*regexp.Regexp` | Precompiled `\s+` matcher for collapsing whitespace runs         |
+| `MaxRuneBytes`   | `[4]byte`       | Maximum valid UTF-8 encoding of a code point (`[244 143 191 191]`) |
 
 ## Best Practices & Notes
 
 ### ⚠️ Common Pitfalls
 
-1. **Unicode vs Byte Length**
+1. **Byte length vs. rune length**
 
    ```go
-   // ❌ Wrong: len() counts bytes
+   // ❌ len() counts bytes
    text := "Hello 世界"
-   length := len(text) // 13 bytes
+   n := len(text) // 13 bytes
 
-   // ✅ Correct: Use Len() for Unicode characters
-   length := strutil.Len(text) // 8 characters
+   // ✅ rune count
+   n := strutil.Len(text) // 8 characters
    ```
 
-2. **Empty vs Blank**
+2. **`TrimLeft` / `TrimRight` take a literal, not a character set**
+
+   They strip repeated occurrences of the whole `cutset` string, so a multi-character
+   cutset behaves differently from `strings.TrimLeft` / `strings.TrimRight`:
 
    ```go
-   // IsEmpty: checks for empty or whitespace
-   strutil.IsEmpty("")       // true
-   strutil.IsEmpty("   ")    // true
-
-   // IsBlank: same as IsEmpty
-   strutil.IsBlank("   ")    // true
-
-   // IsNotEmpty: opposite
-   strutil.IsNotEmpty("   ") // false
+   strutil.TrimLeft("abcabd", "abc") // "abd" — strips whole "abc" literals
+   strings.TrimLeft("abcabd", "abc") // "d"   — strips any of a, b, c
    ```
 
-3. **Case-Sensitive Operations**
+   A single-character cutset behaves the same as the standard library:
 
    ```go
-   // ❌ Case-sensitive by default
-   strutil.Contains("Hello", "hello") // false
-
-   // ✅ Use case-insensitive variant
-   strutil.ContainsIgnoreCase("Hello", "hello") // true
+   strutil.TrimLeft("lllello", "l") // "ello"
    ```
 
-4. **Immutability**
+3. **`ContainsOnly` compares runes, not substrings**
+
    ```go
-   // All functions return new strings, originals unchanged
-   original := "hello"
-   upper := strutil.ToUpper(original)
-   // original is still "hello"
-   // upper is "HELLO"
+   // ❌ "abc" is treated as the candidate set {"abc"}
+   strutil.ContainsOnly("abc", "abc") // false
+
+   // ✅ one argument per character
+   strutil.ContainsOnly("abc", "a", "b", "c") // true
    ```
+
+4. **Padding and trimming are Unicode-unaware in places**
+
+   `Trim` strips bytes `<= ' '` only — it will not remove U+00A0 (non-breaking space). `Strip*` uses regexes and does handle Unicode whitespace.
+
+5. **`ToSnakeCase` does not split camelCase**
+
+   ```go
+   strutil.ToSnakeCase("HelloWorld") // "helloworld"
+   strutil.SplitCamelCase("HelloWorld") // ["Hello", "World"] — use this instead
+   ```
+
+6. **`Hash256` returns an empty string for blank input**
+
+   ```go
+   strutil.Hash256("")    // ""
+   strutil.Hash256("   ") // "   " — the input is returned unchanged
+   ```
+
+   Guard before hashing if you need a stable digest for empty values.
+
+7. **`Slugify` drops non-Latin scripts**
+
+   ```go
+   strutil.Slugify("日本語") // ""
+   ```
+
+   Transliterate first if you need non-Latin slugs.
+
+8. **`Abbreviate` never shortens a string that already fits**
+
+   ```go
+   strutil.Abbreviate("Long text", 10) // "Long text" — not "Long te..."
+   ```
+
+9. **Float joining loses precision**
+
+   ```go
+   strutil.JoinFloat64([]float64{3.14159265358979}, ",") // "3.1415927" — float32 precision
+   ```
+
+   `JoinFloat64` formats at 32-bit precision, and `JoinFloat64WithFormatAndPrecision`
+   treats its `precision` argument as a `strconv` bit size (only `32` and `64` are valid;
+   anything else panics). Use `strconv.FormatFloat` when you need exact decimal control.
 
 ### 💡 Recommendations
 
-✅ **Use semantic names** for clarity
+✅ **Use semantic names**
 
 ```go
-// ✅ Clear intent
-isEmpty := strutil.IsEmpty(userInput)
-if isEmpty {
-    return errors.New("input required")
+if strutil.IsEmpty(userInput) {
+	return errors.New("input required")
 }
 ```
 
-✅ **Chain operations** for complex transformations
+✅ **Chain transformations instead of nesting calls**
 
 ```go
-// Clean and format user input
-result := strutil.Strip(input)
-result = strutil.ToLower(result)
-result = strutil.Slugify(result)
+slug := strutil.Slugify(strutil.CleanSpaces(title))
 ```
 
-✅ **Validate early** in your application flow
+✅ **Validate early at the boundary**
 
 ```go
 func ProcessUser(name, email string) error {
-    if strutil.IsAnyEmpty(name, email) {
-        return errors.New("name and email required")
-    }
-    // ... continue processing
+	if strutil.IsAnyEmpty(name, email) {
+		return errors.New("name and email required")
+	}
+	// ...
 }
 ```
 
-✅ **Use appropriate functions** for the task
+✅ **Prefer `strutil.Len` over `len` for user-facing text**
 
 ```go
-// For URLs and slugs
-slug := strutil.Slugify(title)
-
-// For user display
-formatted := strutil.Title(name)
-
-// For comparison
-if strutil.EqualsIgnoreCase(status, "active") {
-    // ...
+if strutil.Len(title) > 80 { // characters, not bytes
+	// ...
 }
 ```
 
-✅ **Cache hash results** when used frequently
+✅ **Reuse the precompiled `RegexpDupSpaces` for whitespace collapsing**
 
 ```go
-// Cache expensive hash operations
+cleaned := strutil.RegexpDupSpaces.ReplaceAllString(input, " ")
+```
+
+✅ **Cache hash results when used on a hot path**
+
+```go
 type User struct {
-    Email     string
-    EmailHash string // Cached hash
+	Email     string
+	EmailHash string
 }
 
 func NewUser(email string) *User {
-    return &User{
-        Email:     email,
-        EmailHash: strutil.Hash256(email),
-    }
+	return &User{Email: email, EmailHash: strutil.Hash256(email)}
 }
 ```
 
 ### 🔒 Thread Safety
 
-All functions are **thread-safe** as they don't maintain internal state. They can be safely used in concurrent goroutines.
+Every function is **pure** — no package-level mutable state — so all of them are safe for concurrent use:
 
 ```go
 var wg sync.WaitGroup
 for i := 0; i < 100; i++ {
-    wg.Add(1)
-    go func(id int) {
-        defer wg.Done()
-        slug := strutil.Slugify(fmt.Sprintf("Title %d", id))
-        // Safe concurrent access
-    }(i)
+	wg.Add(1)
+	go func(id int) {
+		defer wg.Done()
+		slug := strutil.Slugify(fmt.Sprintf("Title %d", id))
+		_ = slug
+	}(i)
 }
 wg.Wait()
 ```
+
+The only shared objects are the package-level `Len` function, `RegexpDupSpaces`, and `MaxRuneBytes`. `*regexp.Regexp` is safe for concurrent use, and `Len` and `MaxRuneBytes` are read-only.
 
 ### ⚡ Performance Tips
 
 **Fast operations:**
 
-- ✅ `IsEmpty`, `IsNotEmpty` - O(1) after trim
-- ✅ `StartsWith`, `EndsWith` - O(n) where n = prefix/suffix length
-- ✅ `ToLower`, `ToUpper` - O(n)
+- ✅ `IsEmpty`, `IsNotEmpty` — O(n) trim, no allocation
+- ✅ `StartsWith`, `EndsWith` — O(prefix/suffix length)
+- ✅ `Len` — O(n), no allocation
 
 **Moderate operations:**
 
-- ⚠️ `Slugify` - Multiple regex operations
-- ⚠️ `Title` - Iterates through words
-- ⚠️ `Remove`, `Replace` - O(n) per occurrence
+- ⚠️ `Slugify` — accent folding plus a rune scan
+- ⚠️ `Title` — a pass over every rune
+- ⚠️ `Remove`, `Replace` — repeated re-scans
 
 **Expensive operations:**
 
-- 🐌 `Hash256` - Cryptographic hash (use for security, not performance)
-- 🐌 `Reverse` - O(n) with UTF-8 handling
+- 🐌 `Hash256` — cryptographic digest; use for integrity, not throughput
+- 🐌 `Reverse` — allocates a rune slice
 
 **Optimization strategies:**
 
-1. **Reuse compiled regexes** - Use `RegexpDupSpaces` global
-2. **Avoid unnecessary conversions** - Don't `ToLower` multiple times
-3. **Batch operations** - Combine multiple string ops
-4. **Cache results** - Store computed values (hashes, slugs)
+1. **Reuse compiled regexes** — prefer `RegexpDupSpaces` over `regexp.MustCompile` in a loop
+2. **Avoid repeated conversions** — don't call `Trim` twice
+3. **Batch operations** — one `CleanSpaces` call instead of `Trim` + `ReplaceAll`
+4. **Cache results** — store computed slugs, initials, and hashes
 
 ### 🐛 Debugging Tips
 
@@ -613,138 +896,170 @@ wg.Wait()
 
 ```go
 input := " Hello World! "
-fmt.Printf("Original: %q\n", input)
-stripped := strutil.Strip(input)
-fmt.Printf("Stripped: %q\n", stripped)
-slug := strutil.Slugify(stripped)
-fmt.Printf("Slug: %q\n", slug)
+fmt.Printf("original: %q\n", input)
+fmt.Printf("cleaned:  %q\n", strutil.CleanSpaces(input))
+fmt.Printf("slug:     %q\n", strutil.Slugify(input))
 ```
 
-**Check for empty strings:**
+**Check for empty results:**
 
 ```go
 if strutil.IsEmpty(result) {
-    log.Printf("Warning: got empty result from %q", input)
+	log.Printf("warning: empty result from %q", input)
 }
 ```
 
-**Verify transformations:**
+**Compare transformations side by side:**
 
 ```go
 original := "Test String"
-transformed := strutil.Slugify(original)
-fmt.Printf("%s -> %s\n", original, transformed)
+fmt.Printf("%q -> %q\n", original, strutil.Slugify(original))
 ```
 
 ### 📝 Testing
 
-Example test cases:
+Table-driven tests work well with this API:
 
 ```go
 func TestSlugify(t *testing.T) {
-    tests := []struct {
-        input    string
-        expected string
-    }{
-        {"Hello World", "hello-world"},
-        {"Hello  World", "hello-world"},
-        {"Hello-World!", "hello-world"},
-        {"", ""},
-        {"   ", ""},
-        {"CamelCase", "camelcase"},
-        {"with_underscore", "with-underscore"},
-    }
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Hello World", "hello-world"},
+		{"Hello  World", "hello-world"},
+		{"Hello-World!", "hello-world"},
+		{"", ""},
+		{"   ", ""},
+		{"CamelCase", "camelcase"},
+	}
 
-    for _, tt := range tests {
-        t.Run(tt.input, func(t *testing.T) {
-            got := strutil.Slugify(tt.input)
-            if got != tt.expected {
-                t.Errorf("Slugify(%q) = %q, want %q",
-                    tt.input, got, tt.expected)
-            }
-        })
-    }
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := strutil.Slugify(tt.input)
+			if got != tt.expected {
+				t.Errorf("Slugify(%q) = %q, want %q", tt.input, got, tt.expected)
+			}
+		})
+	}
 }
 ```
 
-### 🔍 Common Patterns
+Run the package's own suite with:
 
-**Validation middleware:**
-
-```go
-func ValidateRequest(r *http.Request) error {
-    name := r.FormValue("name")
-    email := r.FormValue("email")
-
-    if strutil.IsAnyEmpty(name, email) {
-        return errors.New("name and email required")
-    }
-
-    if !strutil.ContainsIgnoreCase(email, "@") {
-        return errors.New("invalid email format")
-    }
-
-    return nil
-}
+```bash
+go test ./pkg/strutil/...
 ```
 
-**Text normalization:**
+## Known Quirks (Bugs)
+
+These functions currently behave differently from what their names and doc comments imply. They are documented here so you are not surprised — and so the fixes can be prioritized.
+
+| Function                                    | Current behavior                    | Expected                                   |
+| ------------------------------------------- | ----------------------------------- | ------------------------------------------ |
+| `RemoveStart` / `RemoveStartIgnoreCase`     | Drops one extra byte                | `RemoveStart("Hello", "He")` → `"llo"`     |
+| `PadLeft` / `PadRight` / `Center`           | Treats a whitespace-only pad as empty | `PadLeft("Hi", 6, " ")` → `"    Hi"`       |
+| `StripNonWhitespace`                        | Returns only the whitespace characters | Returns the string with whitespace removed |
+| `ContainsOnly`                              | Compares each rune against whole arguments | Expects one argument per character |
+| `Repeat` / `RepeatWithSeparator`            | Returns the input unchanged for `n <= 0` | Returns `""` for `n <= 0`             |
+| `JoinFloat64WithFormatAndPrecision`         | Passes `precision` as `strconv`'s `bitSize`; panics unless it is `32` or `64` | Formats at the requested decimal precision |
+
+`StripNonWhitespace` and `Center` are also inconsistent with their signatures and should not be relied on until fixed.
+
+Workarounds until these are fixed upstream:
 
 ```go
-func NormalizeText(text string) string {
-    // Remove extra whitespace
-    text = strutil.Strip(text)
-    text = strutil.RegexpDupSpaces.ReplaceAllString(text, " ")
+// RemoveStart
+strings.TrimPrefix(s, prefix) // stdlib, no off-by-one
 
-    // Remove newlines
-    text = strutil.RemoveAll(text, "\n")
-    text = strutil.RemoveAll(text, "\r")
+// Padding with spaces
+strutil.PadLeft(s, size, "-") // use a non-blank pad character
 
-    return text
-}
+// ContainsOnly — pass one rune per argument
+strutil.ContainsOnly(s, "a", "b", "c")
+
+// Repeat
+if n > 0 { out = strutil.Repeat(s, n) } else { out = "" }
+
+// Float joining
+strconv.FormatFloat(v, 'f', 2, 64) // stdlib, when you need real precision
 ```
 
 ## Limitations
 
-- **No internationalization** - Use `golang.org/x/text` for i18n/l10n
-- **Basic pattern matching** - Use `regexp` for complex patterns
-- **ASCII-focused slugify** - May not handle all Unicode correctly
-- **No streaming operations** - All operations load full strings into memory
-- **No locale-aware operations** - Case conversion uses Go's defaults
+- **No internationalization** — use `golang.org/x/text` for i18n and locale-aware casing
+- **Basic pattern matching only** — `RemovePattern` and `ContainsAllWords` compile a regex per call
+- **ASCII-focused slugging** — non-Latin scripts are dropped rather than transliterated
+- **No streaming operations** — every call operates on a complete string in memory
+- **Byte-oriented slicing** — `Mid` and `Overlay` use byte offsets, not rune offsets
+- **No locale-aware formatting** — case conversion follows Go's default Unicode rules
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A[Caller] --> B[strutil]
+    B --> C[Validation]
+    B --> D[Transformation]
+    B --> E[Analysis]
+    B --> F[Formatting]
+    B --> G[Manipulation]
+    B --> H[Joining / Hashing]
+    C --> I[stdlib: strings, unicode, utf8]
+    D --> I
+    E --> I
+    F --> I
+    G --> I
+    H --> J[stdlib: crypto/sha256, strconv]
+    F --> K[replify/pkg/truncate]
+```
+
+`strutil` depends only on the Go standard library, plus `github.com/polarixa/replify/pkg/truncate` for the `Truncate` helper.
 
 ## Performance Characteristics
 
-| Operation Type   | Time Complexity | Memory |
+| Operation type   | Time complexity | Memory |
 | ---------------- | --------------- | ------ |
-| Validation       | O(n)            | O(1)   |
+| Emptiness check  | O(n)            | O(1)   |
 | Case conversion  | O(n)            | O(n)   |
 | Substring search | O(n×m)          | O(1)   |
-| Trim/Strip       | O(n)            | O(n)   |
+| Trim / Strip     | O(n)            | O(n)   |
 | Replace          | O(n)            | O(n)   |
 | Slugify          | O(n)            | O(n)   |
 | Hash256          | O(n)            | O(1)   |
+| Reverse          | O(n)            | O(n)   |
 
-Where n = string length, m = substring length
+Where n = string length in bytes, m = substring length.
 
 ## Contributing
 
-Contributions are welcome! Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
+Contributions are welcome. Please see the main [replify repository](https://github.com/polarixa/replify) for contribution guidelines.
+
+```bash
+git clone --depth 1 https://github.com/polarixa/replify.git
+cd replify
+go mod tidy
+go test ./pkg/strutil/...
+```
+
+Please include tests for any new or changed behavior, and keep the examples in this README in sync with the implementation.
 
 ## License
 
-This library is part of the [replify](https://github.com/polarixa/replify) project.
+Licensed under the **Apache License 2.0**; see [LICENSE](../../LICENSE).
 
 ## Related
 
 Part of the **replify** ecosystem:
 
-- [replify](https://github.com/polarixa/replify) - API response wrapping library
-- [conv](https://github.com/polarixa/replify/pkg/conv) - Type conversion utilities
-- [hashy](https://github.com/polarixa/replify/pkg/hashy) - Deterministic hashing
-- [match](https://github.com/polarixa/replify/pkg/match) - Wildcard pattern matching
-- [coll](https://github.com/polarixa/replify/pkg/coll) - Collection utilities
-- Other sivaosorg utilities
+- [replify](https://github.com/polarixa/replify) — API response wrapping library
+- [truncate](https://github.com/polarixa/replify/pkg/truncate) — truncation strategies used by `strutil.Truncate`
+- [strchain](https://github.com/polarixa/replify/pkg/strchain) — fluent string builder
+- [conv](https://github.com/polarixa/replify/pkg/conv) — type conversion utilities
+- [hashy](https://github.com/polarixa/replify/pkg/hashy) — deterministic hashing
+- [match](https://github.com/polarixa/replify/pkg/match) — wildcard pattern matching
+- [coll](https://github.com/polarixa/replify/pkg/coll) — collection utilities
 
 ---
 
-**Note:** This package contains 100+ utility functions. For a complete API reference, please visit the [strutil package on GitHub](https://github.com/polarixa/replify/tree/master/pkg/strutil).
+**Note:** This package exposes 124 exported functions. For the authoritative, always-current API, see the [package documentation on pkg.go.dev](https://pkg.go.dev/github.com/polarixa/replify/pkg/strutil).
