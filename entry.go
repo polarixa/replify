@@ -306,6 +306,11 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 			issue.message = value
 		}
 		w.issue = issue
+		// Restore the error text carried by the issue so that Error() and Cause()
+		// report the original message instead of an auto-generated placeholder.
+		if w.errors == nil && strutil.IsNotEmpty(issue.message) {
+			w.errors = NewError(issue.message)
+		}
 	}
 	if values, exists := data["_links"].(map[string]any); exists {
 		links := Links()

@@ -130,7 +130,6 @@ func (w *wrapper) DumpJSONTo(dst string, ignoringJSONfields ...string) (*Dump, *
 			WithMessage("DumpJSONTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
-	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
@@ -303,7 +302,6 @@ func (w *wrapper) DumpBodyTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpBodyTo: failed to rewind in-process copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the file itself is still the temp copy, not dst
-	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
@@ -379,7 +377,6 @@ func (w *wrapper) DumpMDDocTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpMDDocTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
-	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			WithHeader(OK).
@@ -457,7 +454,6 @@ func (w *wrapper) DumpResolveESTMDDocTo(dst string) (*Dump, *wrapper) {
 			WithMessage("DumpResolveESTMDDocTo: failed to create in-process temp copy")
 	}
 	d.WithName(filepath.Base(dst)) // set the name for better error messages and debugging; the full path is in the wrapper message
-	defer d.Close()                // ensure the temp copy is cleaned up if the caller forgets
 	return &Dump{syr: d, filepath: dst},
 		New().
 			OK().

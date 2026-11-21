@@ -42,11 +42,7 @@ func run() error {
 		return fmt.Errorf("dump json: %s", wd.Error())
 	}
 	slogger.Info("json dump written", slogger.String("file", filepath.Base(d.Filepath())))
-	jsonData, err := os.ReadFile(d.Filepath())
-	if err != nil {
-		return fmt.Errorf("read json dump: %w", err)
-	}
-	slogger.Info("json dump content", slogger.String("content", string(jsonData)))
+	slogger.Info("json dump content", slogger.String("content", d.ReadAll()))
 	if err := d.Close(); err != nil {
 		return fmt.Errorf("close json dump: %w", err)
 	}
@@ -56,11 +52,7 @@ func run() error {
 		return fmt.Errorf("dump body: %s", wb.Error())
 	}
 	slogger.Info("body dump written", slogger.String("file", filepath.Base(b.Filepath())))
-	bodyData, err := os.ReadFile(b.Filepath())
-	if err != nil {
-		return fmt.Errorf("read body dump: %w", err)
-	}
-	slogger.Info("body dump content", slogger.String("content", string(bodyData)))
+	slogger.Info("body dump content", slogger.String("content", b.ReadAll()))
 	if err := b.Close(); err != nil {
 		return fmt.Errorf("close body dump: %w", err)
 	}
