@@ -19,6 +19,7 @@ func New() *wrapper {
 	w := &wrapper{
 		meta:   defaultMetaValues(),
 		header: Processing,
+		total:  totalUnset,
 	}
 	return w
 }

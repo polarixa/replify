@@ -173,7 +173,7 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 		return 0, false
 	}
 
-	w = &wrapper{}
+	w = &wrapper{total: totalUnset}
 
 	if value, exists := data["status_code"]; exists {
 		if v, ok := toInt(value); ok {

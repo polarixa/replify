@@ -37,13 +37,20 @@ func (w *wrapper) Available() bool {
 	return w != nil
 }
 
-// Error retrieves the error associated with the [wrapper] instance.
+// Error returns the message of the underlying error as a string.
 //
-// This function returns the `errors` field of the [wrapper], which contains
-// any errors encountered during the operation of the [wrapper].
+// It resolves the innermost cause (see [wrapper.Cause]) and returns its text, or
+// an empty string when the [wrapper] is unavailable or carries no error. It does
+// not return an error value; use [wrapper.Cause] when you need an `error`.
+//
+// Note: because this method has the signature `Error() string`, *wrapper
+// satisfies the standard [error] interface. A non-nil *wrapper is therefore
+// always a non-nil `error`, even when the response is successful. Do not assign
+// a wrapper to an `error` variable to test for failure; call [wrapper.IsError]
+// (or compare [wrapper.Error] to "") instead.
 //
 // Returns:
-//   - An error object, or `nil` if no errors are present.
+//   - The error message, or an empty string if no error is present.
 func (w *wrapper) Error() string {
 	if !w.Available() {
 		return ""
@@ -148,11 +155,13 @@ func (w *wrapper) Message() string {
 //
 // This function returns the `total` field of the [wrapper], which indicates
 // the total number of items available, often used in paginated responses.
+// When no total has been set, it returns 0; use [wrapper.IsTotalPresent] to
+// tell an unset total apart from an explicit total of 0.
 //
 // Returns:
-//   - An integer representing the total number of items.
+//   - An integer representing the total number of items (0 when unset).
 func (w *wrapper) Total() int {
-	if !w.Available() {
+	if !w.Available() || w.total < 0 {
 		return 0
 	}
 	return w.total
@@ -1516,7 +1525,9 @@ func (w *wrapper) IsErrorPresent() bool {
 // IsTotalPresent checks whether the total number of items is present in the [wrapper] instance.
 //
 // This function checks if the `total` field of the [wrapper] is greater than or equal to 0,
-// indicating that a valid total number of items has been set.
+// indicating that a valid total number of items has been set. A new [wrapper] starts
+// with the total unset, so this returns false until [wrapper.WithTotal] is called
+// (or the total is synchronized from a slice body or parsed from JSON).
 //
 // Returns:
 //   - A boolean value indicating whether the total is present:
@@ -1955,6 +1966,8 @@ func (w *wrapper) WithStatusCode(code int) *wrapper {
 //
 // This function updates the `total` field of the [wrapper] and
 // returns the modified [wrapper] instance to allow method chaining.
+// An explicit total of 0 is serialized as `"total": 0`; a negative value
+// marks the total as unset, so the field is omitted from the output.
 //
 // Parameters:
 //   - `total`: An integer representing the total number of items to set.
@@ -3455,7 +3468,7 @@ func (w *wrapper) AsStreaming(reader io.Reader) *StreamingWrapper {
 //   - [meta]: Metadata about the response, if present.
 //   - [pagination]: Pagination details, if applicable.
 //   - `debug`: Debugging information, if provided.
-//   - `total`: Total number of items, if set to a valid non-negative value.
+//   - `total`: Total number of items, only if it has been set (see [wrapper.IsTotalPresent]).
 //   - `status_code`: The HTTP status code, if greater than 0.
 //   - `message`: A descriptive message, if not empty.
 //   - `path`: The request path, if not empty.
@@ -3677,7 +3690,7 @@ func (w *wrapper) String() string {
 		sw.AppendF("data=%v", w.BodyString()).Space()
 	}
 	if w.IsTotalPresent() {
-		sw.AppendF("total=%d", w.total).Space()
+		sw.AppendF("total=%d", w.Total()).Space()
 	}
 	if w.IsPagingPresent() {
 		sw.AppendF("pagination=%q", w.pagination.String()).Space()
@@ -4556,7 +4569,7 @@ func (w *wrapper) autoAdjust() {
 //   - [meta]: Metadata about the response, if present.
 //   - [pagination]: Pagination details, if applicable.
 //   - `debug`: Debugging information, if provided.
-//   - `total`: Total number of items, if set to a valid non-negative value.
+//   - `total`: Total number of items, only if it has been set (see [wrapper.IsTotalPresent]).
 //   - `status_code`: The HTTP status code, if greater than 0.
 //   - `message`: A descriptive message, if not empty.
 //   - `path`: The request path, if not empty.

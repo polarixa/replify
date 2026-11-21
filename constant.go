@@ -2051,3 +2051,8 @@ var ReasonCodes = map[ReasonCode]reason{
 	ReasonCodeDecryptionFailed:  {code: ReasonCodeDecryptionFailed, category: CategorySecurity},
 	ReasonCodeHashingFailed:     {code: ReasonCodeHashingFailed, category: CategorySecurity},
 }
+
+// totalUnset marks a wrapper whose total has not been set. Negative totals are
+// treated as absent: [wrapper.IsTotalPresent] reports false and the "total"
+// field is omitted from the serialized output.
+const totalUnset = -1
