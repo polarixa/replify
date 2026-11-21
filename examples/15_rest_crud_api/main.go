@@ -147,16 +147,7 @@ func call(c *http.Client, method, url, body string) error {
 		}
 		summary = w.BodyString()
 		if w.IsClientError() {
-			// The error text travels in the "issue" object of the envelope.
-			var env struct {
-				Issue struct {
-					Message string `json:"message"`
-				} `json:"issue"`
-			}
-			if err := json.Unmarshal(data, &env); err != nil {
-				return fmt.Errorf("decode issue: %w", err)
-			}
-			summary = env.Issue.Message
+			summary = w.Error() // the error text survives UnwrapJSON
 		}
 	}
 	slogger.Info("call", slogger.String("method", method), slogger.String("uri", req.URL.RequestURI()), slogger.Int("status", resp.StatusCode), slogger.String("summary", summary))
