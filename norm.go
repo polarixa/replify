@@ -140,77 +140,77 @@ func (w *wrapper) NormBody() *wrapper {
 	if w.data != nil {
 		switch v := w.data.(type) {
 		case []any:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []map[string]any:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []string:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []int:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []int8:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []int16:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []int32:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []int64:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []uint:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []uint8:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []uint16:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []uint32:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []uint64:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []float32:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
 		case []float64:
-			if w.total == 0 && len(v) > 0 {
+			if w.total <= 0 && len(v) > 0 {
 				w.total = len(v)
 				hasChanges = true
 			}
