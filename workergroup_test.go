@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -656,6 +658,309 @@ func TestPool_SubmitReply_PoolClosed(t *testing.T) {
 	}
 	if !errors.Is(w.Cause(), workergroup.ErrPoolClosed) {
 		t.Fatalf("expected errors.Is to find ErrPoolClosed in %v", w.Cause())
+	}
+}
+
+// --- Pool: result accounting (reserve-on-accept) -----------------------------
+
+// noopJob is a job that always succeeds.
+func noopJob(ctx context.Context) error { return nil }
+
+// notifyErrCtx wraps a Context and signals on every Err() call. Pool.Submit
+// calls Err() exactly once per rejected submission (and never on an accepted
+// one), which lets a test block a worker until a known number of submissions
+// have been rejected, with no sleeping.
+type notifyErrCtx struct {
+	context.Context
+	errCalled chan struct{}
+}
+
+func (c *notifyErrCtx) Err() error {
+	select {
+	case c.errCalled <- struct{}{}:
+	default:
+	}
+	return c.Context.Err()
+}
+
+func TestPool_SubmitRejectedLeavesNoResult(t *testing.T) {
+	t.Parallel()
+
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	tests := []struct {
+		name    string
+		submit  func(p *replify.Pool) error
+		wantErr error
+	}{
+		{
+			name: "T1 closed pool",
+			submit: func(p *replify.Pool) error {
+				p.Close()
+				return p.Submit(context.Background(), "never-runs", noopJob)
+			},
+			wantErr: workergroup.ErrPoolClosed,
+		},
+		{
+			// Zero workers and zero queue: no receiver exists, so the only
+			// ready case in Submit's select is the canceled per-call context.
+			name: "T3 canceled per-call context",
+			submit: func(p *replify.Pool) error {
+				return p.Submit(canceledCtx, "never-runs", noopJob)
+			},
+			wantErr: context.Canceled,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			p := replify.NewPool(context.Background(), 0)
+			if err := tt.submit(p); !errors.Is(err, tt.wantErr) {
+				t.Fatalf("expected Submit error %v, got %v", tt.wantErr, err)
+			}
+			p.Close()
+
+			w := p.Wait()
+			if w.StatusCode() != replify.StatusNoContent.Value() {
+				t.Fatalf("expected 204 for a pool with only rejected submissions, got %d", w.StatusCode())
+			}
+			if w.Total() != 0 {
+				t.Fatalf("expected total 0, got %d", w.Total())
+			}
+			if n := len(resultsOf(t, w)); n != 0 {
+				t.Fatalf("expected zero results (no phantom slots), got %d", n)
+			}
+		})
+	}
+}
+
+func TestPool_TrySubmitRejectedLeavesNoResult(t *testing.T) {
+	t.Parallel()
+
+	// Zero workers and an unbuffered queue: nothing can ever receive the job,
+	// so TrySubmit is guaranteed to report false.
+	p := replify.NewPool(context.Background(), 0)
+	if p.TrySubmit("never-runs", noopJob) {
+		t.Fatalf("expected TrySubmit to be rejected with no workers and no queue")
+	}
+	p.Close()
+
+	w := p.Wait()
+	if w.StatusCode() != replify.StatusNoContent.Value() {
+		t.Fatalf("expected 204, got %d", w.StatusCode())
+	}
+	if n := len(resultsOf(t, w)); n != 0 {
+		t.Fatalf("expected zero results, got %d", n)
+	}
+}
+
+func TestRunWorkerPool_AllSubmissionsRejectedCountedOnce(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	// Zero workers: no receiver, so every Submit is rejected with ctx.Err().
+	jobs := []*replify.PoolJob{
+		replify.NewPoolJob("a", noopJob),
+		replify.NewPoolJob("b", noopJob),
+		replify.NewPoolJob("", noopJob), // unnamed: defaults to job-<index>
+	}
+	w := replify.RunWorkerPool(ctx, 0, jobs)
+
+	results := resultsOf(t, w)
+	if len(results) != 3 || w.Total() != 3 {
+		t.Fatalf("expected exactly 3 results and total 3, got %d results, total %d", len(results), w.Total())
+	}
+	for _, r := range results {
+		if r.IsSuccess() {
+			t.Fatalf("a rejected submission must never be a success: %+v", r)
+		}
+		if !errors.Is(r.Cause(), context.Canceled) {
+			t.Fatalf("expected submission error context.Canceled, got %v", r.Cause())
+		}
+	}
+	if got := results[2].Name(); got != "job-2" {
+		t.Fatalf("expected default name job-2 for the unnamed rejected job, got %q", got)
+	}
+	// The pool's own context is canceled, so Wait reports 499 regardless of
+	// job outcomes (see buildGroupWrapper); only the accounting is under test.
+	if w.StatusCode() != replify.StatusClientClosedRequest.Value() {
+		t.Fatalf("expected 499, got %d", w.StatusCode())
+	}
+}
+
+func TestRunWorkerPool_MixedAcceptedAndRejected(t *testing.T) {
+	t.Parallel()
+
+	base, cancel := context.WithCancel(context.Background())
+	ctx := &notifyErrCtx{Context: base, errCalled: make(chan struct{}, 16)}
+
+	// One worker. Job A cancels the context and then stays busy until both
+	// later submissions have been rejected, so B and C can never be accepted.
+	jobA := func(context.Context) error {
+		cancel()
+		<-ctx.errCalled // B rejected
+		<-ctx.errCalled // C rejected
+		return nil
+	}
+	w := replify.RunWorkerPool(ctx, 1, []*replify.PoolJob{
+		replify.NewPoolJob("A", jobA),
+		replify.NewPoolJob("B", noopJob),
+		replify.NewPoolJob("C", noopJob),
+	})
+
+	results := resultsOf(t, w)
+	if len(results) != 3 {
+		t.Fatalf("expected exactly 3 results, got %d: %+v", len(results), results)
+	}
+	var succeeded, failed int
+	for _, r := range results {
+		if r.IsSuccess() {
+			succeeded++
+			if r.Name() != "A" {
+				t.Fatalf("only A may succeed, got success for %q", r.Name())
+			}
+			continue
+		}
+		failed++
+		if !errors.Is(r.Cause(), context.Canceled) {
+			t.Fatalf("expected %q to fail with context.Canceled, got %v", r.Name(), r.Cause())
+		}
+	}
+	if succeeded != 1 || failed != 2 {
+		t.Fatalf("expected 1 succeeded / 2 failed, got %d / %d", succeeded, failed)
+	}
+}
+
+func TestPool_HappyPathAccounting(t *testing.T) {
+	t.Parallel()
+
+	var jobs []*replify.PoolJob
+	for i := 0; i < 5; i++ {
+		jobs = append(jobs, replify.NewPoolJob(fmt.Sprintf("named-%d", i), noopJob))
+	}
+	w := replify.RunWorkerPool(context.Background(), 3, jobs)
+
+	if w.StatusCode() != replify.StatusOK.Value() || w.Total() != 5 {
+		t.Fatalf("expected 200 and total 5, got %d / %d", w.StatusCode(), w.Total())
+	}
+	seen := make(map[int]bool)
+	for _, r := range resultsOf(t, w) {
+		if !r.IsSuccess() {
+			t.Fatalf("unexpected failure: %+v", r)
+		}
+		if r.Index() < 0 || r.Index() > 4 || seen[r.Index()] {
+			t.Fatalf("indices must be unique and within 0..4, got %d", r.Index())
+		}
+		seen[r.Index()] = true
+	}
+}
+
+func TestPool_UnnamedJobsDefaultToIndex(t *testing.T) {
+	t.Parallel()
+
+	p := replify.NewPool(context.Background(), 2)
+	for i := 0; i < 4; i++ {
+		if err := p.Submit(context.Background(), "", noopJob); err != nil {
+			t.Fatalf("Submit: %v", err)
+		}
+	}
+	p.Close()
+
+	results := resultsOf(t, p.Wait())
+	if len(results) != 4 {
+		t.Fatalf("expected 4 results, got %d", len(results))
+	}
+	for _, r := range results {
+		if want := fmt.Sprintf("job-%d", r.Index()); r.Name() != want {
+			t.Fatalf("expected default name %q, got %q", want, r.Name())
+		}
+	}
+}
+
+func TestPool_AcceptedNilJobIsOneFailedResult(t *testing.T) {
+	t.Parallel()
+
+	p := replify.NewPool(context.Background(), 1)
+	if err := p.Submit(context.Background(), "nil-job", nil); err != nil {
+		t.Fatalf("a nil job is still accepted, got %v", err)
+	}
+	p.Close()
+
+	w := p.Wait()
+	results := resultsOf(t, w)
+	if len(results) != 1 {
+		t.Fatalf("expected exactly one result, got %d", len(results))
+	}
+	if results[0].IsSuccess() || !errors.Is(results[0].Cause(), replify.ErrNilTask) {
+		t.Fatalf("expected a failed result carrying ErrNilTask, got %+v", results[0])
+	}
+}
+
+func TestWorkerGroup_TryGoRejectionLeavesNoResult(t *testing.T) {
+	t.Parallel()
+
+	g := replify.NewWorkerGroup(workergroup.WithLimit(1))
+	block := make(chan struct{})
+	started := make(chan struct{})
+	g.Go("blocker", func(ctx context.Context) (any, error) {
+		close(started)
+		<-block
+		return nil, nil
+	})
+	<-started
+
+	for i := 0; i < 3; i++ {
+		if g.TryGo("rejected", func(ctx context.Context) (any, error) { return nil, nil }) {
+			t.Fatalf("expected TryGo to be rejected while at the concurrency limit")
+		}
+	}
+	close(block)
+
+	results := resultsOf(t, g.Wait())
+	if len(results) != 1 || results[0].Name() != "blocker" || !results[0].IsSuccess() {
+		t.Fatalf("expected only the blocker's result, got %+v", results)
+	}
+}
+
+func TestPool_ConcurrentSubmitCountMatchesAccepted(t *testing.T) {
+	t.Parallel()
+
+	const goroutines, perGoroutine = 8, 50
+
+	p := replify.NewPool(context.Background(), 4, workergroup.WithQueueSize(4))
+	var accepted atomic.Int64
+	var wg sync.WaitGroup
+	for g := 0; g < goroutines; g++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < perGoroutine; i++ {
+				if i%2 == 0 {
+					if err := p.Submit(context.Background(), "", noopJob); err == nil {
+						accepted.Add(1)
+					}
+				} else if p.TrySubmit("", noopJob) {
+					accepted.Add(1)
+				}
+			}
+		}()
+	}
+	wg.Wait()
+	p.Close()
+
+	w := p.Wait()
+	results := resultsOf(t, w)
+	if int64(len(results)) != accepted.Load() {
+		t.Fatalf("expected one result per accepted job: %d results, %d accepted", len(results), accepted.Load())
+	}
+	for _, r := range results {
+		if !r.IsSuccess() {
+			t.Fatalf("unexpected failure: %+v", r)
+		}
 	}
 }
 
