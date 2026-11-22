@@ -426,6 +426,8 @@ type SignatureConfig struct {
 	ignoringSignatureFields []string           // JSON fields excluded when computing the signature (optional), don't export this field
 	ignoringResponseFields  []string           // JSON fields excluded from the response written to the client (optional), don't export this field
 	canonicalize            bool               // Indicates whether to canonicalize the JSON payload before signing (optional)
+	maxClockSkew            time.Duration      // Tolerated clock skew for signature timestamps in the future; a zero value is strict (default: 30s via NewSignatureConfig)
+	allowLegacyAlgorithms   bool               // Allows the legacy HMAC-SHA1 and HMAC-MD5 algorithms when true (default: false)
 }
 
 // ///////////////////////////

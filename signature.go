@@ -713,6 +713,7 @@ func (s *signature) ReplyPtr() *S {
 }
 
 // Clone creates a deep copy of the current [signature] instance and returns it.
+// The headers map is copied, so mutating the clone never affects the original.
 //
 // Returns:
 //   - A new [signature] instance that is a copy of the current one.
@@ -724,14 +725,17 @@ func (s *signature) Clone() *signature {
 		algorithm: s.algorithm,
 		value:     s.value,
 		timestamp: s.timestamp,
-		headers:   s.headers,
+		headers:   maps.Clone(s.headers),
 	}
 	return clone
 }
 
 // NewSignatureConfig creates a new instance of [SignatureConfig] with default values.
 // It sets the default algorithm to HMAC-SHA256 ([HMACSHA256]), includes the timestamp by default,
-// initializes an empty list of headers to sign, and sets the maximum age to 5 minutes.
+// initializes an empty list of headers to sign, sets the maximum age to 5 minutes, and tolerates
+// [DefaultSignatureMaxClockSkew] (30 seconds) of clock skew for timestamps in the future. The legacy
+// HMAC-SHA1 and HMAC-MD5 algorithms are disabled; see [SignatureConfig.EnableLegacyAlgorithms].
+// Note that a zero-value &SignatureConfig{} has a clock skew of 0 and is therefore strict.
 //
 // Parameters:
 //   - secretKey: The secret key to be used for signature generation.
@@ -743,6 +747,7 @@ func NewSignatureConfig(secretKey string) *SignatureConfig {
 		headersToSign:    []string{},      // Headers to include in the signature (optional)
 		maxAge:           5 * time.Minute, // Maximum age for the signature to be considered valid (optional)
 		canonicalize:     false,           // Disable canonicalization of the JSON payload by default
+		maxClockSkew:     DefaultSignatureMaxClockSkew,
 	}
 }
 
@@ -908,11 +913,17 @@ func (s *SignatureConfig) IsMaxAgePresent() bool {
 
 // RemainingMaxAge calculates the remaining duration before the current [SignatureConfig] instance is considered expired based on a given start time.
 //
+// A start time in the future is only accepted within the configured clock skew (see
+// [SignatureConfig.MaxClockSkew]): up to that far ahead the full maximum age is returned, and any time
+// further ahead returns 0 (expired). This stops a pre-dated signature from staying valid indefinitely.
+// A zero-value &SignatureConfig{} has a skew of 0, so any future time is expired.
+//
 // Parameters:
 //   - t: The start time from which to calculate the remaining duration.
 //
 // Returns:
-//   - the remaining duration if the instance is available and the maximum age is configured, or 0 otherwise.
+//   - the remaining duration if the instance is available and the maximum age is configured, or 0 otherwise
+//     (including when t is further in the future than the clock skew allows).
 func (s *SignatureConfig) RemainingMaxAge(t time.Time) time.Duration {
 	if !s.Available() || s.maxAge <= 0 || t.IsZero() {
 		return 0
@@ -920,6 +931,10 @@ func (s *SignatureConfig) RemainingMaxAge(t time.Time) time.Duration {
 
 	elapsed := time.Since(t)
 	if elapsed < 0 {
+		// t is in the future: tolerate only the configured clock skew.
+		if -elapsed > max(s.maxClockSkew, 0) {
+			return 0
+		}
 		return s.maxAge
 	}
 
@@ -972,19 +987,80 @@ func (s *SignatureConfig) IsExpiredDuration(d time.Duration) bool {
 	return d > s.maxAge
 }
 
-// IsExpired checks if the current time is considered expired based on
-// the maximum age configured in the current [SignatureConfig] instance.
+// MaxClockSkew returns the clock skew tolerated for signature timestamps that lie in the future.
+// [NewSignatureConfig] sets it to [DefaultSignatureMaxClockSkew]; a zero-value &SignatureConfig{}
+// has a skew of 0, which is strict.
 //
 // Returns:
-//   - true if the current time is expired, false otherwise, or false if the instance is not available or the maximum age is not configured.
-func (s *SignatureConfig) IsExpired() bool {
+//   - The tolerated clock skew, or 0 if the instance is not available.
+func (s *SignatureConfig) MaxClockSkew() time.Duration {
 	if !s.Available() {
-		return false
+		return 0
 	}
-	if s.maxAge <= 0 {
-		return false
-	}
-	return s.IsExpiredDuration(time.Since(time.Now()))
+	return s.maxClockSkew
+}
+
+// WithMaxClockSkew sets the clock skew tolerated for signature timestamps that lie in the future.
+// A timestamp further ahead than d is treated as expired (see [SignatureConfig.RemainingMaxAge]).
+// A zero or negative d is strict: no future timestamp is accepted.
+//
+// Parameters:
+//   - d: The tolerated clock skew.
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) WithMaxClockSkew(d time.Duration) *SignatureConfig {
+	s.maxClockSkew = d
+	return s
+}
+
+// IsLegacyAlgorithmsEnabled reports whether the legacy HMAC-SHA1 and HMAC-MD5 algorithms are allowed.
+// They are disabled by default; see [SignatureConfig.EnableLegacyAlgorithms].
+//
+// Returns:
+//   - true if legacy algorithms are enabled, false otherwise or if the instance is not available.
+func (s *SignatureConfig) IsLegacyAlgorithmsEnabled() bool {
+	return s.Available() && s.allowLegacyAlgorithms
+}
+
+// WithLegacyAlgorithms allows or forbids the legacy HMAC-SHA1 and HMAC-MD5 algorithms.
+// When forbidden (the default), [ValidateSignatureConfig] rejects a config using either of them, which
+// in turn makes [GenerateSignature], [GenerateSignatureFromRequest], [VerifySignature] and
+// [VerifySignatureFromRequest] fail with a Bad Request.
+//
+// Parameters:
+//   - allow: true to permit HMAC-SHA1 and HMAC-MD5.
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) WithLegacyAlgorithms(allow bool) *SignatureConfig {
+	s.allowLegacyAlgorithms = allow
+	return s
+}
+
+// EnableLegacyAlgorithms allows the legacy HMAC-SHA1 and HMAC-MD5 algorithms, for interoperability with
+// older systems only. SHA-1 and MD5 are cryptographically weak; prefer [HMACSHA256] or stronger.
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) EnableLegacyAlgorithms() *SignatureConfig {
+	return s.WithLegacyAlgorithms(true)
+}
+
+// IsExpired always returns false.
+//
+// A [SignatureConfig] carries no timestamp, so there is nothing to measure the maximum age against.
+// The previous implementation compared the age of "now" to itself (about zero) and therefore never
+// reported expiry either; it is now an explicit, deterministic false.
+//
+// Deprecated: IsExpired never reports expiry. Use [SignatureConfig.IsExpiredTime] or
+// [SignatureConfig.IsExpiredUnix] with the timestamp of the signature being checked.
+//
+// Returns:
+//   - always false.
+func (s *SignatureConfig) IsExpired() bool {
+	// No timestamp is available on a config, so expiry cannot be determined here.
+	return false
 }
 
 // IsCanonicalize checks if the canonicalization of the JSON payload before signing is enabled for the current [SignatureConfig] instance.
@@ -1230,6 +1306,12 @@ func (s *SignatureConfig) Respond() map[string]any {
 	if s.IsMaxAgePresent() {
 		m["max_age"] = s.maxAge.String()
 	}
+	if s.maxClockSkew != DefaultSignatureMaxClockSkew {
+		m["max_clock_skew"] = s.maxClockSkew.String()
+	}
+	if s.allowLegacyAlgorithms {
+		m["allow_legacy_algorithms"] = true
+	}
 	return m
 }
 
@@ -1354,6 +1436,11 @@ func (s *SignatureConfig) JSONPrettyIgnoring(level1fields ...string) string {
 
 // Equal compares the current [SignatureConfig] instance with another [SignatureConfig] instance for equality.
 //
+// Every field is compared unconditionally: algorithm, secret key, maximum age, timestamp inclusion,
+// canonicalization, clock skew, legacy-algorithm opt-in, and the three string lists (headers to sign,
+// ignored signature fields, ignored response fields). The lists are compared in order; a nil list and
+// an empty list are equal. Two nil configs are equal; a nil and a non-nil config are not.
+//
 // Parameters:
 //   - other: The other [SignatureConfig] instance to compare against.
 //
@@ -1366,35 +1453,16 @@ func (s *SignatureConfig) Equal(other *SignatureConfig) bool {
 	if s == nil || other == nil {
 		return false
 	}
-	if s.IsAlgorithmPresent() && other.IsAlgorithmPresent() {
-		if s.algorithm.String() != other.algorithm.String() {
-			return false
-		}
-	}
-	if s.IsSecretKeyPresent() && other.IsSecretKeyPresent() {
-		if s.secretKey != other.secretKey {
-			return false
-		}
-	}
-	if s.IsHeadersToSignPresent() && other.IsHeadersToSignPresent() {
-		if !reflect.DeepEqual(s.headersToSign, other.headersToSign) {
-			return false
-		}
-	}
-	if s.IsMaxAgePresent() && other.IsMaxAgePresent() {
-		if s.maxAge != other.maxAge {
-			return false
-		}
-	}
-	if s.includeTimestamp != other.includeTimestamp {
-		return false
-	}
-	if s.IsCanonicalize() && other.IsCanonicalize() {
-		if s.canonicalize != other.canonicalize {
-			return false
-		}
-	}
-	return true
+	return s.algorithm == other.algorithm &&
+		s.secretKey == other.secretKey &&
+		s.maxAge == other.maxAge &&
+		s.includeTimestamp == other.includeTimestamp &&
+		s.canonicalize == other.canonicalize &&
+		s.maxClockSkew == other.maxClockSkew &&
+		s.allowLegacyAlgorithms == other.allowLegacyAlgorithms &&
+		slices.Equal(s.headersToSign, other.headersToSign) &&
+		slices.Equal(s.ignoringSignatureFields, other.ignoringSignatureFields) &&
+		slices.Equal(s.ignoringResponseFields, other.ignoringResponseFields)
 }
 
 // String generates a string representation of the current [SignatureConfig] instance.
@@ -1493,6 +1561,9 @@ func (s *SignatureConfig) Slogging(logger ...*slogger.Logger) *SignatureConfig {
 
 // Clone creates a deep copy of the current [SignatureConfig] instance.
 //
+// Every field is copied, including the ignored signature and response field lists, and all slices are
+// duplicated so that mutating the clone never affects the original (and vice versa).
+//
 // Returns:
 //   - A new [SignatureConfig] instance that is a copy of the current instance.
 func (s *SignatureConfig) Clone() *SignatureConfig {
@@ -1500,12 +1571,16 @@ func (s *SignatureConfig) Clone() *SignatureConfig {
 		return nil
 	}
 	clone := &SignatureConfig{
-		secretKey:        s.secretKey,
-		algorithm:        s.algorithm,
-		headersToSign:    s.headersToSign,
-		maxAge:           s.maxAge,
-		includeTimestamp: s.includeTimestamp,
-		canonicalize:     s.canonicalize,
+		secretKey:               s.secretKey,
+		algorithm:               s.algorithm,
+		headersToSign:           slices.Clone(s.headersToSign),
+		maxAge:                  s.maxAge,
+		includeTimestamp:        s.includeTimestamp,
+		ignoringSignatureFields: slices.Clone(s.ignoringSignatureFields),
+		ignoringResponseFields:  slices.Clone(s.ignoringResponseFields),
+		canonicalize:            s.canonicalize,
+		maxClockSkew:            s.maxClockSkew,
+		allowLegacyAlgorithms:   s.allowLegacyAlgorithms,
 	}
 	return clone
 }
@@ -1547,6 +1622,10 @@ func getHashSignature(algorithm SignatureAlgorithm) (func() hash.Hash, *wrapper)
 
 // ValidateSignatureConfig checks the validity of the provided [SignatureConfig] instance and returns a [wrapper] containing the validation result.
 //
+// Besides requiring an algorithm and a secret key, it rejects the legacy [HMACSHA1] and [HMACMD5]
+// algorithms with a Bad Request unless they were enabled through [SignatureConfig.EnableLegacyAlgorithms].
+// Because every generate and verify function calls it first, the gate applies to all of them.
+//
 // Parameters:
 //   - config: The [SignatureConfig] instance to validate.
 //
@@ -1563,6 +1642,11 @@ func ValidateSignatureConfig(config *SignatureConfig) *wrapper {
 		if !config.IsSecretKeyPresent() {
 			return New().BadRequest().WithMessage("signature secret key is missing")
 		}
+	}
+	if (config.algorithm == HMACSHA1 || config.algorithm == HMACMD5) && !config.allowLegacyAlgorithms {
+		return New().BadRequest().
+			WithMessagef("signature algorithm %s is a legacy algorithm and is disabled by default; call EnableLegacyAlgorithms() on the SignatureConfig to allow it",
+				config.algorithm.String())
 	}
 	return New().OK().WithMessage("validated signature configuration successfully")
 }

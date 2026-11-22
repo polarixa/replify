@@ -23,8 +23,40 @@ reorganises files internally is not marked as breaking.
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** signature verification is stricter by default. (1) The legacy `HMACSHA1` and
+  `HMACMD5` algorithms are now rejected by `ValidateSignatureConfig`, so `GenerateSignature`,
+  `GenerateSignatureFromRequest`, `VerifySignature` and `VerifySignatureFromRequest` return a
+  `400 Bad Request` for a config using either of them. Affected: any caller that signs or verifies with
+  MD5 or SHA-1. Migration: switch to `HMACSHA256` or stronger, or call `EnableLegacyAlgorithms()` (or
+  `WithLegacyAlgorithms(true)`) on the `SignatureConfig` to keep the old behavior. (2) A signature
+  whose timestamp lies in the future is now only accepted within a clock skew of 30 seconds
+  (`DefaultSignatureMaxClockSkew`); a validly signed but future-dated signature, which used to stay
+  valid indefinitely, is now treated as expired and rejected. Affected: senders whose clocks run more
+  than 30 seconds ahead of the verifier. Migration: fix the clock, or widen the tolerance with
+  `WithMaxClockSkew(d)`. A zero-value `&SignatureConfig{}` has a skew of 0 (strict).
+
+### Added
+
+- Added `SignatureConfig.WithMaxClockSkew`, `MaxClockSkew`, `EnableLegacyAlgorithms`,
+  `WithLegacyAlgorithms` and `IsLegacyAlgorithmsEnabled`, and the `DefaultSignatureMaxClockSkew`
+  constant. The new settings are included in `Clone`, `Equal` and `Respond` (when non-default).
+
+### Deprecated
+
+- Deprecated `SignatureConfig.IsExpired`. A config carries no timestamp, so it never reported expiry;
+  it now returns `false` deterministically. Use `IsExpiredTime` or `IsExpiredUnix` with the signature's
+  timestamp instead.
+
 ### Fixed
 
+- Fixed `SignatureConfig.Clone`, which dropped the ignored signature and response field lists and shared
+  the headers-to-sign slice with the original, and `signature.Clone`, which shared the headers map. Both
+  now return deep copies.
+- Fixed `SignatureConfig.Equal`, which skipped comparisons when either side was unset (so a configured
+  and an empty secret, algorithm, max age or header list compared equal), treated canonicalization
+  `true` and `false` as equal, and ignored the two ignored-field lists. Every field is now compared.
 - Fixed four defects in the HTTP writers in `write.go`. `WriteFile` and `WriteBinary` no longer call
   `WriteJSON` after the response is committed: when copying or writing the body fails mid-stream, the
   failure is now only recorded on the wrapper (previously a JSON error envelope was appended to the

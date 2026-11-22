@@ -1,5 +1,7 @@
 package replify
 
+import "time"
+
 // Standard HTTP headers related to content negotiation and encoding.
 const (
 	// Accept specifies the media types that are acceptable for the response.
@@ -1082,6 +1084,10 @@ const (
 	//  Example: fi_FI
 	LocaleFiFI Locale = "fi_FI"
 )
+
+// DefaultSignatureMaxClockSkew is the clock skew tolerated by [NewSignatureConfig] for signature
+// timestamps that lie in the future. A timestamp further ahead than this is treated as expired.
+const DefaultSignatureMaxClockSkew = 30 * time.Second
 
 // SignatureAlgorithm constants for common cryptographic algorithms used in signatures.
 const (
