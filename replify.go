@@ -4282,6 +4282,9 @@ func (w *wrapper) ApplySignatureHeader(rw http.ResponseWriter, config *Signature
 	if signature.IsTimestampPresent() {
 		rw.Header().Add(HeaderXSignatureTimestamp.String(), conv.StringOrEmpty(signature.Timestamp()))
 	}
+	if signature.IsNoncePresent() {
+		rw.Header().Add(HeaderXSignatureNonce.String(), signature.Nonce())
+	}
 	return w
 }
 

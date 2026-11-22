@@ -39,6 +39,18 @@ reorganises files internally is not marked as breaking.
 
 ### Added
 
+- Added opt-in replay protection for signed requests. `SignatureConfig.EnableReplayProtection` (also
+  `WithReplayProtection` and `IsReplayProtectionEnabled`) makes the signer add a random 16-byte hex nonce that is
+  signed as part of the HMAC payload and sent in the new `X-Signature-Nonce` header (`HeaderXSignatureNonce`),
+  and makes the verifier accept each nonce at most once for `maxAge` plus the clock skew. The nonce store is
+  checked only after the HMAC has verified, and a missing nonce, a reused nonce or a store error rejects the
+  request (fail closed). The new `NonceStore` interface (`SeenOrMark(nonce, ttl)`) and
+  `SignatureConfig.WithNonceStore` let deployments supply a shared store; the default in-memory store is
+  per-process and bounded by `DefaultNonceStoreCapacity` (100000). Enabling requires a positive max age,
+  timestamps and a store, which `ValidateSignatureConfig` enforces. `signature` gained `Nonce`, `WithNonce` and
+  `IsNoncePresent`, and the nonce is included in `Respond`, `Clone`, `Equal`, `SignatureFromHeader`,
+  `ApplySignatureHeader` and `UnwrapJSON`. The feature is off by default and the signed payload is
+  byte-identical to the previous format when it is off.
 - Added `ServeFile(w http.ResponseWriter, req *http.Request)`, which serves the file set with `File` or
   `FileAttachment` through `http.ServeContent`. It supports `Range` and `If-Range` (206, and 416 for an
   unsatisfiable range), conditional requests (`If-Modified-Since`, `If-None-Match`: 304) and `HEAD`, and sets

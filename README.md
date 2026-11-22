@@ -2465,6 +2465,26 @@ Full reference: [docs/HTTP_STATUS_CODES_REFERENCE.md](docs/HTTP_STATUS_CODES_REF
 <summary><strong>Best Practices</strong></summary>
 
 <details>
+<summary><strong>Security: replay protection for signed requests</strong></summary>
+
+A signed request that is captured can be replayed unlimited times until it passes `maxAge` (5 minutes by default). Replay protection is **opt-in** and has no effect unless enabled on both the signer and the verifier:
+
+```go
+cfg := replify.NewSignatureConfig(secret).
+    EnableReplayProtection() // adds a signed random nonce; each nonce is accepted once per window
+
+sig, w := replify.GenerateSignature(cfg, body) // sig.Nonce() is signed with the payload
+ok, w := replify.VerifySignature(cfg, body, sig) // a second verification of the same signature is rejected
+```
+
+- The nonce travels in the `X-Signature-Nonce` header (written by `ApplySignatureHeader`, read by `SignatureFromHeader`) and in the `signature` object of the envelope.
+- Verification order: configuration, algorithm, expiry, HMAC (which covers the nonce), and only then the nonce store, so unauthenticated requests never touch it. A missing nonce, a reused nonce, or a store error rejects the request (fail closed).
+- Replay protection requires a positive `maxAge`, signature timestamps, and a nonce store; `ValidateSignatureConfig` rejects anything else.
+- **The default store is per-process.** It is in memory and bounded by `DefaultNonceStoreCapacity` (100000 unexpired nonces); when it is full of unexpired entries, verification fails closed. With several instances behind a load balancer, a request captured on one instance can be replayed against another, so **supply a shared `NonceStore`** (for example backed by Redis) with `WithNonceStore`. Its `SeenOrMark(nonce, ttl)` must be an atomic test-and-set.
+
+</details>
+
+<details>
 <summary><strong>Do</strong></summary>
 
 1. **Always set status codes.**

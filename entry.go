@@ -372,6 +372,9 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 				}
 			}
 		}
+		if value, exists := values["nonce"].(string); exists {
+			signature.nonce = value
+		}
 		w.signature = signature
 	}
 	if values, exists := data["reason"].(map[string]any); exists {
