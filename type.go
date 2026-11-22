@@ -428,6 +428,8 @@ type SignatureConfig struct {
 	canonicalize            bool               // Indicates whether to canonicalize the JSON payload before signing (optional)
 	maxClockSkew            time.Duration      // Tolerated clock skew for signature timestamps in the future; a zero value is strict (default: 30s via NewSignatureConfig)
 	allowLegacyAlgorithms   bool               // Allows the legacy HMAC-SHA1 and HMAC-MD5 algorithms when true (default: false)
+	replayProtection        bool               // Signs a random nonce and accepts each nonce at most once within the validity window (default: false)
+	nonceStore              NonceStore         // Seen-nonce store used when replayProtection is enabled; shared by reference, excluded from Equal
 }
 
 // ///////////////////////////
@@ -512,6 +514,7 @@ type signature struct {
 	value     string             // The actual signature value.
 	timestamp int64              // The timestamp indicating when the signature was created.
 	headers   map[string]string  // Optional headers included in the signature.
+	nonce     string             // Optional single-use random nonce signed with the payload (replay protection).
 }
 
 // reason represents the reason for a business logic failure, including a specific code and a broader category.

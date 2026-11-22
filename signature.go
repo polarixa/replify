@@ -3,10 +3,13 @@ package replify
 import (
 	"crypto/hmac"
 	"crypto/md5"
+	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
 	"encoding/base64"
+	"encoding/hex"
+	"errors"
 	"fmt"
 	"hash"
 	"maps"
@@ -14,6 +17,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/polarixa/replify/pkg/conv"
@@ -434,6 +438,38 @@ func (s *signature) WithHeader(key, value string) *signature {
 	return s
 }
 
+// Nonce returns the single-use nonce signed with the payload, or an empty string when there is none.
+//
+// Returns:
+//   - The nonce, or an empty string if the instance is not available or no nonce is set.
+func (s *signature) Nonce() string {
+	if !s.Available() {
+		return ""
+	}
+	return s.nonce
+}
+
+// IsNoncePresent checks whether a non-empty nonce is set on the [signature] instance.
+//
+// Returns:
+//   - true if a nonce is present, false otherwise.
+func (s *signature) IsNoncePresent() bool {
+	return s.Available() && strutil.IsNotEmpty(s.nonce)
+}
+
+// WithNonce sets the single-use nonce of the [signature] instance. The nonce is only meaningful when
+// replay protection is enabled (see [SignatureConfig.EnableReplayProtection]), where it is signed with the payload.
+//
+// Parameters:
+//   - nonce: The nonce to set; an empty string clears it.
+//
+// Returns:
+//   - A pointer to the modified [signature] instance (enabling method chaining).
+func (s *signature) WithNonce(nonce string) *signature {
+	s.nonce = nonce
+	return s
+}
+
 // Respond generates a map representation of the [signature] instance.
 //
 // This function creates a map containing the fields of the [signature] instance that are present.
@@ -454,6 +490,9 @@ func (s *signature) Respond() map[string]any {
 	}
 	if s.IsHeadersPresent() {
 		m["headers"] = s.headers
+	}
+	if s.IsNoncePresent() {
+		m["nonce"] = s.nonce
 	}
 	return m
 }
@@ -575,6 +614,12 @@ func (s *signature) Equal(other *signature) bool {
 		return false
 	}
 	if s.IsHeadersPresent() && !reflect.DeepEqual(s.headers, other.headers) {
+		return false
+	}
+	if s.IsNoncePresent() != other.IsNoncePresent() {
+		return false
+	}
+	if s.IsNoncePresent() && s.nonce != other.nonce {
 		return false
 	}
 	return true
@@ -726,6 +771,7 @@ func (s *signature) Clone() *signature {
 		value:     s.value,
 		timestamp: s.timestamp,
 		headers:   maps.Clone(s.headers),
+		nonce:     s.nonce,
 	}
 	return clone
 }
@@ -1047,6 +1093,177 @@ func (s *SignatureConfig) EnableLegacyAlgorithms() *SignatureConfig {
 	return s.WithLegacyAlgorithms(true)
 }
 
+// NonceStore records which nonces have been used, so that a signed request can be accepted only once
+// when replay protection is enabled (see [SignatureConfig.EnableReplayProtection]).
+//
+// SeenOrMark must be an atomic test-and-set: it reports whether nonce was already recorded and, when it
+// was not, records it so that it is reported as seen until ttl has elapsed. Two concurrent calls with the
+// same fresh nonce must never both return alreadySeen == false.
+//
+// A non-nil error means the store could not decide; the verifier then FAILS CLOSED and rejects the request.
+//
+// The default store is in memory and per-process. A deployment with several instances behind a load
+// balancer MUST supply a shared implementation (for example backed by Redis) with
+// [SignatureConfig.WithNonceStore], otherwise a request captured on one instance can be replayed against another.
+type NonceStore interface {
+	SeenOrMark(nonce string, ttl time.Duration) (alreadySeen bool, err error)
+}
+
+// memoryNonceStore is the default per-process [NonceStore]: a mutex-protected map from nonce to expiry,
+// bounded by capacity. When a new nonce arrives and the map is at capacity, expired entries are swept
+// first; if it is still full the call returns an error so the verifier fails closed instead of growing
+// without bound or evicting live entries (which would reopen the replay window).
+type memoryNonceStore struct {
+	mu        sync.Mutex
+	entries   map[string]time.Time // nonce -> expiry
+	capacity  int
+	now       func() time.Time // injectable clock; defaults to time.Now
+	nextSweep time.Time        // opportunistic sweep of expired entries is due at or after this time
+	minExpiry time.Time        // lower bound of all expiries; no entry can be expired before it
+}
+
+// newMemoryNonceStore creates an in-memory nonce store holding at most capacity unexpired nonces.
+// A non-positive capacity falls back to [DefaultNonceStoreCapacity].
+func newMemoryNonceStore(capacity int) *memoryNonceStore {
+	if capacity <= 0 {
+		capacity = DefaultNonceStoreCapacity
+	}
+	return &memoryNonceStore{
+		entries:  make(map[string]time.Time),
+		capacity: capacity,
+		now:      time.Now,
+	}
+}
+
+// SeenOrMark implements [NonceStore].
+func (m *memoryNonceStore) SeenOrMark(nonce string, ttl time.Duration) (bool, error) {
+	if ttl <= 0 {
+		return false, errors.New("nonce store: ttl must be positive")
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	now := m.now()
+	if expiry, ok := m.entries[nonce]; ok {
+		if expiry.After(now) {
+			return true, nil
+		}
+		delete(m.entries, nonce) // expired: the nonce may be used again
+	}
+
+	// Opportunistic sweep, at most once per ttl, so expired entries never accumulate.
+	if !now.Before(m.nextSweep) {
+		m.sweepLocked(now)
+		m.nextSweep = now.Add(ttl)
+	}
+	if len(m.entries) >= m.capacity {
+		// Only worth an O(n) sweep if something can have expired by now.
+		if !now.Before(m.minExpiry) {
+			m.sweepLocked(now)
+		}
+		if len(m.entries) >= m.capacity {
+			return false, fmt.Errorf("nonce store: capacity of %d unexpired nonces reached", m.capacity)
+		}
+	}
+
+	expiry := now.Add(ttl)
+	m.entries[nonce] = expiry
+	if len(m.entries) == 1 || expiry.Before(m.minExpiry) {
+		m.minExpiry = expiry
+	}
+	return false, nil
+}
+
+// sweepLocked removes expired entries and recomputes the lower expiry bound. The caller holds m.mu.
+func (m *memoryNonceStore) sweepLocked(now time.Time) {
+	var min time.Time
+	for nonce, expiry := range m.entries {
+		if !expiry.After(now) {
+			delete(m.entries, nonce)
+			continue
+		}
+		if min.IsZero() || expiry.Before(min) {
+			min = expiry
+		}
+	}
+	m.minExpiry = min
+}
+
+// len returns the number of stored entries (expired entries included until swept).
+func (m *memoryNonceStore) len() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.entries)
+}
+
+// newNonce returns 16 bytes from crypto/rand, hex-encoded (32 characters).
+func newNonce() (string, error) {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b[:]), nil
+}
+
+// IsReplayProtectionEnabled reports whether replay protection is enabled. It is off by default.
+//
+// Returns:
+//   - true if replay protection is enabled, false otherwise or if the instance is not available.
+func (s *SignatureConfig) IsReplayProtectionEnabled() bool {
+	return s.Available() && s.replayProtection
+}
+
+// EnableReplayProtection turns on opt-in replay protection and, when no nonce store has been set, installs
+// the default in-memory store ([DefaultNonceStoreCapacity] entries).
+//
+// Threat model: without it, a captured, validly signed request can be replayed any number of times until
+// it passes max age. With it, the signer adds a random single-use nonce that is signed as part of the HMAC
+// payload and sent in [HeaderXSignatureNonce], and the verifier accepts each nonce at most once for
+// max age plus the clock skew. Verification order is: configuration, algorithm, expiry, HMAC (which covers
+// the nonce), and only then the nonce store, so unauthenticated requests never touch it. A missing nonce,
+// a nonce seen before, or a store error all reject the request (fail closed).
+//
+// It requires a positive max age and timestamps ([SignatureConfig.WithMaxAge], the defaults of
+// [NewSignatureConfig]); [ValidateSignatureConfig] rejects an unbounded window. Both sides must enable it.
+// The default store is per-process: multi-instance deployments MUST supply a shared store with
+// [SignatureConfig.WithNonceStore].
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) EnableReplayProtection() *SignatureConfig {
+	return s.WithReplayProtection(true)
+}
+
+// WithReplayProtection enables or disables replay protection; see [SignatureConfig.EnableReplayProtection].
+// Enabling installs the default in-memory store when none is set; disabling keeps any store that was set.
+//
+// Parameters:
+//   - enable: true to enable replay protection.
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) WithReplayProtection(enable bool) *SignatureConfig {
+	s.replayProtection = enable
+	if enable && s.nonceStore == nil {
+		s.nonceStore = newMemoryNonceStore(DefaultNonceStoreCapacity)
+	}
+	return s
+}
+
+// WithNonceStore sets the [NonceStore] used when replay protection is enabled, replacing the default
+// in-memory store. Use it to share seen-nonce state across instances. Passing nil removes the store; with
+// replay protection enabled, [ValidateSignatureConfig] then rejects the configuration.
+//
+// Parameters:
+//   - store: The nonce store to use.
+//
+// Returns:
+//   - A pointer to the modified [SignatureConfig] instance (enabling method chaining).
+func (s *SignatureConfig) WithNonceStore(store NonceStore) *SignatureConfig {
+	s.nonceStore = store
+	return s
+}
+
 // IsExpired always returns false.
 //
 // A [SignatureConfig] carries no timestamp, so there is nothing to measure the maximum age against.
@@ -1312,6 +1529,9 @@ func (s *SignatureConfig) Respond() map[string]any {
 	if s.allowLegacyAlgorithms {
 		m["allow_legacy_algorithms"] = true
 	}
+	if s.replayProtection {
+		m["replay_protection"] = true
+	}
 	return m
 }
 
@@ -1441,6 +1661,10 @@ func (s *SignatureConfig) JSONPrettyIgnoring(level1fields ...string) string {
 // ignored signature fields, ignored response fields). The lists are compared in order; a nil list and
 // an empty list are equal. Two nil configs are equal; a nil and a non-nil config are not.
 //
+// The replay-protection flag is compared, but the nonce store is deliberately excluded: it is a
+// (possibly shared, stateful) service object, and two configs that differ only in which store instance
+// they use describe the same signing and verification policy.
+//
 // Parameters:
 //   - other: The other [SignatureConfig] instance to compare against.
 //
@@ -1460,6 +1684,7 @@ func (s *SignatureConfig) Equal(other *SignatureConfig) bool {
 		s.canonicalize == other.canonicalize &&
 		s.maxClockSkew == other.maxClockSkew &&
 		s.allowLegacyAlgorithms == other.allowLegacyAlgorithms &&
+		s.replayProtection == other.replayProtection &&
 		slices.Equal(s.headersToSign, other.headersToSign) &&
 		slices.Equal(s.ignoringSignatureFields, other.ignoringSignatureFields) &&
 		slices.Equal(s.ignoringResponseFields, other.ignoringResponseFields)
@@ -1562,7 +1787,9 @@ func (s *SignatureConfig) Slogging(logger ...*slogger.Logger) *SignatureConfig {
 // Clone creates a deep copy of the current [SignatureConfig] instance.
 //
 // Every field is copied, including the ignored signature and response field lists, and all slices are
-// duplicated so that mutating the clone never affects the original (and vice versa).
+// duplicated so that mutating the clone never affects the original (and vice versa). The nonce store is
+// the one exception: it is copied by reference, so a clone and its original share the same seen-nonce
+// state, which is what a replay check requires.
 //
 // Returns:
 //   - A new [SignatureConfig] instance that is a copy of the current instance.
@@ -1581,6 +1808,8 @@ func (s *SignatureConfig) Clone() *SignatureConfig {
 		canonicalize:            s.canonicalize,
 		maxClockSkew:            s.maxClockSkew,
 		allowLegacyAlgorithms:   s.allowLegacyAlgorithms,
+		replayProtection:        s.replayProtection,
+		nonceStore:              s.nonceStore, // shared by reference on purpose: it is a service object, not config data
 	}
 	return clone
 }
@@ -1626,6 +1855,8 @@ func getHashSignature(algorithm SignatureAlgorithm) (func() hash.Hash, *wrapper)
 // algorithms with a Bad Request unless they were enabled through [SignatureConfig.EnableLegacyAlgorithms].
 // Because every generate and verify function calls it first, the gate applies to all of them.
 //
+// When replay protection is enabled it also requires a positive max age, timestamps and a nonce store.
+//
 // Parameters:
 //   - config: The [SignatureConfig] instance to validate.
 //
@@ -1647,6 +1878,20 @@ func ValidateSignatureConfig(config *SignatureConfig) *wrapper {
 		return New().BadRequest().
 			WithMessagef("signature algorithm %s is a legacy algorithm and is disabled by default; call EnableLegacyAlgorithms() on the SignatureConfig to allow it",
 				config.algorithm.String())
+	}
+	if config.replayProtection {
+		if config.maxAge <= 0 {
+			return New().BadRequest().
+				WithMessage("replay protection requires a positive max age: the nonce window would be unbounded; call WithMaxAge")
+		}
+		if !config.includeTimestamp {
+			return New().BadRequest().
+				WithMessage("replay protection requires signature timestamps: without them a signature never expires; call EnableIncludeTimestamp")
+		}
+		if config.nonceStore == nil {
+			return New().BadRequest().
+				WithMessage("replay protection requires a nonce store; call WithNonceStore or EnableReplayProtection")
+		}
 	}
 	return New().OK().WithMessage("validated signature configuration successfully")
 }
@@ -1691,10 +1936,21 @@ func GenerateSignature(config *SignatureConfig, body []byte) (s *signature, w *w
 		s.WithTimeUnix(ts)
 	}
 
+	// With replay protection, sign a fresh random nonce together with the payload.
+	var nonce string
+	if config.IsReplayProtectionEnabled() {
+		n, err := newNonce()
+		if err != nil {
+			return nil, New().InternalServerError().WithErrorAck(err).WithMessage("failed to generate signature nonce")
+		}
+		nonce = n
+		s.WithNonce(nonce)
+	}
+
 	// Build the signature payload by concatenating the body, timestamp, and headers (if any).
 	// The payload is constructed in a deterministic manner to ensure that both the sender and receiver
 	// can generate the same signature for the same request content.
-	payload := buildSignaturePayload(body, ts, nil)
+	payload := buildSignaturePayload(body, ts, nil, nonce)
 
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(payload)
@@ -1758,8 +2014,19 @@ func GenerateSignatureFromRequest(r *http.Request, config *SignatureConfig, body
 		}
 	}
 
-	// Build the signature payload by concatenating the body, timestamp, and headers in a canonical form.
-	payload := buildSignaturePayload(body, ts, headers)
+	// With replay protection, sign a fresh random nonce together with the payload.
+	var nonce string
+	if config.IsReplayProtectionEnabled() {
+		n, err := newNonce()
+		if err != nil {
+			return nil, New().InternalServerError().WithErrorAck(err).WithMessage("failed to generate signature nonce")
+		}
+		nonce = n
+		s.WithNonce(nonce)
+	}
+
+	// Build the signature payload by concatenating the body, timestamp, headers and nonce in a canonical form.
+	payload := buildSignaturePayload(body, ts, headers, nonce)
 
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(payload)
@@ -1774,7 +2041,7 @@ func GenerateSignatureFromRequest(r *http.Request, config *SignatureConfig, body
 }
 
 // SignatureFromHeader builds a [signature] instance from the X-Signature, X-Signature-Algorithm,
-// and X-Signature-Timestamp headers, mirroring the headers written by [ApplySignatureHeader].
+// X-Signature-Timestamp and (when present) X-Signature-Nonce headers, mirroring the headers written by [ApplySignatureHeader].
 // It is the natural counterpart used to recover a signature before calling [VerifySignature] or
 // [VerifySignatureFromRequest].
 //
@@ -1798,7 +2065,38 @@ func SignatureFromHeader(header http.Header) *signature {
 	if ts := header.Get(HeaderXSignatureTimestamp.String()); strutil.IsNotEmpty(ts) {
 		s.WithTimeUnix(conv.Int64OrDefault(ts, 0))
 	}
+	if n := header.Get(HeaderXSignatureNonce.String()); strutil.IsNotEmpty(n) {
+		s.WithNonce(n)
+	}
 	return s
+}
+
+// verifyNoncePresent runs the replay check that happens before the HMAC: a missing nonce is rejected
+// without touching the store. It returns nil when the nonce is acceptable so far.
+func verifyNoncePresent(config *SignatureConfig, provided *signature) *wrapper {
+	if config.IsReplayProtectionEnabled() && !provided.IsNoncePresent() {
+		return New().Unauthorized().WithMessage("signature nonce is missing: replay protection is enabled")
+	}
+	return nil
+}
+
+// checkReplay marks the nonce of an already authenticated signature as used. It must only be called after
+// the HMAC has been verified, so unauthenticated requests never reach the store. It returns nil when the
+// nonce was fresh, and an Unauthorized wrapper for a replay or a store failure (fail closed).
+func checkReplay(config *SignatureConfig, provided *signature) *wrapper {
+	if !config.IsReplayProtectionEnabled() {
+		return nil
+	}
+	ttl := config.MaxAge() + max(config.MaxClockSkew(), 0)
+	seen, err := config.nonceStore.SeenOrMark(provided.Nonce(), ttl)
+	if err != nil {
+		return New().Unauthorized().WithErrorAck(err).
+			WithMessage("signature replay check failed: nonce store error, request rejected")
+	}
+	if seen {
+		return New().Unauthorized().WithMessage("signature replay detected: nonce has already been used")
+	}
+	return nil
 }
 
 // VerifySignature verifies a previously generated [signature] against the given body using the
@@ -1842,6 +2140,9 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 			return false, New().Unauthorized().WithMessage("signature has expired")
 		}
 	}
+	if wn := verifyNoncePresent(config, provided); wn != nil {
+		return false, wn
+	}
 
 	// Canonicalize the JSON body if the configuration requires it. This ensures consistent
 	// formatting for signature verification, avoiding mismatches due to differences in
@@ -1868,7 +2169,11 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 
 	// Build the payload that will be used for HMAC verification.
 	// This includes the body, timestamp, and any headers if applicable.
-	payload := buildSignaturePayload(body, ts, nil)
+	var nonce string
+	if config.IsReplayProtectionEnabled() {
+		nonce = provided.Nonce()
+	}
+	payload := buildSignaturePayload(body, ts, nil, nonce)
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(payload)
 	expectedValue := base64.StdEncoding.EncodeToString(mac.Sum(nil))
@@ -1877,6 +2182,11 @@ func VerifySignature(config *SignatureConfig, body []byte, provided *signature) 
 		return false, New().
 			Unauthorized().
 			WithMessage("signature verification failed: value mismatch or timestamp tampered")
+	}
+
+	// Only an authenticated signature may reach the nonce store.
+	if wr := checkReplay(config, provided); wr != nil {
+		return false, wr
 	}
 
 	return true, New().
@@ -1924,6 +2234,9 @@ func VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, body [
 	if r == nil {
 		return false, New().BadRequest().WithMessage("http request is missing, cannot cross-check signed headers")
 	}
+	if wn := verifyNoncePresent(config, provided); wn != nil {
+		return false, wn
+	}
 
 	if config.IsCanonicalize() {
 		if canonicalBody, wc := canonicalJSON(body); wc.IsError() {
@@ -1965,7 +2278,11 @@ func VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, body [
 		}
 	}
 
-	payload := buildSignaturePayload(body, ts, headers)
+	var nonce string
+	if config.IsReplayProtectionEnabled() {
+		nonce = provided.Nonce()
+	}
+	payload := buildSignaturePayload(body, ts, headers, nonce)
 	mac := hmac.New(h, []byte(config.SecretKey()))
 	mac.Write(payload)
 	expectedValue := base64.StdEncoding.EncodeToString(mac.Sum(nil))
@@ -1974,6 +2291,11 @@ func VerifySignatureFromRequest(r *http.Request, config *SignatureConfig, body [
 		return false, New().
 			Unauthorized().
 			WithMessage("signature verification failed: value mismatch or payload tampered")
+	}
+
+	// Only an authenticated signature may reach the nonce store.
+	if wr := checkReplay(config, provided); wr != nil {
+		return false, wr
 	}
 
 	return true, New().

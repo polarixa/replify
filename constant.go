@@ -280,6 +280,11 @@ const (
 	// 	Example: "1790442053"
 	HeaderXSignatureTimestamp HeaderType = "X-Signature-Timestamp"
 
+	// X-Signature-Nonce carries the single-use random nonce that is signed together with the payload when
+	// replay protection is enabled (see [SignatureConfig.EnableReplayProtection]).
+	// 	Example: "9f2c5a1e7b3d4c6a8e0f1b2c3d4e5f60"
+	HeaderXSignatureNonce HeaderType = "X-Signature-Nonce"
+
 	// X-API-Version specifies the version of the API being requested or used.
 	// 	Example: "v1"
 	HeaderXAPIVersion HeaderType = "X-API-Version"
@@ -1088,6 +1093,10 @@ const (
 // DefaultSignatureMaxClockSkew is the clock skew tolerated by [NewSignatureConfig] for signature
 // timestamps that lie in the future. A timestamp further ahead than this is treated as expired.
 const DefaultSignatureMaxClockSkew = 30 * time.Second
+
+// DefaultNonceStoreCapacity is the maximum number of unexpired nonces the default in-memory nonce store
+// keeps. When it is full of unexpired entries, verification fails closed instead of growing without bound.
+const DefaultNonceStoreCapacity = 100000
 
 // SignatureAlgorithm constants for common cryptographic algorithms used in signatures.
 const (

@@ -1397,14 +1397,16 @@ func canonicalJSON(data []byte) ([]byte, *wrapper) {
 //   - body: The request body as a byte slice.
 //   - timestamp: The timestamp to include in the signature payload.
 //   - headers: A map of headers to include in the signature payload.
+//   - nonce: The single-use nonce to sign (replay protection). When empty nothing is appended, so the
+//     payload is byte-identical to the format used before nonces existed.
 //
 // Returns:
 //   - The constructed signature payload as a byte slice.
 //
 // Example:
 //
-//	payload := buildSignaturePayload([]byte("body"), 1234567890, map[string]string{"Header": "Value"})
-func buildSignaturePayload(body []byte, timestamp int64, headers map[string]string) []byte {
+//	payload := buildSignaturePayload([]byte("body"), 1234567890, map[string]string{"Header": "Value"}, "")
+func buildSignaturePayload(body []byte, timestamp int64, headers map[string]string, nonce string) []byte {
 	sw := strchain.New()
 	sw.AppendBytes(body)
 
@@ -1423,6 +1425,11 @@ func buildSignaturePayload(body []byte, timestamp int64, headers map[string]stri
 		for _, k := range keys {
 			sw.AppendF("||h:%s:%s", k, headers[k])
 		}
+	}
+
+	// Append the nonce last; omitted entirely when empty to keep the legacy format unchanged.
+	if nonce != "" {
+		sw.AppendF("||n:%s", nonce)
 	}
 	return sw.Bytes()
 }
