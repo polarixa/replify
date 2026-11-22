@@ -2,6 +2,7 @@ package replify
 
 import (
 	"net/http"
+	"os"
 
 	"github.com/polarixa/replify/pkg/conv"
 	"github.com/polarixa/replify/pkg/slogger"
@@ -23,6 +24,10 @@ import (
 // advertised Content-Length, which is the correct HTTP signal for a truncated transfer.
 //
 // A nil w never panics, even for a "204 No Content" response; the error is recorded on the [wrapper] instead.
+//
+// WriteFile always streams the whole file with the wrapper's status code; it has no [http.Request], so it
+// cannot honor Range, If-Range, If-Modified-Since, If-None-Match or HEAD requests. Use [wrapper.ServeFile]
+// when the caller has the request and wants resumable downloads and client-side caching.
 //
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the file response will be written.
@@ -123,6 +128,125 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 			WithDebuggingKV("filename", r.filename)
 		return r
 	}
+	return r
+}
+
+// ServeFile serves the file set on the [wrapper] (see [wrapper.File] and [wrapper.FileAttachment]) through
+// [http.ServeContent], so the response honors Range and If-Range (206 partial content, 416 for an unsatisfiable
+// range), conditional requests (If-Modified-Since, If-None-Match, If-Match, If-Unmodified-Since: 304 and 412)
+// and HEAD requests.
+//
+// It exists next to [wrapper.WriteFile] because [http.ServeContent] needs a non-nil [*http.Request], which
+// WriteFile does not have. WriteFile keeps its simple streaming behavior and is unchanged, and [wrapper.Write]
+// still dispatches to it; call ServeFile explicitly when you have the request.
+//
+// Flow:
+//  1. A nil w or a nil req records an error on the [wrapper] and returns without writing (never panics).
+//     A "204 No Content" wrapper writes only the 204 status. An empty file path is answered with a JSON 400.
+//  2. The file is opened and stat-ed. A file that cannot be opened or stat-ed, or a directory, is answered
+//     with a JSON 500 error response (the error is recorded on the [wrapper]).
+//  3. Headers are prepared before [http.ServeContent] runs: Content-Type (derived from the file name with the
+//     same logic as WriteFile), the wrapper's metadata headers, Content-Disposition when a filename is set,
+//     and an ETag. Content-Disposition is assembled first, so an unsafe filename falls back to a JSON 500
+//     error response with none of the file headers set.
+//  4. [http.ServeContent] is called. Content-Length, Last-Modified and Accept-Ranges are left to it, because
+//     they differ for 200, 206, 304 and 416 responses.
+//
+// ETag: [http.ServeContent] does not generate one, so ServeFile sets a strong validator derived from the file's
+// size and modification time, formatted as "<size in hex>-<modtime in unix nanoseconds, hex>" (quoted). It
+// changes whenever either changes, which enables If-None-Match and If-Range handling.
+//
+// Status ownership: on this path [http.ServeContent] chooses the status code (200, 206, 304, 412 or 416); a
+// status preset on the [wrapper] is ignored, except "204 No Content", which is handled before the file is opened.
+//
+// Mid-stream errors: [http.ServeContent] returns nothing, so a failure while copying the body (for example a
+// client disconnect) is not observable here. Unlike [wrapper.WriteFile], ServeFile therefore records no error
+// for it and returns the [wrapper] unchanged.
+//
+// Parameters:
+//   - w: An [http.ResponseWriter] to which the file response will be written.
+//   - req: The incoming request; its method and Range and conditional headers drive the response.
+//
+// Returns:
+//   - A pointer to the modified [wrapper] instance (enabling method chaining).
+func (r *wrapper) ServeFile(w http.ResponseWriter, req *http.Request) *wrapper {
+	if !r.Available() {
+		return r
+	}
+	if w == nil {
+		return r.WithErrorAck(NewError("ServeFile requires a non-nil http.ResponseWriter to serve the file response"))
+	}
+	if req == nil {
+		return r.WithErrorAck(NewError("ServeFile requires a non-nil *http.Request to serve the file response"))
+	}
+	if r.EqualHeader(NoContent) {
+		w.WriteHeader(r.StatusCode())
+		return r
+	}
+	if strutil.IsEmpty(r.filepath) {
+		r.BadRequest().
+			WithMessage("failed to serve file, filepath is empty").
+			BindCause()
+		return r.WriteJSON(w)
+	}
+
+	file, err := os.Open(r.filepath)
+	if err != nil {
+		r.InternalServerError().
+			WithMessage("failed to open file").
+			WithErrorAck(err).
+			WithDebuggingKV("filepath", r.filepath)
+		return r.WriteJSON(w)
+	}
+	defer file.Close()
+
+	info, err := file.Stat()
+	if err != nil {
+		r.InternalServerError().
+			WithMessage("failed to read file information").
+			WithErrorAck(err).
+			WithDebuggingKV("filepath", r.filepath)
+		return r.WriteJSON(w)
+	}
+	if info.IsDir() {
+		r.InternalServerError().
+			WithMessage("failed to serve file: path is a directory").
+			BindCause().
+			WithDebuggingKV("filepath", r.filepath).
+			WithDebuggingKV("filename", r.filename)
+		return r.WriteJSON(w)
+	}
+
+	// Assemble Content-Disposition first so that a failure leaves no file-specific
+	// headers on the response (clean JSON fallback).
+	var disposition string
+	if strutil.IsNotEmpty(r.filename) {
+		name, err := assembleContentDisposition(r.filename)
+		if err != nil {
+			r.InternalServerError().
+				WithMessagef("failed to assemble Content-Disposition for filename: '%s'", r.filename).
+				WithErrorAck(err).
+				WithDebuggingKV("filepath", r.filepath).
+				WithDebuggingKV("filename", r.filename)
+			return r.WriteJSON(w)
+		}
+		disposition = name
+	}
+
+	// Content-Type uses the same name-based logic as WriteFile (sysx.Resource derives it from the base name).
+	w.Header().Set(HeaderContentType.String(), sysx.MimeFromName(info.Name()))
+	r.attachMetadata(w) // Attach the wrapper's metadata headers to the [http.ResponseWriter].
+	if disposition != "" {
+		w.Header().Set(HeaderContentDisposition.String(), disposition)
+	}
+	// http.ServeContent does not generate an ETag; set one so If-None-Match and If-Range work.
+	w.Header().Set("ETag", fileETag(info.Size(), info.ModTime()))
+
+	name := r.filename
+	if strutil.IsEmpty(name) {
+		name = r.filepath
+	}
+	http.ServeContent(w, req, name, info.ModTime(), file)
 	return r
 }
 

@@ -39,6 +39,13 @@ reorganises files internally is not marked as breaking.
 
 ### Added
 
+- Added `ServeFile(w http.ResponseWriter, req *http.Request)`, which serves the file set with `File` or
+  `FileAttachment` through `http.ServeContent`. It supports `Range` and `If-Range` (206, and 416 for an
+  unsatisfiable range), conditional requests (`If-Modified-Since`, `If-None-Match`: 304) and `HEAD`, and sets
+  an `ETag` derived from the file's size and modification time. `http.ServeContent` chooses the status code,
+  so a preset status is ignored except `204 No Content`; a mid-stream copy failure is not observable and is not
+  recorded, unlike `WriteFile`. `WriteFile` and the `Write` dispatcher are unchanged; `WriteFile` now documents
+  `ServeFile` as the range-capable alternative.
 - Added `SignatureConfig.WithMaxClockSkew`, `MaxClockSkew`, `EnableLegacyAlgorithms`,
   `WithLegacyAlgorithms` and `IsLegacyAlgorithmsEnabled`, and the `DefaultSignatureMaxClockSkew`
   constant. The new settings are included in `Clone`, `Equal` and `Respond` (when non-default).

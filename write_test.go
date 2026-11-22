@@ -2,6 +2,7 @@ package replify_test
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/polarixa/replify"
 )
@@ -1133,4 +1135,304 @@ func TestWriteWriters_HappyPathGuards(t *testing.T) {
 			}
 		}
 	})
+}
+
+// --- ServeFile (range, conditional requests, ETag) ----------------------------
+
+// serveFileContent is the fixed payload used by the ServeFile tests (40 bytes).
+const serveFileContent = "abcdefghijklmnopqrstuvwxyz0123456789ABCD"
+
+// serveFileModTime is the fixed modification time applied to the test file.
+var serveFileModTime = time.Date(2020, time.January, 2, 3, 4, 5, 0, time.UTC)
+
+// writeServeFile creates report.csv with fixed content and a fixed modtime.
+func writeServeFile(t *testing.T) string {
+	t.Helper()
+	path := writeTempFile(t, "report.csv", serveFileContent)
+	if err := os.Chtimes(path, serveFileModTime, serveFileModTime); err != nil {
+		t.Fatalf("chtimes: %v", err)
+	}
+	return path
+}
+
+// T0 characterization: WriteFile takes no *http.Request, so a Range request cannot be
+// expressed at all and the full body is always served with 200. ServeFile is the
+// range-capable path.
+func TestServeFile_CharacterizationWriteFileIgnoresRanges(t *testing.T) {
+	t.Parallel()
+
+	rr := httptest.NewRecorder()
+	replify.New().OK().File(writeServeFile(t)).WriteFile(rr)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+	if rr.Body.String() != serveFileContent {
+		t.Errorf("expected the full body, got %q", rr.Body.String())
+	}
+}
+
+// serveGet runs ServeFile for a fresh wrapper against a request with the given method and headers.
+func serveGet(t *testing.T, path, filename, method string, headers map[string]string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, "/file", nil)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	rr := httptest.NewRecorder()
+	replify.New().OK().FileAttachment(path, filename).ServeFile(rr, req)
+	return rr
+}
+
+// expectedETag mirrors the documented ETag scheme: "<size hex>-<modtime unix nanos hex>".
+func expectedETag(t *testing.T, path string) string {
+	t.Helper()
+	fi, err := os.Stat(path)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	return fmt.Sprintf("\"%x-%x\"", fi.Size(), fi.ModTime().UnixNano())
+}
+
+// T1: a full GET.
+func TestServeFile_FullGet(t *testing.T) {
+	t.Parallel()
+
+	path := writeServeFile(t)
+	rr := serveGet(t, path, "report.csv", http.MethodGet, nil)
+
+	if rr.Code != http.StatusOK || rr.Body.String() != serveFileContent {
+		t.Fatalf("unexpected response: %d %q", rr.Code, rr.Body.String())
+	}
+	h := rr.Header()
+	if got, want := h.Get("Content-Length"), strconv.Itoa(len(serveFileContent)); got != want {
+		t.Errorf("Content-Length = %q, want %q", got, want)
+	}
+	if h.Get("Accept-Ranges") != "bytes" {
+		t.Errorf("Accept-Ranges = %q, want bytes", h.Get("Accept-Ranges"))
+	}
+	if got, want := h.Get("Last-Modified"), serveFileModTime.UTC().Format(http.TimeFormat); got != want {
+		t.Errorf("Last-Modified = %q, want %q", got, want)
+	}
+	if got, want := h.Get("ETag"), expectedETag(t, path); got != want {
+		t.Errorf("ETag = %q, want %q", got, want)
+	}
+	if ct := h.Get("Content-Type"); !strings.Contains(ct, "csv") {
+		t.Errorf("Content-Type = %q, want a CSV type", ct)
+	}
+	if cd := h.Get("Content-Disposition"); !strings.Contains(cd, "filename=report.csv") {
+		t.Errorf("Content-Disposition = %q", cd)
+	}
+	for _, name := range []string{"X-Locale", "X-Api-Version", "X-Request-Id", "X-Request-Time"} {
+		if h.Get(name) == "" {
+			t.Errorf("expected metadata header %s", name)
+		}
+	}
+}
+
+func TestServeFile_NoFilenameOmitsDisposition(t *testing.T) {
+	t.Parallel()
+
+	rr := serveGet(t, writeServeFile(t), "", http.MethodGet, nil)
+	if rr.Code != http.StatusOK || rr.Header().Get("Content-Disposition") != "" {
+		t.Errorf("unexpected response: %d, Content-Disposition=%q", rr.Code, rr.Header().Get("Content-Disposition"))
+	}
+}
+
+// T2: a satisfiable range.
+func TestServeFile_Range(t *testing.T) {
+	t.Parallel()
+
+	rr := serveGet(t, writeServeFile(t), "report.csv", http.MethodGet, map[string]string{"Range": "bytes=0-3"})
+
+	if rr.Code != http.StatusPartialContent {
+		t.Fatalf("expected 206, got %d", rr.Code)
+	}
+	if rr.Body.String() != serveFileContent[:4] {
+		t.Errorf("body = %q, want %q", rr.Body.String(), serveFileContent[:4])
+	}
+	if got, want := rr.Header().Get("Content-Range"), fmt.Sprintf("bytes 0-3/%d", len(serveFileContent)); got != want {
+		t.Errorf("Content-Range = %q, want %q", got, want)
+	}
+	if got := rr.Header().Get("Content-Length"); got != "4" {
+		t.Errorf("Content-Length = %q, want 4", got)
+	}
+}
+
+// T3: If-Modified-Since at the file's modtime.
+func TestServeFile_IfModifiedSince(t *testing.T) {
+	t.Parallel()
+
+	rr := serveGet(t, writeServeFile(t), "report.csv", http.MethodGet,
+		map[string]string{"If-Modified-Since": serveFileModTime.UTC().Format(http.TimeFormat)})
+
+	if rr.Code != http.StatusNotModified || rr.Body.Len() != 0 {
+		t.Errorf("expected an empty 304, got %d with %d body bytes", rr.Code, rr.Body.Len())
+	}
+}
+
+// T4: If-None-Match with the ETag of a previous response.
+func TestServeFile_IfNoneMatch(t *testing.T) {
+	t.Parallel()
+
+	path := writeServeFile(t)
+	first := serveGet(t, path, "report.csv", http.MethodGet, nil)
+	etag := first.Header().Get("ETag")
+	if etag == "" {
+		t.Fatal("first response carries no ETag")
+	}
+
+	rr := serveGet(t, path, "report.csv", http.MethodGet, map[string]string{"If-None-Match": etag})
+	if rr.Code != http.StatusNotModified || rr.Body.Len() != 0 {
+		t.Errorf("expected an empty 304, got %d with %d body bytes", rr.Code, rr.Body.Len())
+	}
+	stale := serveGet(t, path, "report.csv", http.MethodGet, map[string]string{"If-None-Match": `"other"`})
+	if stale.Code != http.StatusOK {
+		t.Errorf("a non-matching ETag must get the full 200, got %d", stale.Code)
+	}
+}
+
+// T5: an unsatisfiable range.
+func TestServeFile_RangeNotSatisfiable(t *testing.T) {
+	t.Parallel()
+
+	rr := serveGet(t, writeServeFile(t), "report.csv", http.MethodGet, map[string]string{"Range": "bytes=99999-"})
+
+	if rr.Code != http.StatusRequestedRangeNotSatisfiable {
+		t.Fatalf("expected 416, got %d", rr.Code)
+	}
+	if got, want := rr.Header().Get("Content-Range"), fmt.Sprintf("bytes */%d", len(serveFileContent)); got != want {
+		t.Errorf("Content-Range = %q, want %q", got, want)
+	}
+}
+
+// T6: HEAD carries the same headers as GET and no body.
+func TestServeFile_Head(t *testing.T) {
+	t.Parallel()
+
+	path := writeServeFile(t)
+	get := serveGet(t, path, "report.csv", http.MethodGet, nil)
+	head := serveGet(t, path, "report.csv", http.MethodHead, nil)
+
+	if head.Code != http.StatusOK || head.Body.Len() != 0 {
+		t.Fatalf("HEAD: expected an empty 200, got %d with %d body bytes", head.Code, head.Body.Len())
+	}
+	for _, name := range []string{"Content-Length", "Content-Type", "ETag", "Last-Modified", "Accept-Ranges", "Content-Disposition"} {
+		if get.Header().Get(name) != head.Header().Get(name) {
+			t.Errorf("%s differs: GET %q, HEAD %q", name, get.Header().Get(name), head.Header().Get(name))
+		}
+	}
+	if head.Header().Get("Content-Length") != strconv.Itoa(len(serveFileContent)) {
+		t.Errorf("HEAD Content-Length = %q, want %d", head.Header().Get("Content-Length"), len(serveFileContent))
+	}
+}
+
+// T7: nil writer, nil request and a NoContent preset.
+func TestServeFile_NilArgumentsAndNoContent(t *testing.T) {
+	t.Parallel()
+
+	path := writeServeFile(t)
+	req := httptest.NewRequest(http.MethodGet, "/file", nil)
+
+	t.Run("nil writer", func(t *testing.T) {
+		t.Parallel()
+		if !replify.New().OK().File(path).ServeFile(nil, req).IsErrorPresent() {
+			t.Error("expected an error to be recorded for a nil writer")
+		}
+	})
+	t.Run("nil request", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		if !replify.New().OK().File(path).ServeFile(rr, nil).IsErrorPresent() {
+			t.Error("expected an error to be recorded for a nil request")
+		}
+		if rr.Body.Len() != 0 {
+			t.Errorf("nothing may be written for a nil request, got %q", rr.Body.String())
+		}
+	})
+	t.Run("both nil", func(t *testing.T) {
+		t.Parallel()
+		if !replify.New().OK().File(path).ServeFile(nil, nil).IsErrorPresent() {
+			t.Error("expected an error to be recorded")
+		}
+	})
+	t.Run("NoContent preset", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithStatusCode(http.StatusNoContent).File(path).ServeFile(rr, req)
+		if rr.Code != http.StatusNoContent || rr.Body.Len() != 0 {
+			t.Errorf("expected an empty 204, got %d with %d body bytes", rr.Code, rr.Body.Len())
+		}
+	})
+	t.Run("empty filepath", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		w := replify.New().OK().ServeFile(rr, req)
+		if rr.Code != http.StatusBadRequest || !w.IsErrorPresent() {
+			t.Errorf("expected a 400 JSON error, got %d", rr.Code)
+		}
+	})
+}
+
+// T8: a missing file and a directory produce JSON error envelopes.
+func TestServeFile_OpenAndDirectoryErrors(t *testing.T) {
+	t.Parallel()
+
+	cases := map[string]string{
+		"nonexistent": filepath.Join(t.TempDir(), "missing.txt"),
+		"directory":   t.TempDir(),
+	}
+	for name, path := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			rr := serveGet(t, path, "x.txt", http.MethodGet, nil)
+			if rr.Code != http.StatusInternalServerError {
+				t.Errorf("expected 500, got %d", rr.Code)
+			}
+			if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+				t.Errorf("expected a JSON content type, got %q", ct)
+			}
+			if !strings.Contains(rr.Body.String(), `"status_code":500`) {
+				t.Errorf("expected a JSON error envelope, got %q", rr.Body.String())
+			}
+		})
+	}
+}
+
+// T9: a Content-Disposition assembly failure falls back to a clean JSON error.
+func TestServeFile_DispositionFailureFallbackHasCleanHeaders(t *testing.T) {
+	t.Parallel()
+
+	path := writeServeFile(t)
+	rr := serveGet(t, path, "evil\r\nname.csv", http.MethodGet, nil)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", rr.Code)
+	}
+	for _, name := range []string{"Content-Length", "Content-Disposition", "ETag", "Last-Modified", "Accept-Ranges"} {
+		if got := rr.Header().Get(name); got != "" {
+			t.Errorf("stale %s %q leaked into the JSON fallback", name, got)
+		}
+	}
+	if !strings.Contains(rr.Body.String(), `"status_code":500`) {
+		t.Errorf("expected a JSON error envelope, got %q", rr.Body.String())
+	}
+
+	// Over a real server the body must be readable, i.e. no stale file Content-Length.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		replify.New().OK().FileAttachment(path, "evil\r\nname.csv").ServeFile(w, r)
+	}))
+	defer srv.Close()
+	resp, err := http.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("GET: %v", err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("reading the fallback body failed: %v", err)
+	}
+	if resp.ContentLength != -1 && resp.ContentLength != int64(len(body)) {
+		t.Errorf("Content-Length %d does not match the %d-byte body", resp.ContentLength, len(body))
+	}
 }
