@@ -23,7 +23,21 @@ reorganises files internally is not marked as breaking.
 
 ## [Unreleased]
 
-- No unreleased changes. The working tree currently matches `v0.1.56`.
+### Fixed
+
+- Fixed phantom successes and double counting in `Pool` result accounting. `Pool.Submit` and
+  `Pool.TrySubmit` reserved a `WorkerResult` slot before the underlying pool accepted the job, so a
+  rejected submission (canceled or expired context, closed pool, or `TrySubmit` returning `false`)
+  left a slot with no error that `Pool.Wait` counted as a succeeded job; `Wait` could return
+  `200 OK` for work that never ran. `RunWorkerPool` also recorded a second, failed result for the
+  same rejected job, which inflated `WithTotal` and produced a wrong `207` or `500` summary. The
+  slot is now reserved when a worker starts the job, as `WorkerGroup` already does, so every
+  accepted job yields exactly one result and every rejected submission yields none (a pool whose
+  submissions were all rejected now reports `204 No Content`). `RunWorkerPool` still records a
+  rejected job as a failed result carrying the submission error, now exactly once, and defaults an
+  empty job name to `job-<index>`. Behavior change: a result's `Index` and the default name
+  `job-<index>` now follow the order in which workers start jobs, not the order of `Submit` calls.
+  `WorkerGroup` is unchanged.
 
 ## [v0.1.56] - 2026-10-21
 
@@ -625,6 +639,7 @@ reorganises files internally is not marked as breaking.
   selects the algorithm.
 - **Breaking: `pkg/randn` dropped the `UUIDJoin` helper**, which concatenated UUID strings.
   Use `fmt` or a dedicated string builder instead.
+
 ### Added
 
 - Added the `pkg/randn` XID implementation: `NewXID`, `NewXIDWithTime` and the `XID` type,

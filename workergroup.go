@@ -206,8 +206,10 @@ type PoolJob struct {
 //
 // Parameters:
 //   - name: identifies the job in the resulting [WorkerResult] and in any
-//     wrapped error. Defaults to "job-<index>" (its submission index) when
-//     empty.
+//     wrapped error. Defaults to "job-<index>" when empty, where index is the
+//     job's [WorkerResult] index: the order in which a worker started it (or,
+//     for a submission [RunWorkerPool] could not enqueue, the order in which
+//     the failure was recorded), not its position in the submitted slice.
 //   - job: the unit of work to execute. A nil job is reported as a failed job
 //     carrying [ErrNilTask] rather than panicking.
 //
@@ -803,8 +805,9 @@ func RunWorkerGroup(ctx context.Context, concurrency int, tasks []*WorkerTask) *
 
 // Pool wraps a [workergroup.WorkerPool], recording the name, error, and
 // duration of every [workergroup.Job] submitted through [Pool.Submit] or
-// [Pool.TrySubmit] so that [Pool.Wait] can report an accurate [wrapper] once
-// every worker has exited.
+// [Pool.TrySubmit] and then started by a worker, so that [Pool.Wait] can report
+// an accurate [wrapper] once every worker has exited. A submission that is
+// rejected never runs and leaves no record.
 //
 // All other [workergroup.WorkerPool] behavior — live worker scaling via
 // ScaleTo/ScaleBy, queueing, closing — is unchanged and reachable through the
@@ -846,8 +849,12 @@ func NewPool(ctx context.Context, initialWorkers int, opts ...workergroup.PoolOp
 // each of those cases. A nil job is still accepted and is reported as a
 // failed job carrying [ErrNilTask] once a worker reaches it.
 //
-// On success, the job's outcome (including a nil job's) is recorded for
-// [Pool.Wait] exactly as described for [Pool.Submit]'s sibling, [Pool.TrySubmit].
+// A [WorkerResult] is recorded only for a job that is accepted and then started
+// by a worker (including a nil job, which fails with [ErrNilTask]). When Submit
+// returns an error the job never runs and no result is recorded, so [Pool.Wait]
+// never counts it. The result's Index, and the default name "job-<index>" used
+// when name is empty, reflect the order in which workers started jobs, not the
+// order of Submit calls.
 func (p *Pool) Submit(ctx context.Context, name string, job workergroup.Job) error {
 	return p.WorkerPool.Submit(ctx, p.wrap(name, job))
 }
@@ -909,26 +916,45 @@ func (p *Pool) SubmitReply(ctx context.Context, name string, job workergroup.Job
 // TrySubmit adds a named job to the pool queue only if doing so would not
 // block, exactly as [workergroup.WorkerPool.TrySubmit] does. It reports
 // whether the job was accepted. When it was, the job's outcome is recorded
-// for [Pool.Wait]: name identifies it in the resulting [WorkerResult] and in
-// any wrapped error, defaulting to "job-<index>" when empty. A nil job is
-// still accepted and is reported as a failed job carrying [ErrNilTask] once a
-// worker reaches it.
+// for [Pool.Wait] once a worker starts it: name identifies it in the resulting
+// [WorkerResult] and in any wrapped error, defaulting to "job-<index>" when
+// empty, where index reflects the order in which workers started jobs rather
+// than the order of TrySubmit calls. When it was not (false), the job never
+// runs and no result is recorded. A nil job is still accepted and is reported
+// as a failed job carrying [ErrNilTask] once a worker reaches it.
 func (p *Pool) TrySubmit(name string, job workergroup.Job) bool {
 	return p.WorkerPool.TrySubmit(p.wrap(name, job))
 }
 
-// wrap returns a [workergroup.Job] that executes job (recording name, error,
-// and duration into a reserved [WorkerResult] slot) and reports job errors to
-// the underlying pool wrapped with the job's name, mirroring [WorkerGroup.run].
+// wrap returns a [workergroup.Job] that executes job and records its name,
+// error, and duration into a [WorkerResult], and reports job errors to the
+// underlying pool wrapped with the job's name, mirroring [WorkerGroup.run].
+//
+// The result slot is reserved by the returned closure, as its first action,
+// not by wrap itself. wrap runs before the underlying pool has decided whether
+// to accept the job; reserving there would leave a slot with a nil error (a
+// "phantom success") whenever Submit returns an error or TrySubmit returns
+// false, because the job never runs to fill it in.
+//
+// Invariants:
+//   - every ACCEPTED job produces exactly one [WorkerResult], created when a
+//     worker starts it;
+//   - every REJECTED submission produces zero slots (the one exception is
+//     [RunWorkerPool], which deliberately records its own failed result
+//     carrying the submission error);
+//   - no [WorkerResult] with a nil error ever exists for a job that never ran.
+//
+// Consequently a result's Index, and the default name "job-<index>", follow
+// the order in which workers start jobs, not the order of submission.
 func (p *Pool) wrap(name string, job workergroup.Job) workergroup.Job {
-	p.mu.Lock()
-	idx := len(p.results)
-	name = strutil.DefaultIfEmpty(name, fmt.Sprintf("job-%d", idx))
-	res := newWorkerResult(name, idx)
-	p.results = append(p.results, res)
-	p.mu.Unlock()
-
 	return func(ctx context.Context) error {
+		p.mu.Lock()
+		idx := len(p.results)
+		name := strutil.DefaultIfEmpty(name, fmt.Sprintf("job-%d", idx))
+		res := newWorkerResult(name, idx)
+		p.results = append(p.results, res)
+		p.mu.Unlock()
+
 		if job == nil {
 			res.WithError(ErrNilTask)
 			return fmt.Errorf("job %q failed: %w", name, ErrNilTask)
@@ -958,10 +984,11 @@ func (p *Pool) wrap(name string, job workergroup.Job) workergroup.Job {
 // [workergroup.WorkerPool.Wait] does (which, per that method, means Close
 // must have been called, or the pool's Context canceled, or every worker
 // individually stopped — otherwise Wait blocks forever), then builds a
-// [wrapper] summarizing every submitted job's outcome using the same rules
+// [wrapper] summarizing the outcome of every job a worker started (a job whose
+// submission was rejected never ran and is not counted) using the same rules
 // as [WorkerGroup.Wait]: [ClientClosedRequest]/[GatewayTimeout] for the
 // pool's own Context being canceled/expired, [NoContent] when no jobs were
-// ever submitted, [OK] when every job succeeded, [InternalServerError] when
+// ever started, [OK] when every job succeeded, [InternalServerError] when
 // every job failed (with the combined error attached via WithErrorAck), and
 // [MultiStatus] for a mix of both (with no top-level error attached, but the
 // full []WorkerResult — including every failure's original error — always
@@ -991,13 +1018,18 @@ func (p *Pool) snapshot() []*WorkerResult {
 // If submitting a job fails (ctx canceled, or the pool's own Context
 // canceled before every job could be accepted), that job is still recorded
 // as a failed [WorkerResult] carrying the submission error, rather than
-// being silently dropped from the result set.
+// being silently dropped from the result set. Because [Pool.Submit] records
+// nothing for a rejected job, every job in jobs yields exactly one result:
+// len(results) == len(jobs). An empty job name defaults to "job-<index>" in
+// both the started and the rejected case.
 func RunWorkerPool(ctx context.Context, workers int, jobs []*PoolJob) *wrapper {
 	p := NewPool(ctx, workers)
 	for _, j := range jobs {
 		if err := p.Submit(ctx, j.Name(), j.Job()); err != nil {
 			p.mu.Lock()
-			p.results = append(p.results, newWorkerResult(j.Name(), len(p.results)).WithError(err))
+			idx := len(p.results)
+			name := strutil.DefaultIfEmpty(j.Name(), fmt.Sprintf("job-%d", idx))
+			p.results = append(p.results, newWorkerResult(name, idx).WithError(err))
 			p.mu.Unlock()
 		}
 	}
