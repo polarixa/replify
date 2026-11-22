@@ -16,6 +16,7 @@ reorganises files internally is not marked as breaking.
 <details>
 <summary><strong>Version index</strong></summary>
 
+- **v1.0.x** — [v1.0.58](#v1058---2026-11-22)
 - **v0.1.x** — [v0.1.56](#v0156---2026-10-21), [v0.1.55](#v0155---2026-10-16), [v0.1.54](#v0154---2026-10-14), [v0.1.53](#v0153---2026-10-05), [v0.1.52](#v0152---2026-10-05), [v0.1.51](#v0151---2026-10-04), [v0.1.50](#v0150---2026-10-03), [v0.1.49](#v0149---2026-10-02), [v0.1.48](#v0148---2026-10-01), [v0.1.47](#v0147---2026-09-29), [v0.1.46](#v0146---2026-09-19), [v0.1.45](#v0145---2026-09-18), [v0.1.44](#v0144---2026-09-07), [v0.1.43](#v0143---2026-09-06), [v0.1.42](#v0142---2026-09-05), [v0.1.41](#v0141---2026-09-02), [v0.1.40](#v0140---2026-09-01), [v0.1.39](#v0139---2026-08-31), [v0.1.38](#v0138---2026-08-31), [v0.1.37](#v0137---2026-08-22), [v0.1.36](#v0136---2026-08-19), [v0.1.35](#v0135---2026-08-19), [v0.1.34](#v0134---2026-08-16), [v0.1.33](#v0133---2026-08-15), [v0.1.32](#v0132---2026-08-14), [v0.1.31](#v0131---2026-08-12), [v0.1.30](#v0130---2026-08-10), [v0.1.29](#v0129---2026-08-09), [v0.1.28](#v0128---2026-07-27), [v0.1.27](#v0127---2026-07-25), [v0.1.26](#v0126---2026-07-24), [v0.1.25](#v0125---2026-07-22), [v0.1.24](#v0124---2026-06-14), [v0.1.23](#v0123---2026-05-29), [v0.1.22](#v0122---2026-05-29), [v0.1.21](#v0121---2026-05-29), [v0.1.20](#v0120---2026-05-27), [v0.1.19](#v0119---2026-05-24), [v0.1.18](#v0118---2026-05-02), [v0.1.17](#v0117---2026-04-18), [v0.1.16](#v0116---2026-04-18), [v0.1.15](#v0115---2026-04-16), [v0.1.14](#v0114---2026-04-15), [v0.1.13-rc.1](#v0113-rc1---2026-04-15), [v0.1.12](#v0112---2026-04-12), [v0.1.12-rc.2](#v0112-rc2---2026-04-12), [v0.1.12-rc.1](#v0112-rc1---2026-04-12), [v0.1.11](#v0111---2026-04-11), [v0.1.10](#v0110---2026-04-05), [v0.1.9](#v019---2026-04-05), [v0.1.8](#v018---2026-04-05), [v0.1.7](#v017---2026-04-05), [v0.1.6](#v016---2026-04-04), [v0.1.5](#v015---2026-04-03), [v0.1.4](#v014---2026-04-03), [v0.1.2](#v012---2026-04-02), [v0.1.1](#v011---2026-03-30), [v0.1.0](#v010---2026-03-09)
 - **v0.0.x** — [v0.0.9](#v009---2026-03-08), [v0.0.8](#v008---2026-03-06), [v0.0.7](#v007---2026-03-04), [v0.0.6](#v006---2026-03-02), [v0.0.5](#v005---2026-03-02), [v0.0.5-beta.1](#v005-beta1---2026-02-28), [v0.0.4](#v004---2026-02-28), [v0.0.4-beta.1](#v004-beta1---2026-02-26), [v0.0.3](#v003---2026-02-26), [v0.0.2](#v002---2026-02-20), [v0.0.1](#v001---2026-01-29)
 
@@ -23,8 +24,18 @@ reorganises files internally is not marked as breaking.
 
 ## [Unreleased]
 
+- No unreleased changes since `v1.0.58`.
+
+## [v1.0.58] - 2026-11-22
+
 ### Changed
 
+- **Breaking:** `meta.requested_time` is now always serialized in UTC as RFC 3339 with a `Z` suffix
+  (for example `2026-11-22T08:20:00Z`), instead of the previous local-time layout
+  `2006-01-02 15:04:05.999999`. `WithRequestedTime` and the value parsed by `UnwrapJSON` are normalized
+  to UTC, and a new wrapper's default request time is generated in UTC. Affected: clients that parse the
+  old layout or depend on the server's local offset. Migration: parse `meta.requested_time` with
+  `time.RFC3339Nano` (or `time.RFC3339`) and convert to the desired zone after parsing.
 - **Breaking:** signature verification is stricter by default. (1) The legacy `HMACSHA1` and
   `HMACMD5` algorithms are now rejected by `ValidateSignatureConfig`, so `GenerateSignature`,
   `GenerateSignatureFromRequest`, `VerifySignature` and `VerifySignatureFromRequest` return a
@@ -83,7 +94,6 @@ reorganises files internally is not marked as breaking.
   shows it. Behavior change: with the reverse order (`Recovery` outside `Logger`) a panic now also
   produces an access log entry, which is logged with the implicit status `200` because nothing was
   written before the panic.
-
 - Fixed `SignatureConfig.Clone`, which dropped the ignored signature and response field lists and shared
   the headers-to-sign slice with the original, and `signature.Clone`, which shared the headers map. Both
   now return deep copies.
@@ -103,7 +113,6 @@ reorganises files internally is not marked as breaking.
   the error body); the `Content-Length` fallback value is now `0` instead of the invalid `0B`.
   Behavior change: a missing file passed to `WriteFile` now yields a JSON error response with status `500`
   and a body, where it previously wrote nothing.
-
 - Fixed phantom successes and double counting in `Pool` result accounting. `Pool.Submit` and
   `Pool.TrySubmit` reserved a `WorkerResult` slot before the underlying pool accepted the job, so a
   rejected submission (canceled or expired context, closed pool, or `TrySubmit` returning `false`)
@@ -1075,6 +1084,7 @@ reorganises files internally is not marked as breaking.
   `pkg/encoding`, `pkg/hashy`, `pkg/match`, `pkg/msort`, `pkg/randn`, `pkg/ref` and
   `pkg/strutil`.
 
+[v1.0.58]: https://github.com/polarixa/replify/compare/v1.0.57...v1.0.58
 [v0.1.56]: https://github.com/polarixa/replify/compare/v0.1.55...v0.1.56
 [v0.1.55]: https://github.com/polarixa/replify/compare/v0.1.54...v0.1.55
 [v0.1.54]: https://github.com/polarixa/replify/compare/v0.1.53...v0.1.54
