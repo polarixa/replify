@@ -429,6 +429,26 @@ Filenames used in `Content-Disposition` are validated and encoded by the standar
 
 </details>
 
+<details>
+<summary><strong>Resumable downloads and caching: <code>ServeFile</code></strong></summary>
+
+`WriteFile` streams the whole file and has no access to the request. When you have the `*http.Request` and want range requests and client-side caching, call `ServeFile`, which serves the file through `http.ServeContent`:
+
+```go
+func Download(w http.ResponseWriter, r *http.Request) {
+    replify.New().
+        FileAttachment("/tmp/report.pdf", "report.pdf").
+        ServeFile(w, r) // 200, 206 (Range), 304 (If-None-Match / If-Modified-Since), 416, HEAD
+}
+```
+
+- `ETag` is set from the file's size and modification time (`"<size hex>-<modtime unix nanos hex>"`); `Content-Length`, `Last-Modified` and `Accept-Ranges` are managed by `http.ServeContent`.
+- `http.ServeContent` chooses the status code, so a status preset on the wrapper is ignored (except `204 No Content`).
+- Errors before serving (nil writer or request, missing file, directory, unsafe filename) are recorded and answered with a JSON error response. A failure while copying the body is not observable and is not recorded, unlike `WriteFile`.
+- `Write` still dispatches to `WriteFile`; call `ServeFile` explicitly.
+
+</details>
+
 </details>
 
 <a id="usage-build"></a>
@@ -2277,6 +2297,7 @@ type R struct {
 | `WriteJSON` / `WriteFile` / `WriteBinary` | Dedicated terminal writers                                                      |
 | `File(path)`                              | Sets the file path to serve                                                     |
 | `FileAttachment(path, name)`              | Serves a file with `Content-Disposition: attachment`                            |
+| `ServeFile(w, req)`                       | Serves the file via `http.ServeContent`: ranges, conditional requests, ETag     |
 | `Binary(data []byte)`                     | Sets a binary payload                                                           |
 | `Filename(name)`                          | Sets the filename driving MIME detection and `Content-Disposition`              |
 | `Slogging()` / `S()`                      | Structured logging of the wrapper / access to the logger                        |

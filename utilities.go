@@ -1426,3 +1426,9 @@ func buildSignaturePayload(body []byte, timestamp int64, headers map[string]stri
 	}
 	return sw.Bytes()
 }
+
+// fileETag returns a strong, quoted ETag derived from a file's size and modification time:
+// "<size in hex>-<modtime in unix nanoseconds, hex>".
+func fileETag(size int64, modTime time.Time) string {
+	return fmt.Sprintf("\"%x-%x\"", size, modTime.UnixNano())
+}
