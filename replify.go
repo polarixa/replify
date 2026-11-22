@@ -2792,8 +2792,11 @@ func (w *wrapper) WithLocale(v string) *wrapper {
 // This function ensures that the [meta] field exists, and if not, creates a new one. It then
 // sets the requested time in the [meta] using the `WithRequestedTime` method.
 //
+// The value is normalized to UTC; `meta.requested_time` is always serialized in UTC as
+// RFC 3339 with a `Z` suffix (for example "2026-11-22T08:20:00Z").
+//
 // Parameters:
-//   - `v`: A `time.Time` value representing the requested time.
+//   - `v`: A `time.Time` value representing the requested time (any location).
 //
 // Returns:
 //   - A pointer to the modified [wrapper] instance (enabling method chaining).

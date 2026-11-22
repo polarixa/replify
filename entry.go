@@ -210,10 +210,10 @@ func UnwrapJSON(jsonValue string) (w *wrapper, err error) {
 		}
 		if value, exists := values["requested_time"].(string); exists {
 			if t, err := time.Parse(time.RFC3339, value); err == nil {
-				meta.requestedTime = t
+				meta.requestedTime = t.UTC()
 			} else {
 				// fallback using converter
-				meta.requestedTime = conv.TimeOrDefault(value, time.Time{})
+				meta.requestedTime = conv.TimeOrDefault(value, time.Time{}).UTC()
 			}
 		}
 		if value, exists := values["delta_cnt"]; exists {

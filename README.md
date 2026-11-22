@@ -184,7 +184,7 @@ func main() {
         WithMessage("User retrieved successfully").
         WithBody(map[string]string{"id": "123", "name": "John Doe"})
 
-    fmt.Println(w.JSON()) // {"data":{"id":"123","name":"John Doe"},"header":{"code":200,"text":"OK","type":"Successful"},"message":"User retrieved successfully","meta":{"api_version":"v0.0.1","locale":"en_US","request_id":"db848ff9djinl03ik1d0","requested_time":"2026-10-15 10:10:53.721643"},"status_code":200,"total":0}
+    fmt.Println(w.JSON()) // {"data":{"id":"123","name":"John Doe"},"header":{"code":200,"text":"OK","type":"Successful"},"message":"User retrieved successfully","meta":{"api_version":"v0.0.1","locale":"en_US","request_id":"db848ff9djinl03ik1d0","requested_time":"2026-10-15T03:10:53.721643Z"},"status_code":200}
 }
 ```
 
@@ -209,10 +209,9 @@ func main() {
     "api_version": "v0.0.1",
     "locale": "en_US",
     "request_id": "db848ff9djinl03ik1d0",
-    "requested_time": "2026-10-15 10:10:53.721643"
+    "requested_time": "2026-10-15T03:10:53.721643Z"
   },
-  "status_code": 200,
-  "total": 0
+  "status_code": 200
 }
 ```
 
@@ -816,7 +815,7 @@ func main() {
             "custom_fields": {"fields": "userID: 103"},
             "locale": "en_US",
             "request_id": "80eafc6a1655ec5a06595d155f1e6951",
-            "requested_time": "2024-12-14T20:24:23.983839+07:00"
+            "requested_time": "2024-12-14T13:24:23.983839Z"
         },
         "pagination": {"is_last": true, "page": 1000, "per_page": 2, "total_items": 120, "total_pages": 34},
         "path": "/api/v1/users",
@@ -2163,26 +2162,26 @@ func main() {
 }
 ```
 
-| Field                    | Type          | Description                                             |
-| ------------------------ | ------------- | ------------------------------------------------------- |
-| `data`                   | `interface{}` | The primary data payload of the response                |
-| `status_code`            | `int`         | HTTP status code for the response                       |
-| `message`                | `string`      | Human-readable message providing context                |
-| `total`                  | `int`         | Total number of items (used in non-paginated responses) |
-| `path`                   | `string`      | Request path for which the response is generated        |
-| `meta`                   | `object`      | Metadata about the API response                         |
-| `meta.request_id`        | `string`      | Unique identifier for the request, useful for debugging |
-| `meta.api_version`       | `string`      | API version used for the request                        |
-| `meta.locale`            | `string`      | Locale used for the request (e.g., `en_US`)             |
-| `meta.requested_time`    | `string`      | Timestamp when the request was made (ISO 8601)          |
-| `meta.custom_fields`     | `object`      | Additional custom metadata fields                       |
-| `pagination`             | `object`      | Pagination details, if applicable                       |
-| `pagination.page`        | `int`         | Current page number                                     |
-| `pagination.per_page`    | `int`         | Number of items per page                                |
-| `pagination.total_items` | `int`         | Total number of items available                         |
-| `pagination.total_pages` | `int`         | Total number of pages                                   |
-| `pagination.is_last`     | `bool`        | Whether this is the last page                           |
-| `debug`                  | `object`      | Debugging information (useful for development)          |
+| Field                    | Type          | Description                                              |
+| ------------------------ | ------------- | -------------------------------------------------------- |
+| `data`                   | `interface{}` | The primary data payload of the response                 |
+| `status_code`            | `int`         | HTTP status code for the response                        |
+| `message`                | `string`      | Human-readable message providing context                 |
+| `total`                  | `int`         | Total number of items (used in non-paginated responses)  |
+| `path`                   | `string`      | Request path for which the response is generated         |
+| `meta`                   | `object`      | Metadata about the API response                          |
+| `meta.request_id`        | `string`      | Unique identifier for the request, useful for debugging  |
+| `meta.api_version`       | `string`      | API version used for the request                         |
+| `meta.locale`            | `string`      | Locale used for the request (e.g., `en_US`)              |
+| `meta.requested_time`    | `string`      | When the request was made; always UTC, RFC 3339 with `Z` |
+| `meta.custom_fields`     | `object`      | Additional custom metadata fields                        |
+| `pagination`             | `object`      | Pagination details, if applicable                        |
+| `pagination.page`        | `int`         | Current page number                                      |
+| `pagination.per_page`    | `int`         | Number of items per page                                 |
+| `pagination.total_items` | `int`         | Total number of items available                          |
+| `pagination.total_pages` | `int`         | Total number of pages                                    |
+| `pagination.is_last`     | `bool`        | Whether this is the last page                            |
+| `debug`                  | `object`      | Debugging information (useful for development)           |
 
 </details>
 

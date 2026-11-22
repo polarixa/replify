@@ -114,7 +114,7 @@ func (w *wrapper) NormMeta() *wrapper {
 
 	// Set requested time if not present
 	if !w.meta.IsRequestedTimePresent() {
-		w.meta.requestedTime = time.Now()
+		w.meta.requestedTime = time.Now().UTC()
 		hasChanges = true
 	}
 
