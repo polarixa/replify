@@ -51,6 +51,20 @@ reorganises files internally is not marked as breaking.
 
 ### Fixed
 
+- Fixed three defects in the `Logger` and `Recovery` middleware. Both response wrappers now implement
+  `http.Hijacker` and pass `Hijack` through to the underlying writer (returning `http.ErrNotSupported`
+  when it cannot hijack), so libraries that type-assert `http.Hijacker` directly, such as WebSocket
+  upgraders, no longer fail behind them. After a successful hijack `Recovery` never attempts a 500 write
+  on the taken-over connection, and `Logger` records status `101` when no status was set. `Logger` now
+  writes its access log from a deferred function, so the entry is emitted even when a panic escapes
+  (a handler panicking with no `Recovery`, or `http.ErrAbortHandler` re-panicked by `Recovery`); the
+  panic still propagates and is never recovered by `Logger`. The `Logger` documentation contradicted
+  itself about composition: the correct order is `replify.Logger()(replify.Recovery()(handler))`
+  (Logger outermost), so `Recovery`'s 500 is written through `Logger`'s writer, and every example now
+  shows it. Behavior change: with the reverse order (`Recovery` outside `Logger`) a panic now also
+  produces an access log entry, which is logged with the implicit status `200` because nothing was
+  written before the panic.
+
 - Fixed `SignatureConfig.Clone`, which dropped the ignored signature and response field lists and shared
   the headers-to-sign slice with the original, and `signature.Clone`, which shared the headers map. Both
   now return deep copies.

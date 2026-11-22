@@ -1,10 +1,12 @@
 package replify_test
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -692,17 +694,17 @@ func TestLogger_DurationReflectsHandlerLatency(t *testing.T) {
 // --- Composition: Recovery + Logger -------------------------------------------
 
 // TestRecoveryAndLogger_Composition verifies the documented middleware
-// ordering (Recovery outside Logger). Because Logger has no recover of its
-// own, a panic in the wrapped handler unwinds straight through Logger's
-// stack frame to Recovery's deferred handler without ever reaching Logger's
-// post-request logging code — so only Recovery's "panic recovered" entry is
-// emitted, not Logger's "http request" entry.
+// ordering (Logger outside Recovery). Recovery swallows the panic and writes
+// its 500 through Logger's writer, so both Recovery's "panic recovered" entry
+// and exactly one Logger "http request" entry (status 500) are emitted.
 func TestRecoveryAndLogger_Composition(t *testing.T) {
 	var buf bytes.Buffer
 	captureLogger(&buf, slogger.TraceLevel)
 	defer slogger.ResetGlobalLogger()
 
-	handler := replify.Recovery()(replify.Logger()(panicHandler("kaboom")))
+	// Logger outermost: Recovery's 500 is written through Logger's writer, so the
+	// access log sees the final status.
+	handler := replify.Logger()(replify.Recovery()(panicHandler("kaboom")))
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/composed", nil)
@@ -713,17 +715,21 @@ func TestRecoveryAndLogger_Composition(t *testing.T) {
 	}
 
 	entries := logLines(t, &buf)
-	var sawRequestLog, sawRecoveryLog bool
+	var requestLogs int
+	var sawRecoveryLog bool
 	for _, e := range entries {
 		switch e["msg"] {
 		case "http request":
-			sawRequestLog = true
+			requestLogs++
+			if e["status"] != float64(http.StatusInternalServerError) {
+				t.Errorf("access log status = %v, want 500", e["status"])
+			}
 		case "panic recovered":
 			sawRecoveryLog = true
 		}
 	}
-	if sawRequestLog {
-		t.Error("did not expect an \"http request\" log entry when the handler panics")
+	if requestLogs != 1 {
+		t.Errorf("expected exactly one \"http request\" log entry, got %d", requestLogs)
 	}
 	if !sawRecoveryLog {
 		t.Error("expected a \"panic recovered\" log entry from Recovery")
@@ -735,7 +741,7 @@ func TestRecoveryAndLogger_Composition_NoPanic(t *testing.T) {
 	captureLogger(&buf, slogger.TraceLevel)
 	defer slogger.ResetGlobalLogger()
 
-	handler := replify.Recovery()(replify.Logger()(okHandler("fine")))
+	handler := replify.Logger()(replify.Recovery()(okHandler("fine")))
 
 	rr := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/composed-ok", nil)
@@ -755,4 +761,262 @@ func TestRecoveryAndLogger_Composition_NoPanic(t *testing.T) {
 	if entries[0]["msg"] != "http request" {
 		t.Errorf("expected \"http request\" log entry, got %v", entries[0]["msg"])
 	}
+}
+
+// --- Hijack passthrough, deferred access logging, composition order -----------
+
+// hijackWriter is a ResponseWriter that implements http.Hijacker. It records
+// whether Hijack was reached and counts any header/body writes, so tests can
+// assert that nothing is written to a connection after it was taken over.
+type hijackWriter struct {
+	header      http.Header
+	conn        net.Conn // server end handed to the hijacker
+	peer        net.Conn // client end, closed by the test
+	hijacked    bool
+	headerCalls int
+	writeCalls  int
+}
+
+func newHijackWriter() *hijackWriter {
+	server, client := net.Pipe()
+	return &hijackWriter{header: make(http.Header), conn: server, peer: client}
+}
+
+func (h *hijackWriter) Header() http.Header         { return h.header }
+func (h *hijackWriter) WriteHeader(int)             { h.headerCalls++ }
+func (h *hijackWriter) Write(b []byte) (int, error) { h.writeCalls++; return len(b), nil }
+func (h *hijackWriter) close() {
+	_ = h.conn.Close()
+	_ = h.peer.Close()
+}
+
+func (h *hijackWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	h.hijacked = true
+	return h.conn, bufio.NewReadWriter(bufio.NewReader(h.conn), bufio.NewWriter(h.conn)), nil
+}
+
+// hijackingHandler type-asserts http.Hijacker directly, as gorilla/websocket does.
+func hijackingHandler(t *testing.T, then func()) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Errorf("response writer %T does not implement http.Hijacker", w)
+			return
+		}
+		if _, _, err := hj.Hijack(); err != nil {
+			t.Errorf("Hijack failed: %v", err)
+			return
+		}
+		if then != nil {
+			then()
+		}
+	})
+}
+
+// T1: Hijack must reach the underlying writer through either wrapper.
+func TestMiddleware_HijackReachesUnderlyingWriter(t *testing.T) {
+	var buf bytes.Buffer
+	captureLogger(&buf, slogger.TraceLevel)
+	defer slogger.ResetGlobalLogger()
+
+	chains := map[string]func(h http.Handler) http.Handler{
+		"Logger(Recovery)": func(h http.Handler) http.Handler { return replify.Logger()(replify.Recovery()(h)) },
+		"Logger only":      func(h http.Handler) http.Handler { return replify.Logger()(h) },
+		"Recovery only":    func(h http.Handler) http.Handler { return replify.Recovery()(h) },
+	}
+	for name, chain := range chains {
+		t.Run(name, func(t *testing.T) {
+			hw := newHijackWriter()
+			defer hw.close()
+
+			chain(hijackingHandler(t, nil)).ServeHTTP(hw, httptest.NewRequest(http.MethodGet, "/ws", nil))
+
+			if !hw.hijacked {
+				t.Fatal("Hijack did not reach the underlying writer")
+			}
+		})
+	}
+}
+
+// T2: when the underlying writer cannot hijack, Hijack reports http.ErrNotSupported.
+func TestMiddleware_HijackUnsupportedUnderlyingWriter(t *testing.T) {
+	var buf bytes.Buffer
+	captureLogger(&buf, slogger.TraceLevel)
+	defer slogger.ResetGlobalLogger()
+
+	handler := replify.Logger()(replify.Recovery()(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hj, ok := w.(http.Hijacker)
+		if !ok {
+			t.Error("wrappers must always satisfy http.Hijacker")
+			return
+		}
+		if _, _, err := hj.Hijack(); !errors.Is(err, http.ErrNotSupported) {
+			t.Errorf("Hijack error = %v, want http.ErrNotSupported", err)
+		}
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			t.Errorf("ResponseController.Flush through the wrappers = %v", err)
+		}
+		if _, _, err := http.NewResponseController(w).Hijack(); !errors.Is(err, http.ErrNotSupported) {
+			t.Errorf("ResponseController.Hijack error = %v, want http.ErrNotSupported", err)
+		}
+	})))
+
+	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/ws", nil))
+}
+
+// T3: after a successful hijack, a panic must not touch the taken-over connection,
+// and the access log reports 101.
+func TestMiddleware_HijackThenPanicWritesNothing(t *testing.T) {
+	var buf bytes.Buffer
+	captureLogger(&buf, slogger.TraceLevel)
+	defer slogger.ResetGlobalLogger()
+
+	hw := newHijackWriter()
+	defer hw.close()
+
+	handler := replify.Logger()(replify.Recovery()(hijackingHandler(t, func() { panic("after hijack") })))
+	handler.ServeHTTP(hw, httptest.NewRequest(http.MethodGet, "/ws", nil))
+
+	if !hw.hijacked {
+		t.Fatal("Hijack did not reach the underlying writer")
+	}
+	if hw.headerCalls != 0 || hw.writeCalls != 0 {
+		t.Errorf("nothing may be written after hijack, got %d WriteHeader and %d Write calls", hw.headerCalls, hw.writeCalls)
+	}
+	var status float64 = -1
+	for _, e := range logLines(t, &buf) {
+		if e["msg"] == "http request" {
+			status, _ = e["status"].(float64)
+		}
+	}
+	if status != http.StatusSwitchingProtocols {
+		t.Errorf("access log status = %v, want 101", status)
+	}
+}
+
+// accessLogs returns the "http request" entries from buf.
+func accessLogs(t *testing.T, buf *bytes.Buffer) []map[string]any {
+	t.Helper()
+	var out []map[string]any
+	for _, e := range logLines(t, buf) {
+		if e["msg"] == "http request" {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+// T4: a panic that escapes Logger (no Recovery) must still be access-logged, and must keep propagating.
+func TestLogger_EscapingPanicIsStillLogged(t *testing.T) {
+	var buf bytes.Buffer
+	captureLogger(&buf, slogger.TraceLevel)
+	defer slogger.ResetGlobalLogger()
+
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		replify.Logger()(panicHandler("escapes")).ServeHTTP(
+			httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/boom", nil))
+	}()
+
+	if recovered != "escapes" {
+		t.Fatalf("the panic must keep propagating past Logger, got %v", recovered)
+	}
+	logs := accessLogs(t, &buf)
+	if len(logs) != 1 {
+		t.Fatalf("expected exactly one access log for the escaping panic, got %d", len(logs))
+	}
+	if logs[0]["path"] != "/boom" || logs[0]["method"] != http.MethodGet {
+		t.Errorf("unexpected access log fields: %v", logs[0])
+	}
+}
+
+// T5: http.ErrAbortHandler re-panics past Logger(Recovery(...)) and is still access-logged.
+func TestLogger_ErrAbortHandlerIsStillLogged(t *testing.T) {
+	var buf bytes.Buffer
+	captureLogger(&buf, slogger.TraceLevel)
+	defer slogger.ResetGlobalLogger()
+
+	var recovered any
+	func() {
+		defer func() { recovered = recover() }()
+		replify.Logger()(replify.Recovery()(panicHandler(http.ErrAbortHandler))).ServeHTTP(
+			httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/abort", nil))
+	}()
+
+	if recovered != http.ErrAbortHandler {
+		t.Fatalf("expected http.ErrAbortHandler to re-panic past the chain, got %v", recovered)
+	}
+	if logs := accessLogs(t, &buf); len(logs) != 1 || logs[0]["path"] != "/abort" {
+		t.Fatalf("expected one access log for the aborted request, got %v", logs)
+	}
+}
+
+// T6 guards: behavior that must hold before and after the fixes.
+func TestMiddleware_Guards(t *testing.T) {
+	t.Run("Logger(Recovery(panic)) logs one 500 with bytes", func(t *testing.T) {
+		var buf bytes.Buffer
+		captureLogger(&buf, slogger.TraceLevel)
+		defer slogger.ResetGlobalLogger()
+
+		rr := httptest.NewRecorder()
+		replify.Logger()(replify.Recovery()(panicHandler("kaboom"))).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/p", nil))
+
+		if rr.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500, got %d", rr.Code)
+		}
+		logs := accessLogs(t, &buf)
+		if len(logs) != 1 {
+			t.Fatalf("expected exactly one access log, got %d", len(logs))
+		}
+		if logs[0]["status"] != float64(500) {
+			t.Errorf("status = %v, want 500", logs[0]["status"])
+		}
+		if b, _ := logs[0]["bytes"].(float64); b <= 0 {
+			t.Errorf("bytes = %v, want > 0 (Recovery writes through logWriter)", logs[0]["bytes"])
+		}
+	})
+	t.Run("normal 200 status and bytes", func(t *testing.T) {
+		var buf bytes.Buffer
+		captureLogger(&buf, slogger.TraceLevel)
+		defer slogger.ResetGlobalLogger()
+
+		replify.Logger()(replify.Recovery()(okHandler("hello"))).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/ok", nil))
+
+		logs := accessLogs(t, &buf)
+		if len(logs) != 1 || logs[0]["status"] != float64(200) || logs[0]["bytes"] != float64(5) {
+			t.Fatalf("unexpected access log: %v", logs)
+		}
+	})
+	t.Run("implicit 200 when nothing is written", func(t *testing.T) {
+		var buf bytes.Buffer
+		captureLogger(&buf, slogger.TraceLevel)
+		defer slogger.ResetGlobalLogger()
+
+		silent := http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})
+		replify.Logger()(silent).ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/silent", nil))
+
+		logs := accessLogs(t, &buf)
+		if len(logs) != 1 || logs[0]["status"] != float64(200) || logs[0]["bytes"] != float64(0) {
+			t.Fatalf("unexpected access log: %v", logs)
+		}
+	})
+	t.Run("Flush and Unwrap passthrough", func(t *testing.T) {
+		var buf bytes.Buffer
+		captureLogger(&buf, slogger.TraceLevel)
+		defer slogger.ResetGlobalLogger()
+
+		rr := httptest.NewRecorder()
+		h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte("x"))
+			w.(http.Flusher).Flush()
+			if err := http.NewResponseController(w).Flush(); err != nil {
+				t.Errorf("ResponseController.Flush: %v", err)
+			}
+		})
+		replify.Logger()(replify.Recovery()(h)).ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/f", nil))
+		if !rr.Flushed {
+			t.Error("Flush did not reach the underlying writer")
+		}
+	})
 }
