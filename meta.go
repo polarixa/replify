@@ -128,13 +128,18 @@ func (m *meta) WithLocaleValue(locale Locale) *meta {
 // This function updates the `requestedTime` field of the [meta] instance with the specified value
 // and returns the updated [meta] instance for method chaining.
 //
+// The value is always normalized to UTC (via [time.Time.UTC]) before it is stored, so the
+// same instant yields the same stored value and the same serialized `meta.requested_time`
+// regardless of the time zone of the input. The serialized form is RFC 3339 with a `Z`
+// suffix, for example "2026-11-22T08:20:00Z".
+//
 // Parameters:
-//   - `v`: A `time.Time` object representing the requested time to set.
+//   - `v`: A `time.Time` object representing the requested time to set (any location).
 //
 // Returns:
 //   - A pointer to the modified [meta] instance, enabling method chaining.
 func (m *meta) WithRequestedTime(v time.Time) *meta {
-	m.requestedTime = v
+	m.requestedTime = v.UTC()
 	return m
 }
 
@@ -1260,7 +1265,8 @@ func (m *meta) DecreaseDeltaCnt() *meta {
 //   - `api_version`: The API version, if present.
 //   - `request_id`: The unique request identifier, if present.
 //   - `locale`: The locale information, if present.
-//   - `requested_time`: The requested time, if it is initialized.
+//   - `requested_time`: The requested time in UTC, formatted as RFC 3339 with a `Z` suffix
+//     (for example "2026-11-22T08:20:00Z"), if it is initialized.
 //   - `custom_fields`: A map of custom fields, if present.
 //
 // Returns:
@@ -1280,7 +1286,7 @@ func (m *meta) Respond() map[string]any {
 		mk["locale"] = m.locale
 	}
 	if m.IsRequestedTimePresent() {
-		mk["requested_time"] = m.requestedTime.Format("2006-01-02 15:04:05.999999")
+		mk["requested_time"] = m.requestedTime.UTC().Format(time.RFC3339Nano)
 	}
 	if m.IsCustomPresent() {
 		mk["custom_fields"] = m.customFields
