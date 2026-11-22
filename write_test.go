@@ -2,10 +2,12 @@ package replify_test
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -307,9 +309,13 @@ func TestWriteFile_NonexistentFile(t *testing.T) {
 	if !w.IsErrorPresent() {
 		t.Error("expected error for nonexistent file, got none")
 	}
-	// WriteHeader must not have been called, so the body should be empty.
-	if rr.Body.Len() != 0 {
-		t.Errorf("expected no body when file is missing, got %q", rr.Body.String())
+	// The open failure is answered with a JSON error response (status 500), not an
+	// empty implicit 200; see TestWriteFile_OpenErrorWritesJSON.
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500 when file is missing, got %d", rr.Code)
+	}
+	if rr.Body.Len() == 0 {
+		t.Error("expected a JSON error body when file is missing, got none")
 	}
 }
 
@@ -778,4 +784,353 @@ func TestWrite_ReturnsSameWrapper(t *testing.T) {
 	if returned != original {
 		t.Error("Write did not return the same wrapper instance")
 	}
+}
+
+// --- HTTP writer defect regressions -------------------------------------------
+
+// commitTrackingWriter wraps a recorder and counts WriteHeader and Write calls.
+// Write call number failOnWrite (1-based) fails; when failPartial is true that
+// call first writes half of its input, simulating a mid-stream failure. Every
+// other Write passes through, so any later write by the library is visible.
+type commitTrackingWriter struct {
+	rec         *httptest.ResponseRecorder
+	failOnWrite int
+	failPartial bool
+
+	headerCalls int
+	writeCalls  int
+}
+
+func newCommitTrackingWriter(failOnWrite int, partial bool) *commitTrackingWriter {
+	return &commitTrackingWriter{rec: httptest.NewRecorder(), failOnWrite: failOnWrite, failPartial: partial}
+}
+
+func (c *commitTrackingWriter) Header() http.Header { return c.rec.Header() }
+
+func (c *commitTrackingWriter) WriteHeader(code int) {
+	c.headerCalls++
+	c.rec.WriteHeader(code)
+}
+
+func (c *commitTrackingWriter) Write(p []byte) (int, error) {
+	c.writeCalls++
+	if c.writeCalls == c.failOnWrite {
+		if c.failPartial {
+			n, _ := c.rec.Write(p[:len(p)/2])
+			return n, errors.New("simulated connection reset")
+		}
+		return 0, errors.New("simulated connection reset")
+	}
+	return c.rec.Write(p)
+}
+
+// T1 (Bug 2): failing to open the file must produce a JSON error response.
+func TestWriteFile_OpenErrorWritesJSON(t *testing.T) {
+	t.Parallel()
+
+	rr := httptest.NewRecorder()
+	w := replify.New().WithHeader(replify.OK).File("/nonexistent/path/that/does/not/exist.txt").WriteFile(rr)
+
+	if !w.IsErrorPresent() {
+		t.Error("expected the open error to be recorded on the wrapper")
+	}
+	if rr.Code != http.StatusInternalServerError {
+		t.Errorf("expected 500, got %d", rr.Code)
+	}
+	if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+		t.Errorf("expected a JSON content type, got %q", ct)
+	}
+	if !strings.Contains(rr.Body.String(), `"status_code":500`) {
+		t.Errorf("expected a JSON error envelope, got %q", rr.Body.String())
+	}
+}
+
+// T2 (Bug 3): a nil writer must never panic, including for a NoContent response.
+func TestWriteWriters_NilWriterNoContentDoesNotPanic(t *testing.T) {
+	t.Parallel()
+
+	cfg := replify.NewSignatureConfig("example-secret")
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	// Each case builds a fresh 204 wrapper and reports whether an error was recorded.
+	cases := []struct {
+		name  string
+		write func(rw http.ResponseWriter) bool
+	}{
+		{"WriteFile", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).WriteFile(rw).IsErrorPresent()
+		}},
+		{"WriteBinary", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).Binary([]byte("ignored")).WriteBinary(rw).IsErrorPresent()
+		}},
+		{"WriteJSON", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).WriteJSON(rw).IsErrorPresent()
+		}},
+		{"WriteJSONSignature", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).WriteJSONSignature(rw, cfg).IsErrorPresent()
+		}},
+		{"WriteJSONSignatureHeader", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).WriteJSONSignatureHeader(rw, cfg).IsErrorPresent()
+		}},
+		{"WriteJSONSignatureFromRequest", func(rw http.ResponseWriter) bool {
+			return replify.New().WithStatusCode(http.StatusNoContent).WriteJSONSignatureFromRequest(rw, req, cfg).IsErrorPresent()
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name+"/nil_writer", func(t *testing.T) {
+			t.Parallel()
+			defer func() {
+				if p := recover(); p != nil {
+					t.Fatalf("%s panicked with a nil writer: %v", tc.name, p)
+				}
+			}()
+			if !tc.write(nil) {
+				t.Errorf("%s: expected an error to be recorded for a nil writer", tc.name)
+			}
+		})
+		t.Run(tc.name+"/valid_writer", func(t *testing.T) {
+			t.Parallel()
+			rr := httptest.NewRecorder()
+			tc.write(rr)
+			if rr.Code != http.StatusNoContent {
+				t.Errorf("%s: expected 204, got %d", tc.name, rr.Code)
+			}
+			if rr.Body.Len() != 0 {
+				t.Errorf("%s: 204 must not have a body, got %q", tc.name, rr.Body.String())
+			}
+		})
+	}
+}
+
+// T3 (Bug 1): once the response is committed, a body-write failure must only be
+// recorded; it must not append a JSON envelope or issue a second WriteHeader.
+func TestWriteWriters_PostCommitFailureOnlyRecorded(t *testing.T) {
+	t.Parallel()
+
+	large := strings.Repeat("0123456789abcdef", 8*1024) // 128 KiB: spans several copy chunks
+
+	t.Run("WriteFile", func(t *testing.T) {
+		t.Parallel()
+		path := writeTempFile(t, "big.bin", large)
+		cw := newCommitTrackingWriter(2, false) // first chunk succeeds, second fails
+
+		w := replify.New().WithHeader(replify.Accepted).File(path).WriteFile(cw)
+
+		if cw.headerCalls != 1 {
+			t.Errorf("expected exactly one WriteHeader call, got %d", cw.headerCalls)
+		}
+		if cw.rec.Code != http.StatusAccepted {
+			t.Errorf("expected the committed status 202 to stand, got %d", cw.rec.Code)
+		}
+		if got := cw.rec.Body.String(); got != large[:len(got)] || len(got) >= len(large) || strings.Contains(got, `"status_code"`) {
+			t.Errorf("body must be the truncated file bytes only, got %d bytes (JSON appended: %v)", len(got), strings.Contains(got, `"status_code"`))
+		}
+		if cw.writeCalls != 2 {
+			t.Errorf("expected no write after the failure, got %d write calls", cw.writeCalls)
+		}
+		if !w.IsErrorPresent() {
+			t.Error("expected the write error to be recorded on the wrapper")
+		}
+	})
+
+	t.Run("WriteBinary", func(t *testing.T) {
+		t.Parallel()
+		cw := newCommitTrackingWriter(1, true) // the single Write is partial, then fails
+
+		w := replify.New().WithHeader(replify.Accepted).Binary([]byte(large)).WriteBinary(cw)
+
+		if cw.headerCalls != 1 {
+			t.Errorf("expected exactly one WriteHeader call, got %d", cw.headerCalls)
+		}
+		if cw.rec.Code != http.StatusAccepted {
+			t.Errorf("expected the committed status 202 to stand, got %d", cw.rec.Code)
+		}
+		if got := cw.rec.Body.String(); got != large[:len(large)/2] {
+			t.Errorf("body must be exactly the bytes written before the failure (%d), got %d bytes", len(large)/2, len(got))
+		}
+		if cw.writeCalls != 1 {
+			t.Errorf("expected no write after the failure, got %d write calls", cw.writeCalls)
+		}
+		if !w.IsErrorPresent() {
+			t.Error("expected the write error to be recorded on the wrapper")
+		}
+	})
+}
+
+// T4 (Bug 4a): Content-Length must always be a plain decimal number.
+func TestWriteWriters_ContentLengthIsDigits(t *testing.T) {
+	t.Parallel()
+
+	digits := func(s string) bool {
+		if s == "" {
+			return false
+		}
+		for _, c := range s {
+			if c < '0' || c > '9' {
+				return false
+			}
+		}
+		return true
+	}
+
+	t.Run("WriteFile", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).File(writeTempFile(t, "a.txt", "hello")).WriteFile(rr)
+		if got := rr.Header().Get("Content-Length"); !digits(got) || got != "5" {
+			t.Errorf("expected Content-Length 5, got %q", got)
+		}
+	})
+	t.Run("WriteFile/empty file", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).File(writeTempFile(t, "empty.txt", "")).WriteFile(rr)
+		if got := rr.Header().Get("Content-Length"); got != "0" {
+			t.Errorf("expected Content-Length 0, got %q", got)
+		}
+	})
+	t.Run("WriteBinary/empty", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).Binary([]byte{}).WriteBinary(rr)
+		if got := rr.Header().Get("Content-Length"); got != "0" {
+			t.Errorf("expected Content-Length 0, got %q", got)
+		}
+	})
+	t.Run("WriteBinary", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).Binary([]byte("abc")).WriteBinary(rr)
+		if got := rr.Header().Get("Content-Length"); !digits(got) || got != "3" {
+			t.Errorf("expected Content-Length 3, got %q", got)
+		}
+	})
+}
+
+// T5 (Bug 4b): when Content-Disposition cannot be assembled, the JSON fallback
+// must not carry the file's or binary's Content-Length or Content-Disposition.
+func TestWriteWriters_DispositionFailureFallbackHasCleanHeaders(t *testing.T) {
+	t.Parallel()
+
+	payload := strings.Repeat("x", 4096) // much larger than the JSON error body
+
+	cases := []struct {
+		name  string
+		write func(w http.ResponseWriter)
+	}{
+		{"WriteFile", func(w http.ResponseWriter) {
+			path := filepath.Join(t.TempDir(), "file.bin")
+			if err := os.WriteFile(path, []byte(payload), 0o600); err != nil {
+				t.Errorf("write temp file: %v", err)
+				return
+			}
+			replify.New().WithHeader(replify.OK).FileAttachment(path, "evil\r\nname.bin").WriteFile(w)
+		}},
+		{"WriteBinary", func(w http.ResponseWriter) {
+			replify.New().WithHeader(replify.OK).Binary([]byte(payload)).Filename("evil\r\nname.bin").WriteBinary(w)
+		}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Header-level view.
+			rr := httptest.NewRecorder()
+			tc.write(rr)
+			if got := rr.Header().Get("Content-Length"); got == "4096" {
+				t.Errorf("stale Content-Length %q leaked into the JSON fallback", got)
+			}
+			if got := rr.Header().Get("Content-Disposition"); got != "" {
+				t.Errorf("stale Content-Disposition %q leaked into the JSON fallback", got)
+			}
+
+			// Wire-level view: a real server enforces Content-Length.
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { tc.write(w) }))
+			defer srv.Close()
+			resp, err := http.Get(srv.URL)
+			if err != nil {
+				t.Fatalf("GET: %v", err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				t.Fatalf("reading the response body failed (Content-Length does not match the body): %v", err)
+			}
+			if resp.StatusCode != http.StatusInternalServerError {
+				t.Errorf("expected 500, got %d", resp.StatusCode)
+			}
+			// Either an exact Content-Length or chunked encoding (-1) is correct; a stale
+			// file/binary length is not.
+			if resp.ContentLength != -1 && resp.ContentLength != int64(len(body)) {
+				t.Errorf("Content-Length %d does not match the %d-byte JSON body", resp.ContentLength, len(body))
+			}
+			if !strings.Contains(string(body), `"status_code":500`) {
+				t.Errorf("expected a JSON error envelope, got %q", body)
+			}
+		})
+	}
+}
+
+// T6 guards: behavior that must not change.
+func TestWriteWriters_HappyPathGuards(t *testing.T) {
+	t.Parallel()
+
+	t.Run("WriteFile", func(t *testing.T) {
+		t.Parallel()
+		const content = "col1,col2\n1,2\n"
+		path := writeTempFile(t, "report.csv", content)
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).FileAttachment(path, "report.csv").WriteFile(rr)
+
+		if rr.Code != http.StatusOK || rr.Body.String() != content {
+			t.Errorf("unexpected response: %d %q", rr.Code, rr.Body.String())
+		}
+		if ct := rr.Header().Get("Content-Type"); !strings.Contains(ct, "csv") {
+			t.Errorf("expected a CSV content type, got %q", ct)
+		}
+		if got, want := rr.Header().Get("Content-Length"), strconv.Itoa(len(content)); got != want {
+			t.Errorf("Content-Length = %q, want %q", got, want)
+		}
+		if cd := rr.Header().Get("Content-Disposition"); !strings.Contains(cd, `filename=report.csv`) {
+			t.Errorf("Content-Disposition = %q", cd)
+		}
+		if rr.Header().Get("X-Request-Id") == "" {
+			t.Error("expected metadata headers to be attached")
+		}
+	})
+	t.Run("WriteBinary", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().WithHeader(replify.OK).Binary([]byte("PNGDATA")).Filename("image.png").WriteBinary(rr)
+
+		if rr.Code != http.StatusOK || rr.Body.String() != "PNGDATA" {
+			t.Errorf("unexpected response: %d %q", rr.Code, rr.Body.String())
+		}
+		if ct := rr.Header().Get("Content-Type"); ct != "image/png" {
+			t.Errorf("Content-Type = %q, want image/png", ct)
+		}
+		if rr.Header().Get("Content-Length") != "7" {
+			t.Errorf("Content-Length = %q, want 7", rr.Header().Get("Content-Length"))
+		}
+		if cd := rr.Header().Get("Content-Disposition"); !strings.Contains(cd, "image.png") {
+			t.Errorf("Content-Disposition = %q", cd)
+		}
+	})
+	t.Run("WriteJSON", func(t *testing.T) {
+		t.Parallel()
+		rr := httptest.NewRecorder()
+		replify.New().OK().WithMessage("fine").WriteJSON(rr)
+
+		if rr.Code != http.StatusOK || !strings.Contains(rr.Body.String(), `"message":"fine"`) {
+			t.Errorf("unexpected response: %d %q", rr.Code, rr.Body.String())
+		}
+		if ct := rr.Header().Get("Content-Type"); !strings.HasPrefix(ct, "application/json") {
+			t.Errorf("Content-Type = %q", ct)
+		}
+		for _, h := range []string{"X-Locale", "X-Api-Version", "X-Request-Id", "X-Request-Time"} {
+			if rr.Header().Get(h) == "" {
+				t.Errorf("expected metadata header %s", h)
+			}
+		}
+	})
 }

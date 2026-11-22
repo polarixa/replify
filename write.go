@@ -15,6 +15,15 @@ import (
 // It opens the specified file, retrieves its information, and writes it to the ResponseWriter with appropriate headers.
 // If any errors occur during file operations, they are recorded in the [wrapper] instance.
 //
+// Failures before the response is committed (empty path, file cannot be opened, path is a directory, unsafe
+// filename) are answered with a JSON error response carrying only JSON headers; no file Content-Length or
+// Content-Disposition is sent with it. Once the status line and headers have been written, the response is
+// committed and cannot be replaced: a failure while streaming the body is only recorded on the [wrapper]
+// (error, message, debugging details) and nothing more is written. The client sees a body shorter than the
+// advertised Content-Length, which is the correct HTTP signal for a truncated transfer.
+//
+// A nil w never panics, even for a "204 No Content" response; the error is recorded on the [wrapper] instead.
+//
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the file response will be written.
 //
@@ -24,12 +33,12 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteFile requires a non-nil http.ResponseWriter to stream the file response"))
+	}
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
-	}
-	if w == nil {
-		return r.WithErrorAck(NewError("WriteFile requires a non-nil http.ResponseWriter to stream the file response"))
 	}
 	if strutil.IsEmpty(r.filepath) {
 		r.WithHeader(BadRequest).
@@ -46,7 +55,7 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 			WithMessage("failed to open file").
 			WithErrorAck(err).
 			WithDebuggingKV("filepath", r.filepath)
-		return r
+		return r.WriteJSON(w)
 	}
 
 	// Check if the resource is a directory. If it is, return an error response.
@@ -70,14 +79,10 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 		)()
 	}
 
-	// Set the Content-Type header based on the resource's content type.
-	w.Header().Set(HeaderContentType.String(), resource.ContentType())
-
-	// Set the Content-Length header based on the resource's size.
-	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(resource.Size(), "0B"))
-	r.attachMetadata(w) // Attach the wrapper's metadata headers to the [http.ResponseWriter].
-
-	// If a filename is specified, set the Content-Disposition header to indicate an attachment with the given filename.
+	// Assemble Content-Disposition first: if it fails, nothing file-specific has been
+	// put on the header map yet, so the JSON fallback below is clean (no stale
+	// Content-Length or Content-Disposition).
+	var disposition string
 	if strutil.IsNotEmpty(r.filename) {
 		name, err := assembleContentDisposition(r.filename)
 		if err != nil {
@@ -88,21 +93,35 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 				WithDebuggingKV("filename", r.filename)
 			return r.WriteJSON(w)
 		}
-		w.Header().Set(HeaderContentDisposition.String(), name)
+		disposition = name
 	}
 
-	// Write the status code to the ResponseWriter.
+	// Set the Content-Type header based on the resource's content type.
+	w.Header().Set(HeaderContentType.String(), resource.ContentType())
+
+	// Set the Content-Length header based on the resource's size (a plain decimal number).
+	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(resource.Size(), "0"))
+	r.attachMetadata(w) // Attach the wrapper's metadata headers to the [http.ResponseWriter].
+
+	// If a filename is specified, mark the response as an attachment with the given filename.
+	if disposition != "" {
+		w.Header().Set(HeaderContentDisposition.String(), disposition)
+	}
+
+	// Write the status code to the ResponseWriter. From here on the response is committed.
 	w.WriteHeader(r.StatusCode())
 
 	// Copy the resource's content to the ResponseWriter.
-	// If an error occurs during the copy operation, it is recorded in the [wrapper] instance.
+	// The status line and headers (including Content-Length) are already on the wire, so
+	// a failure here can no longer be turned into a JSON error response: it is only
+	// recorded in the [wrapper]. The truncated body is the client's error signal.
 	if _, err := resource.CopyTo(w); err != nil {
 		r.WithHeader(InternalServerError).
 			WithMessage("file content could not be streamed to the response").
 			WithErrorAck(err).
 			WithDebuggingKV("filepath", r.filepath).
 			WithDebuggingKV("filename", r.filename)
-		return r.WriteJSON(w)
+		return r
 	}
 	return r
 }
@@ -113,6 +132,13 @@ func (r *wrapper) WriteFile(w http.ResponseWriter) *wrapper {
 // It sets the appropriate headers, including Content-Type and Content-Length, and writes the binary data to the ResponseWriter.
 // If any errors occur during writing, they are recorded in the [wrapper] instance.
 //
+// Failures before the response is committed (nil or non-binary data, unsafe filename) are answered with a JSON
+// error response carrying only JSON headers; no binary Content-Length or Content-Disposition is sent with it.
+// Once the status line and headers have been written, the response is committed and cannot be replaced: a write
+// failure is only recorded on the [wrapper] and nothing more is written, so the client sees a truncated body.
+//
+// A nil w never panics, even for a "204 No Content" response; the error is recorded on the [wrapper] instead.
+//
 // Parameters:
 //   - w: An [http.ResponseWriter] to which the binary response will be written.
 //
@@ -122,12 +148,12 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 	if !r.Available() {
 		return r
 	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteBinary requires a non-nil http.ResponseWriter to write the binary response"))
+	}
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
-	}
-	if w == nil {
-		return r.WithErrorAck(NewError("WriteBinary requires a non-nil http.ResponseWriter to write the binary response"))
 	}
 	// r.data is nil (unset) vs []byte(nil) stored by Binary(nil) — only the former is an error
 	if r.data == nil {
@@ -155,15 +181,10 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 		)()
 	}
 
-	// Set the Content-Disposition header to indicate an attachment with the given filename.
-	contentType := sysx.MimeFromName(r.filename)
-	w.Header().Set(HeaderContentType.String(), contentType)
-
-	// Set the Content-Length header based on the length of the binary data.
-	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(len(data), "0B"))
-	r.attachMetadata(w) // Attach the wrapper's metadata headers to the [http.ResponseWriter].
-
-	// If a filename is specified, set the Content-Disposition header to indicate an attachment with the given filename.
+	// Assemble Content-Disposition first: if it fails, nothing binary-specific has been
+	// put on the header map yet, so the JSON fallback below is clean (no stale
+	// Content-Length or Content-Disposition).
+	var disposition string
 	if strutil.IsNotEmpty(r.filename) {
 		name, err := assembleContentDisposition(r.filename)
 		if err != nil {
@@ -173,19 +194,35 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 				WithDebuggingKV("filename", r.filename)
 			return r.WriteJSON(w)
 		}
-		w.Header().Set(HeaderContentDisposition.String(), name)
+		disposition = name
 	}
 
-	// Write the status code to the ResponseWriter.
+	// Set the Content-Type header based on the filename's MIME type.
+	contentType := sysx.MimeFromName(r.filename)
+	w.Header().Set(HeaderContentType.String(), contentType)
+
+	// Set the Content-Length header based on the length of the binary data (a plain decimal number).
+	w.Header().Set(HeaderContentLength.String(), conv.StringOrDefault(len(data), "0"))
+	r.attachMetadata(w) // Attach the wrapper's metadata headers to the [http.ResponseWriter].
+
+	// If a filename is specified, mark the response as an attachment with the given filename.
+	if disposition != "" {
+		w.Header().Set(HeaderContentDisposition.String(), disposition)
+	}
+
+	// Write the status code to the ResponseWriter. From here on the response is committed.
 	w.WriteHeader(r.StatusCode())
 
 	// Write the binary data to the ResponseWriter.
+	// The status line and headers (including Content-Length) are already on the wire, so
+	// a failure here can no longer be turned into a JSON error response: it is only
+	// recorded in the [wrapper]. The truncated body is the client's error signal.
 	if _, err := w.Write(data); err != nil {
 		r.WithHeader(InternalServerError).
 			WithMessage("binary data could not be written to the response").
 			WithErrorAck(err).
 			WithDebuggingKV("filename", r.filename)
-		return r.WriteJSON(w)
+		return r
 	}
 	return r
 }
@@ -194,6 +231,7 @@ func (r *wrapper) WriteBinary(w http.ResponseWriter) *wrapper {
 //
 // This method checks if the [wrapper] is available and if the provided [http.ResponseWriter] is not nil.
 // If the [wrapper] is not available or the [http.ResponseWriter] is nil, it returns the [wrapper] with an error acknowledgment.
+// The nil check comes before everything else, so a nil writer never panics, including for a "204 No Content" response.
 // If the status code indicates "204 No Content", it writes the status code without a body.
 // Otherwise, it serializes the [wrapper] to JSON, sets the appropriate Content-Type header, and writes the JSON payload to the ResponseWriter.
 //
@@ -207,12 +245,12 @@ func (r *wrapper) WriteJSON(w http.ResponseWriter, ignoringJSONfields ...string)
 	if !r.Available() {
 		return r
 	}
+	if w == nil {
+		return r.WithErrorAck(NewError("WriteJSON requires a non-nil http.ResponseWriter to write the JSON response"))
+	}
 	if r.EqualHeader(NoContent) {
 		w.WriteHeader(r.StatusCode())
 		return r
-	}
-	if w == nil {
-		return r.WithErrorAck(NewError("WriteJSON requires a non-nil http.ResponseWriter to write the JSON response"))
 	}
 
 	if r.isSpan() {
@@ -301,11 +339,11 @@ func (r *wrapper) WriteJSONSignature(w http.ResponseWriter, config *SignatureCon
 	if !r.Available() {
 		return r
 	}
-	if r.EqualHeader(NoContent) {
-		return r.WriteJSON(w)
-	}
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignature requires a non-nil http.ResponseWriter to write the signed JSON response"))
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
 	}
 	r.ApplySignature(config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
@@ -329,11 +367,11 @@ func (r *wrapper) WriteJSONSignatureHeader(w http.ResponseWriter, config *Signat
 	if !r.Available() {
 		return r
 	}
-	if r.EqualHeader(NoContent) {
-		return r.WriteJSON(w)
-	}
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignatureHeader requires a non-nil http.ResponseWriter to write the signature headers and JSON response"))
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
 	}
 	r.ApplySignatureHeader(w, config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
@@ -357,11 +395,11 @@ func (r *wrapper) WriteJSONSignatureFromRequest(w http.ResponseWriter, request *
 	if !r.Available() {
 		return r
 	}
-	if r.EqualHeader(NoContent) {
-		return r.WriteJSON(w)
-	}
 	if w == nil {
 		return r.WithErrorAck(NewError("WriteJSONSignatureFromRequest requires a non-nil http.ResponseWriter to write the signed JSON response"))
+	}
+	if r.EqualHeader(NoContent) {
+		return r.WriteJSON(w)
 	}
 	r.ApplySignatureFromRequest(request, config, config.IgnoringSignatureFields()...)
 	return r.WriteJSON(w, config.IgnoringResponseFields()...)
