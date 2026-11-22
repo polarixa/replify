@@ -25,6 +25,20 @@ reorganises files internally is not marked as breaking.
 
 ### Fixed
 
+- Fixed four defects in the HTTP writers in `write.go`. `WriteFile` and `WriteBinary` no longer call
+  `WriteJSON` after the response is committed: when copying or writing the body fails mid-stream, the
+  failure is now only recorded on the wrapper (previously a JSON error envelope was appended to the
+  truncated binary body and a superfluous `WriteHeader` was issued); the truncated body is the client's
+  error signal. `WriteFile` now answers a failure to open the file with a JSON `500` instead of an empty
+  implicit `200`. `WriteFile`, `WriteBinary`, `WriteJSON`, `WriteJSONSignature`,
+  `WriteJSONSignatureHeader` and `WriteJSONSignatureFromRequest` check for a nil `http.ResponseWriter`
+  before the `204 No Content` branch, so a nil writer records an error instead of panicking.
+  `Content-Disposition` is now assembled before any file or binary header is set, so the JSON fallback
+  for an unsafe filename no longer carries the file's `Content-Length` (which made real servers truncate
+  the error body); the `Content-Length` fallback value is now `0` instead of the invalid `0B`.
+  Behavior change: a missing file passed to `WriteFile` now yields a JSON error response with status `500`
+  and a body, where it previously wrote nothing.
+
 - Fixed phantom successes and double counting in `Pool` result accounting. `Pool.Submit` and
   `Pool.TrySubmit` reserved a `WorkerResult` slot before the underlying pool accepted the job, so a
   rejected submission (canceled or expired context, closed pool, or `TrySubmit` returning `false`)
