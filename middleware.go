@@ -1,7 +1,9 @@
 package replify
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime/debug"
 	"sync"
@@ -76,6 +78,12 @@ func Recovery() func(http.Handler) http.Handler {
 //
 // Unwrap() enables [http.ResponseController] (Go 1.20+) and middleware chains
 // that use the Unwrap convention to reach the underlying writer.
+//
+// Hijack() passes through to the underlying writer, so libraries that type-assert
+// [http.Hijacker] directly (for example WebSocket upgraders) keep working behind
+// Recovery. The wrapper therefore always satisfies [http.Hijacker]; when the
+// underlying writer does not, Hijack returns [http.ErrNotSupported], the
+// convention [http.ResponseController] relies on.
 type recoveryWriter struct {
 	http.ResponseWriter
 	written bool
@@ -109,6 +117,26 @@ func (rw *recoveryWriter) Unwrap() http.ResponseWriter {
 	return rw.ResponseWriter
 }
 
+// Hijack lets the caller take over the underlying connection, delegating to the
+// underlying writer when it implements [http.Hijacker]. Otherwise it returns
+// [http.ErrNotSupported].
+//
+// On success the writer is marked as written: once the connection has been taken
+// over, a later panic must never make the recovery path attempt a 500 response on it.
+func (rw *recoveryWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := rw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, http.ErrNotSupported
+	}
+	conn, brw, err := hj.Hijack()
+	if err == nil {
+		rw.written = true
+	}
+	return conn, brw, err
+}
+
+var _ http.Hijacker = (*recoveryWriter)(nil)
+
 // logRecoveredPanic emits a structured error entry using the supplied logger.
 // Sensitive headers (Authorization, Cookie) are deliberately excluded.
 func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, p any, stack []byte) {
@@ -130,7 +158,11 @@ func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, 
 }
 
 // Logger returns a net/http middleware that emits one structured log entry per
-// request after the downstream handler returns. The entry is logged at a level
+// request once the downstream handler is done. The entry is written from a
+// deferred function, so it is emitted even when a panic propagates past Logger
+// (a handler panicking with no Recovery, or Recovery re-panicking
+// [http.ErrAbortHandler]); Logger never recovers the panic itself, it keeps
+// propagating. The entry is logged at a level
 // derived from the response status code, using the same [httpStatusLevel]
 // convention used across the Replify logging infrastructure:
 // 1xx→Debug, 2xx→Info, 3xx→Warn, 4xx/5xx→Error.
@@ -144,7 +176,7 @@ func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, 
 //   - proto       — HTTP protocol version (HTTP/1.1, HTTP/2.0, …)
 //   - status      — final HTTP response status code
 //   - bytes       — bytes written to the response body
-//   - duration    — total request duration from receipt to handler return
+//   - duration    — total request duration from receipt to handler return (or panic)
 //   - remote_addr — network address from r.RemoteAddr (never spoofable)
 //   - user_agent  — User-Agent header value, when present
 //
@@ -158,15 +190,24 @@ func (rw *recoveryWriter) logRecoveredPanic(l *slogger.Logger, r *http.Request, 
 // Place Logger outside Recovery so that panics are converted to 500 responses
 // before the logger records the final status:
 //
-//	Recovery → Logger → Application Handler
+//	Logger → Recovery → Application Handler
 //
 // In code:
 //
-//	handler := replify.Recovery()(replify.Logger()(myHandler))
+//	handler := replify.Logger()(replify.Recovery()(myHandler))
 //
 // This ensures that when Recovery writes a 500 response it does so through
 // Logger's [logWriter], giving the logger an accurate view of the final status
-// and byte count.
+// and byte count. With the reverse order the 500 bypasses the logWriter and the
+// logger cannot see it.
+//
+// # Hijacking
+//
+// The writer handed to the downstream handler implements [http.Hijacker] and
+// passes the call through to the real connection, so WebSocket upgrades work
+// behind Logger. After a successful hijack the logged status is 101 (unless a
+// status was already recorded) and bytes written on the hijacked connection are
+// not counted.
 func Logger() func(http.Handler) http.Handler {
 	l := slogger.S().Named("replify::logger") // cached per-middleware-instance
 	return func(next http.Handler) http.Handler {
@@ -174,37 +215,41 @@ func Logger() func(http.Handler) http.Handler {
 			lw := &logWriter{ResponseWriter: w}
 			start := time.Now()
 
+			// Log from a defer so the entry is emitted even if a panic escapes
+			// next.ServeHTTP. The panic is not recovered here; it keeps propagating.
+			defer func() {
+				code := lw.status
+				if code == 0 {
+					code = http.StatusOK // implicit 200 when handler wrote nothing
+				}
+				lvl := httpStatusLevel(code)
+				if !l.IsLevelEnabled(lvl) {
+					return
+				}
+
+				fb := fieldsPool.Get().(*fieldsBuf)
+				fields := fb.v[:0]
+				if id := r.Header.Get(HeaderXRequestID.String()); strutil.IsNotEmpty(id) {
+					fields = append(fields, slogger.String("request_id", id))
+				}
+				if ua := r.Header.Get(HeaderUserAgent.String()); strutil.IsNotEmpty(ua) {
+					fields = append(fields, slogger.String("user_agent", ua))
+				}
+				fields = append(fields,
+					slogger.String("method", r.Method),
+					slogger.String("path", r.URL.Path),
+					slogger.String("proto", r.Proto),
+					slogger.Int("status", code),
+					slogger.Int("bytes", lw.bytes),
+					slogger.Duration("duration", time.Since(start)),
+					slogger.String("remote_addr", r.RemoteAddr),
+				)
+				logFieldsAtLevel(l, lvl, "http request", fields)
+				fb.v = fields // write back in case append grew the slice
+				fieldsPool.Put(fb)
+			}()
+
 			next.ServeHTTP(lw, r)
-
-			code := lw.status
-			if code == 0 {
-				code = http.StatusOK // implicit 200 when handler wrote nothing
-			}
-			lvl := httpStatusLevel(code)
-			if !l.IsLevelEnabled(lvl) {
-				return
-			}
-
-			fb := fieldsPool.Get().(*fieldsBuf)
-			fields := fb.v[:0]
-			if id := r.Header.Get(HeaderXRequestID.String()); strutil.IsNotEmpty(id) {
-				fields = append(fields, slogger.String("request_id", id))
-			}
-			if ua := r.Header.Get(HeaderUserAgent.String()); strutil.IsNotEmpty(ua) {
-				fields = append(fields, slogger.String("user_agent", ua))
-			}
-			fields = append(fields,
-				slogger.String("method", r.Method),
-				slogger.String("path", r.URL.Path),
-				slogger.String("proto", r.Proto),
-				slogger.Int("status", code),
-				slogger.Int("bytes", lw.bytes),
-				slogger.Duration("duration", time.Since(start)),
-				slogger.String("remote_addr", r.RemoteAddr),
-			)
-			logFieldsAtLevel(l, lvl, "http request", fields)
-			fb.v = fields // write back in case append grew the slice
-			fieldsPool.Put(fb)
 		})
 	}
 }
@@ -225,6 +270,12 @@ var fieldsPool = sync.Pool{
 //
 // Default status is 0 (not written); the Logger interprets 0 as an implicit
 // 200 OK per Go net/http semantics.
+//
+// Hijack() passes through to the underlying writer, so libraries that type-assert
+// [http.Hijacker] directly (for example WebSocket upgraders) keep working behind
+// Logger. The wrapper therefore always satisfies [http.Hijacker]; when the
+// underlying writer does not, Hijack returns [http.ErrNotSupported]. Bytes
+// written on the hijacked connection are not counted.
 type logWriter struct {
 	http.ResponseWriter
 	status int
@@ -265,3 +316,24 @@ func (lw *logWriter) Flush() {
 func (lw *logWriter) Unwrap() http.ResponseWriter {
 	return lw.ResponseWriter
 }
+
+// Hijack lets the caller take over the underlying connection, delegating to the
+// underlying writer when it implements [http.Hijacker]. Otherwise it returns
+// [http.ErrNotSupported].
+//
+// On success, and when no status has been recorded yet, the status becomes 101
+// Switching Protocols so the access log reflects the protocol upgrade. Bytes
+// written on the hijacked connection bypass this wrapper and are not counted.
+func (lw *logWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := lw.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, http.ErrNotSupported
+	}
+	conn, brw, err := hj.Hijack()
+	if err == nil && lw.status == 0 {
+		lw.status = http.StatusSwitchingProtocols
+	}
+	return conn, brw, err
+}
+
+var _ http.Hijacker = (*logWriter)(nil)
